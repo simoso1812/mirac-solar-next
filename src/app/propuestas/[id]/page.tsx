@@ -300,9 +300,12 @@ export default function PropuestaDetailPage({
   )
 }
 
+const gmapLibraries: ('places' | 'maps')[] = ['places', 'maps']
+
 function ProposalMap({ lat, lon }: { lat: number; lon: number }) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+    libraries: gmapLibraries,
   })
 
   const onLoad = useCallback((map: google.maps.Map) => {

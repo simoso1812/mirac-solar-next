@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2, Navigation } from 'lucide-react'
 
-const libraries: ('places')[] = ['places']
+const libraries: ('places' | 'maps')[] = ['places', 'maps']
 
 const mapContainerStyle = {
   width: '100%',

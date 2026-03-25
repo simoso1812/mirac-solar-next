@@ -145,9 +145,12 @@ function LocationTab({ proposal }: { proposal: QuotationData }) {
   return <LocationMap lat={lat} lon={lon} />
 }
 
+const gmapLibraries: ('places' | 'maps')[] = ['places', 'maps']
+
 function LocationMap({ lat, lon }: { lat: number; lon: number }) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+    libraries: gmapLibraries,
   })
 
   const onLoad = useCallback(
