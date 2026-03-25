@@ -8,6 +8,7 @@ import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
+import { uploadToDrive } from '@/app/actions/drive'
 import type { QuotationData } from '@/lib/types'
 
 interface DriveSyncButtonProps {
@@ -54,26 +55,21 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
 
       const pdfName = `Propuesta_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.pdf`
 
-      // 2. Send PDF as FormData (avoids Vercel body size limit)
+      // 2. Upload via server action (supports large files up to 20MB)
       const formData = new FormData()
       formData.append('pdf', blob, pdfName)
       formData.append('clientName', proposal.client.nombre)
       formData.append('locationLabel', proposal.project.ubicacion_label ?? '')
       formData.append('pdfName', pdfName)
 
-      const res = await fetch('/api/drive', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await res.json()
+      const data = await uploadToDrive(formData)
 
       if (!data.success) {
         setError(data.error ?? 'Error al sincronizar con Drive')
         return
       }
 
-      // 4. Update proposal with Drive link
+      // 3. Update proposal with Drive link
       updateProposal(proposal.id, {
         drive_folder_link: data.folderLink,
         drive_project_name: data.projectName,
