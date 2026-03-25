@@ -204,7 +204,7 @@ export function StepReview() {
         </CardHeader>
         <CardContent>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={250} minWidth={0}>
               <BarChart data={monthlyGenData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="mes" fontSize={12} />
@@ -225,7 +225,7 @@ export function StepReview() {
         </CardHeader>
         <CardContent>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={250} minWidth={0}>
               <LineChart data={cashFlowData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="anio" fontSize={10} interval={4} />
