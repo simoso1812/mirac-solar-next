@@ -137,6 +137,78 @@ async function buscarSubcarpeta(
 }
 
 // ---------------------------------------------------------------------------
+// Prepare folder + get access token (for client-side PDF upload)
+// ---------------------------------------------------------------------------
+
+export interface DrivePrepareResult {
+  success: boolean
+  folderLink: string | null
+  uploadFolderId: string | null
+  accessToken: string | null
+  projectName: string
+  error?: string
+}
+
+export async function prepararCarpetaDrive(
+  parentFolderId: string,
+  clientName: string,
+  locationLabel: string,
+): Promise<DrivePrepareResult> {
+  try {
+    const drive = getDriveService()
+
+    // Get fresh access token for client-side upload
+    const oauth2 = drive.context._options.auth as import('google-auth-library').OAuth2Client
+    const { token } = await oauth2.getAccessToken()
+    if (!token) throw new Error('Failed to obtain access token')
+
+    // 1. Get next consecutive number
+    const consecutivo = await obtenerSiguienteConsecutivo(drive, parentFolderId)
+    const yearShort = new Date().getFullYear().toString().slice(-2)
+    const projectName = `FV${yearShort}${consecutivo.toString().padStart(3, '0')} - ${clientName}${locationLabel ? ` - ${locationLabel}` : ''}`
+
+    // 2. Create main project folder
+    const folder = await drive.files.create({
+      requestBody: {
+        name: projectName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId],
+      },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    })
+
+    const folderId = folder.data.id
+    if (!folderId) throw new Error('Failed to create project folder')
+
+    // 3. Create subfolder structure
+    await crearSubcarpetas(drive, folderId, ESTRUCTURA_CARPETAS)
+
+    // 4. Find the upload target folder
+    const propuestaFolderId = await buscarSubcarpeta(drive, folderId, '01_Propuesta_y_Contratacion')
+
+    return {
+      success: true,
+      folderLink: folder.data.webViewLink ?? null,
+      uploadFolderId: propuestaFolderId,
+      accessToken: token,
+      projectName,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('Drive prepare error:', msg)
+    return {
+      success: false,
+      folderLink: null,
+      uploadFolderId: null,
+      accessToken: null,
+      projectName: '',
+      error: msg,
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main function — create project folder + structure + upload PDF
 // ---------------------------------------------------------------------------
 

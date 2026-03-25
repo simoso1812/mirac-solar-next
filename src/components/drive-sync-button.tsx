@@ -8,12 +8,53 @@ import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
-import { uploadToDrive } from '@/app/actions/drive'
+import { prepareDriveUpload } from '@/app/actions/drive'
 import type { QuotationData } from '@/lib/types'
 
 interface DriveSyncButtonProps {
   proposal: QuotationData
   className?: string
+}
+
+/**
+ * Upload a file directly to Google Drive using their REST API.
+ * This bypasses Vercel's 4.5MB body limit since the upload goes
+ * straight from the browser to Google's servers.
+ */
+async function uploadPdfToDrive(
+  blob: Blob,
+  fileName: string,
+  folderId: string,
+  accessToken: string,
+): Promise<string | null> {
+  const metadata = {
+    name: fileName,
+    parents: [folderId],
+  }
+
+  const form = new FormData()
+  form.append(
+    'metadata',
+    new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+  )
+  form.append('file', blob, fileName)
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    },
+  )
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Drive upload failed (${res.status}): ${text}`)
+  }
+
+  const data = await res.json()
+  return data.webViewLink ?? null
 }
 
 export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
@@ -55,24 +96,24 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
 
       const pdfName = `Propuesta_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.pdf`
 
-      // 2. Upload via server action (supports large files up to 20MB)
-      const formData = new FormData()
-      formData.append('pdf', blob, pdfName)
-      formData.append('clientName', proposal.client.nombre)
-      formData.append('locationLabel', proposal.project.ubicacion_label ?? '')
-      formData.append('pdfName', pdfName)
+      // 2. Server action: create folder structure + get access token (small payload, no PDF)
+      const driveResult = await prepareDriveUpload(
+        proposal.client.nombre,
+        proposal.project.ubicacion_label ?? '',
+      )
 
-      const data = await uploadToDrive(formData)
-
-      if (!data.success) {
-        setError(data.error ?? 'Error al sincronizar con Drive')
+      if (!driveResult.success || !driveResult.uploadFolderId || !driveResult.accessToken) {
+        setError(driveResult.error ?? 'Error al preparar carpeta en Drive')
         return
       }
 
-      // 3. Update proposal with Drive link
+      // 3. Upload PDF directly from browser to Google Drive (bypasses Vercel limit)
+      await uploadPdfToDrive(blob, pdfName, driveResult.uploadFolderId, driveResult.accessToken)
+
+      // 4. Update proposal with Drive link
       updateProposal(proposal.id, {
-        drive_folder_link: data.folderLink,
-        drive_project_name: data.projectName,
+        drive_folder_link: driveResult.folderLink,
+        drive_project_name: driveResult.projectName,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error de conexión')
