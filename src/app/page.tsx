@@ -1,65 +1,210 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useProposalsStore } from '@/stores/proposals-store'
+import { formatCOP, formatKWp } from '@/lib/formatting'
+import { CIUDADES } from '@/lib/constants'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  FileText, Users, Zap, TrendingUp, Plus, ArrowRight,
+} from 'lucide-react'
+
+export default function DashboardPage() {
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => setHydrated(true), [])
+
+  const proposals = useProposalsStore((s) => s.proposals)
+  const uniqueClients = useProposalsStore((s) => s.getUniqueClients)
+
+  const totalProposals = hydrated ? proposals.length : 0
+  const totalKwp = hydrated ? proposals.reduce((sum, p) => sum + (p.results?.kwp ?? 0), 0) : 0
+  const totalInvestment = hydrated ? proposals.reduce((sum, p) => sum + (p.results?.costo_total_cop ?? 0), 0) : 0
+  const clients = hydrated ? uniqueClients() : []
+
+  // Recent proposals (last 5)
+  const recent = hydrated ? proposals.slice(0, 5) : []
+
+  // This month's proposals
+  const now = new Date()
+  const thisMonth = hydrated ? proposals.filter((p) => {
+    const d = new Date(p.created_at)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }) : []
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Link href="/cotizacion">
+          <Button className="bg-mirac-red hover:bg-mirac-red-dark">
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Cotización
+          </Button>
+        </Link>
+      </div>
+
+      {/* Stats cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={<FileText className="h-5 w-5" />}
+          label="Total Propuestas"
+          value={totalProposals.toString()}
+          sub={`${thisMonth.length} este mes`}
+          color="text-mirac-red"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <StatCard
+          icon={<Zap className="h-5 w-5" />}
+          label="kWp Cotizados"
+          value={formatKWp(totalKwp)}
+          sub={`${proposals.filter((p) => p.status === 'accepted').length} aceptadas`}
+          color="text-mirac-yellow"
+        />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Inversión Total"
+          value={totalInvestment > 0 ? formatCOP(totalInvestment) : '$0'}
+          sub="valor cotizado"
+          color="text-emerald-600"
+        />
+        <StatCard
+          icon={<Users className="h-5 w-5" />}
+          label="Clientes"
+          value={clients.length.toString()}
+          sub="únicos"
+          color="text-blue-600"
+        />
+      </div>
+
+      {/* Quick actions */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Link href="/cotizacion">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mirac-red/10 text-mirac-red">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Nueva Cotización</p>
+                <p className="text-xs text-muted-foreground">Crear propuesta solar</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/propuestas">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mirac-yellow/10 text-mirac-yellow">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Ver Propuestas</p>
+                <p className="text-xs text-muted-foreground">{totalProposals} propuestas</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/clientes">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Clientes</p>
+                <p className="text-xs text-muted-foreground">{clients.length} registrados</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Recent proposals */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Propuestas Recientes</CardTitle>
+          {totalProposals > 0 && (
+            <Link href="/propuestas">
+              <Button variant="ghost" size="sm">
+                Ver todas <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </Link>
+          )}
+        </CardHeader>
+        <CardContent>
+          {recent.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No hay propuestas aún. Crea tu primera cotización.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {recent.map((p) => {
+                const ciudadLabel =
+                  CIUDADES.find((c) => c.value === p.project.ciudad)?.label ?? p.project.ciudad
+                return (
+                  <Link key={p.id} href={`/propuestas/${p.id}`}>
+                    <div className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{p.client.nombre}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ciudadLabel} — {formatKWp(p.results?.kwp ?? 0)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={p.status} />
+                        <span className="text-sm font-semibold">
+                          {formatCOP(p.results?.costo_total_cop ?? 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }
+
+function StatCard({
+  icon, label, value, sub, color,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  sub: string
+  color: string
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={color}>{icon}</div>
+          <div>
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-xl font-bold">{value}</p>
+            <p className="text-xs text-muted-foreground">{sub}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StatusBadge({ status }: { status: QuotationData['status'] }) {
+  const map = {
+    draft: { label: 'Borrador', variant: 'secondary' as const },
+    sent: { label: 'Enviada', variant: 'default' as const },
+    accepted: { label: 'Aceptada', variant: 'default' as const },
+    rejected: { label: 'Rechazada', variant: 'destructive' as const },
+  }
+  const s = map[status] ?? map.draft
+  return <Badge variant={s.variant}>{s.label}</Badge>
+}
+
+// Need to import this type for StatusBadge
+import type { QuotationData } from '@/lib/types'
