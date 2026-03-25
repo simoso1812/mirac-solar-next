@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { cotizacionCargadoresCostos, calcularMaterialesCargador } from '@/lib/chargers'
+import { generarPdfCargadores } from '@/lib/chargers-pdf'
 import { formatCOP } from '@/lib/formatting'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Zap, Calculator, Package, DollarSign, Ruler, FileText,
+  Zap, Calculator, Package, DollarSign, Ruler, FileText, Download, Loader2,
 } from 'lucide-react'
 
 export default function CargadoresPage() {
@@ -20,6 +21,7 @@ export default function CargadoresPage() {
   const [precioManual, setPrecioManual] = useState<string>('')
   const [clienteNombre, setClienteNombre] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const costos = useMemo(() => {
     if (!showResults) return null
@@ -34,6 +36,28 @@ export default function CargadoresPage() {
 
   const handleCalculate = () => {
     setShowResults(true)
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!costos) return
+    setGeneratingPdf(true)
+    try {
+      const pdfBytes = await generarPdfCargadores(
+        clienteNombre || 'Cliente',
+        costos,
+      )
+      const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Propuesta_Mirac_Cargador_${(clienteNombre || 'Cliente').replace(/\s+/g, '_')}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Error generating charger PDF:', e)
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
   return (
@@ -133,6 +157,20 @@ export default function CargadoresPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* PDF Download */}
+          <Button
+            onClick={handleDownloadPdf}
+            disabled={generatingPdf}
+            className="w-full bg-mirac-red hover:bg-mirac-red-dark"
+          >
+            {generatingPdf ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {generatingPdf ? 'Generando PDF...' : 'Descargar PDF de Cargadores'}
+          </Button>
 
           {/* Materials list */}
           <Card>
