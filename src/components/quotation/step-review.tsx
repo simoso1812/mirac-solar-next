@@ -57,24 +57,6 @@ export function StepReview() {
       results,
     })
 
-    // Save client to Notion CRM (fire-and-forget)
-    try {
-      await fetch('/api/notion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: clientData.nombre,
-          documento: clientData.nit_cc,
-          direccion: clientData.direccion,
-          proyecto: `${results.kwp.toFixed(1)} kWp - ${ciudadLabel}`,
-          fecha: projectData.fecha,
-          estado: 'Cotización',
-        }),
-      })
-    } catch {
-      // Notion save failed silently — not blocking
-    }
-
     setIsSaving(false)
     router.push(`/propuestas/${id}`)
   }
