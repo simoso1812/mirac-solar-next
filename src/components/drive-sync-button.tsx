@@ -9,6 +9,7 @@ import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
 import { prepareDriveUpload } from '@/app/actions/drive'
+import { generarContratoDocx } from '@/lib/contract/generator'
 import type { QuotationData } from '@/lib/types'
 
 interface DriveSyncButtonProps {
@@ -21,7 +22,7 @@ interface DriveSyncButtonProps {
  * This bypasses Vercel's 4.5MB body limit since the upload goes
  * straight from the browser to Google's servers.
  */
-async function uploadPdfToDrive(
+async function uploadFileToDrive(
   blob: Blob,
   fileName: string,
   folderId: string,
@@ -108,9 +109,34 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
       }
 
       // 3. Upload PDF directly from browser to Google Drive (bypasses Vercel limit)
-      await uploadPdfToDrive(blob, pdfName, driveResult.uploadFolderId, driveResult.accessToken)
+      await uploadFileToDrive(blob, pdfName, driveResult.uploadFolderId, driveResult.accessToken)
 
-      // 4. Update proposal with Drive link
+      // 4. Generate and upload contract .docx
+      try {
+        const inversorLabel = proposal.results.inversores.length > 0
+          ? proposal.results.inversores.map((i) => `${i.cantidad}x ${i.modelo}`).join(', ')
+          : ''
+        const contractBytes = await generarContratoDocx({
+          nombreCliente: proposal.client.nombre,
+          documentoCliente: proposal.client.nit_cc ?? '',
+          direccionProyecto: proposal.project.ubicacion_label ?? '',
+          tamanoSistemaKwp: proposal.results.kwp,
+          cantidadPaneles: proposal.results.numero_paneles,
+          potenciaPanel: proposal.technical.potencia_panel_w,
+          inversorRecomendado: inversorLabel,
+          valorTotalCOP: proposal.results.costo_total_cop,
+          fechaPropuesta: proposal.project.fecha,
+        })
+        const docxBlob = new Blob([contractBytes as BlobPart], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+        const docxName = `Contrato_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.docx`
+        await uploadFileToDrive(docxBlob, docxName, driveResult.uploadFolderId, driveResult.accessToken)
+      } catch (contractError) {
+        console.warn('Contract generation failed (PDF was uploaded):', contractError)
+      }
+
+      // 5. Update proposal with Drive link
       updateProposal(proposal.id, {
         drive_folder_link: driveResult.folderLink,
         drive_project_name: driveResult.projectName,

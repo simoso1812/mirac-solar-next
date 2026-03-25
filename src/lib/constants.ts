@@ -45,30 +45,14 @@ export const PROMEDIOS_COSTO = {
 }
 
 // Google Drive folder structure template
-export const ESTRUCTURA_CARPETAS: Record<string, Record<string, Record<string, Record<string, Record<string, unknown>>>>> = {
+export const ESTRUCTURA_CARPETAS: Record<string, Record<string, unknown>> = {
   '00_Contacto_y_Venta': {},
   '01_Propuesta_y_Contratacion': {},
-  '02_Ingenieria_y_Diseno': {
-    Fichas_Tecnicas: {
-      Paneles: {},
-      Inversores: {},
-      Estructura_Soporte: {},
-      Tableros_y_Protecciones: {},
-      Cableado: {},
-    },
-    Memorias_de_Calculo: {},
-    Planos_y_Diagramas: {},
-  },
+  '02_Ingenieria_y_Diseno': {},
   '03_Adquisiciones_y_Logistica': {},
-  '04_Permisos_y_Legal': {},
-  '05_Instalacion_y_Construccion': {
-    Reportes_Fotograficos: {},
-    Informes_Diarios_Avance: {},
-  },
-  '06_Puesta_en_Marcha_y_Entrega': {},
-  '07_Operacion_y_Mantenimiento_OM': {},
-  '08_Administrativo_y_Financiero': {},
-  '09_Material_Grafico_y_Marketing': {},
+  '04_UPME': {},
+  '05_EPM': {},
+  '06_RETIE': {},
 }
 
 // Configurable default parameters
