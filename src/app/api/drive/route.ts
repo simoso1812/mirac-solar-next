@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { gestionarCreacionDrive } from '@/lib/integrations/drive'
 
+export const maxDuration = 60
+
 export async function POST(request: NextRequest) {
   try {
     const parentFolderId = process.env.PARENT_FOLDER_ID
@@ -11,22 +13,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { clientName, locationLabel, pdfBase64, pdfName } = body
+    const formData = await request.formData()
+    const clientName = formData.get('clientName') as string | null
+    const locationLabel = (formData.get('locationLabel') as string) ?? ''
+    const pdfName = formData.get('pdfName') as string | null
+    const pdfFile = formData.get('pdf') as File | null
 
-    if (!clientName || !pdfBase64 || !pdfName) {
+    if (!clientName || !pdfFile || !pdfName) {
       return NextResponse.json(
-        { success: false, error: 'clientName, pdfBase64, and pdfName are required' },
+        { success: false, error: 'clientName, pdf, and pdfName are required' },
         { status: 400 }
       )
     }
 
-    const pdfBytes = Buffer.from(pdfBase64, 'base64')
+    const arrayBuffer = await pdfFile.arrayBuffer()
+    const pdfBytes = Buffer.from(arrayBuffer)
 
     const result = await gestionarCreacionDrive(
       parentFolderId,
       clientName,
-      locationLabel ?? '',
+      locationLabel,
       pdfBytes,
       pdfName
     )

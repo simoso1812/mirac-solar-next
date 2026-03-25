@@ -52,22 +52,18 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         />
       ).toBlob()
 
-      // 2. Convert blob to base64
-      const arrayBuffer = await blob.arrayBuffer()
-      const base64 = Buffer.from(arrayBuffer).toString('base64')
-
       const pdfName = `Propuesta_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.pdf`
 
-      // 3. Send to Drive API route
+      // 2. Send PDF as FormData (avoids Vercel body size limit)
+      const formData = new FormData()
+      formData.append('pdf', blob, pdfName)
+      formData.append('clientName', proposal.client.nombre)
+      formData.append('locationLabel', proposal.project.ubicacion_label ?? '')
+      formData.append('pdfName', pdfName)
+
       const res = await fetch('/api/drive', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientName: proposal.client.nombre,
-          locationLabel: proposal.project.ubicacion_label,
-          pdfBase64: base64,
-          pdfName,
-        }),
+        body: formData,
       })
 
       const data = await res.json()
