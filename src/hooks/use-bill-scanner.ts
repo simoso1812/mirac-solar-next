@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { scanBillAction } from '@/app/actions/scan-bill'
 import type { BillScanResult } from '@/lib/bill-scanner/types'
 
 interface UseBillScannerReturn {
@@ -25,12 +26,7 @@ export function useBillScanner(): UseBillScannerReturn {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/bill-scanner', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const result: BillScanResult = await response.json()
+      const result = await scanBillAction(formData)
 
       if (!result.success && result.error) {
         setError(result.error)
