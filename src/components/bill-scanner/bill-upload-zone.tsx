@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Upload, Camera, X, FileText, Image as ImageIcon } from 'lucide-react'
+import { Upload, Camera, X, FileText, Image as ImageIcon, FileSpreadsheet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface BillUploadZoneProps {
@@ -16,7 +16,11 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles).filter((f) => {
-      const validType = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(f.type)
+      const validType = [
+        'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ].includes(f.type)
       const validSize = f.size <= 10 * 1024 * 1024
       return validType && validSize
     })
@@ -47,6 +51,8 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
 
   const getFileIcon = (type: string) => {
     if (type === 'application/pdf') return <FileText className="h-4 w-4 text-red-500" />
+    if (type.includes('wordprocessingml')) return <FileText className="h-4 w-4 text-blue-600" />
+    if (type.includes('spreadsheetml')) return <FileSpreadsheet className="h-4 w-4 text-green-600" />
     return <ImageIcon className="h-4 w-4 text-blue-500" />
   }
 
@@ -69,12 +75,12 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
           Arrastra tu factura de energía aquí
         </p>
         <p className="text-xs text-muted-foreground">
-          JPG, PNG, WebP o PDF — máximo 10MB
+          JPG, PNG, WebP, PDF, Word o Excel — máximo 10MB
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
+          accept="image/jpeg,image/png,image/webp,application/pdf,.docx,.xlsx"
           multiple
           capture="environment"
           className="hidden"

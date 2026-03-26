@@ -27,6 +27,7 @@ export interface BillScanResult {
   data: ExtractedBillData | null
   error?: string
   processing_time_ms: number
+  extraction_method?: 'text' | 'vision'
 }
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'

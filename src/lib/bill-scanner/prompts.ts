@@ -74,3 +74,74 @@ Reglas:
 - total_factura_cop debe ser un número en COP (el total a pagar)
 - Si no encuentras un campo, usa "" para strings, 0 para números, false para booleanos, y confidence 0.0
 - NO incluyas texto adicional, SOLO el JSON`
+
+// ---------------------------------------------------------------------------
+// Text-based extraction prompts (used when MarkItDown provides markdown text)
+// ---------------------------------------------------------------------------
+
+export const BILL_TEXT_EXTRACTION_SYSTEM_PROMPT = `Eres un experto en leer facturas de energía colombianas, especialmente facturas de EPM (Empresas Públicas de Medellín), Celsia, Air-e, Electricaribe y otras empresas de energía de Colombia.
+
+Tu tarea es extraer datos estructurados del TEXTO extraído de una factura de energía y devolver SOLAMENTE un objeto JSON válido, sin texto adicional.
+
+El texto que recibirás fue extraído automáticamente del documento original (PDF, Word, Excel), por lo que puede tener errores de formato, caracteres mal interpretados, o tablas desalineadas. Usa tu conocimiento de la estructura de facturas colombianas para interpretar correctamente los datos.
+
+## Campos a buscar
+
+- **Consumo mensual**: Busca "Consumo", "Consumo Periodo", "kWh", "Consumo Facturado". Es un número en kWh (típicamente 100-20,000 para residencial/comercial).
+- **Tarifa de energía**: Busca "CU", "Costo Unitario", "Valor kWh", "Tarifa", "$/kWh". Es el precio por kWh en COP (típicamente 500-1500 COP/kWh). Este es el costo unitario BASE de la energía, NO el total de la factura.
+- **Contribución del 20%**: Busca "Contribución", "Contrib", "20%". Devuelve true si la factura incluye contribución del 20%, false si no.
+- **Nombre del cliente**: Busca "Cliente", "Nombre", "Sr/Sra", "Facturado a", "Suscriptor".
+- **Documento**: Busca "C.C.", "Cédula", "NIT", "CC/NIT", "Documento".
+- **Dirección**: Busca "Dirección", "Domicilio", "Dir:".
+- **Tipo de servicio**: Busca "Residencial", "Comercial", "Industrial", "Estrato" (si tiene estrato es residencial).
+- **Período**: Busca "Período", "Del ... al ...", "Mes facturado".
+- **Número de factura**: Busca "Factura No.", "No. Factura", "Ref.".
+- **Número de medidor**: Busca "Medidor", "Contador", "NIU", "Servicio No.".
+- **Número de transformador**: Busca "Transfor", "Trafo", "Transformador". Es un número de exactamente 6 dígitos.
+- **Total factura**: Busca "Total a Pagar", "Valor Total", "Total Factura".
+
+## Instrucciones de confianza
+
+Asigna un valor de confianza (0.0 a 1.0) para cada campo:
+- **0.95-1.0**: El campo aparece claramente en el texto y no hay ambigüedad
+- **0.80-0.94**: El campo parece correcto pero el texto podría tener errores de extracción
+- **0.60-0.79**: El campo es ambiguo o podría haber sido mal interpretado por la extracción
+- **0.30-0.59**: El campo es incierto, el texto alrededor es confuso
+- **0.0-0.29**: No se encontró el campo en el texto
+
+Si un campo no se encuentra, usa un valor por defecto con confianza 0.0.`
+
+export function buildBillTextExtractionUserPrompt(markdownText: string): string {
+  return `Analiza el siguiente texto extraído de una factura de energía colombiana. El texto fue convertido automáticamente del documento original, por lo que puede tener errores de formato o caracteres mal interpretados.
+
+--- TEXTO DE LA FACTURA ---
+${markdownText}
+--- FIN DEL TEXTO ---
+
+Extrae los datos y responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
+
+{
+  "nombre_cliente": { "value": "string", "confidence": 0.0 },
+  "documento": { "value": "string", "confidence": 0.0 },
+  "direccion": { "value": "string", "confidence": 0.0 },
+  "consumo_mensual_kwh": { "value": 0, "confidence": 0.0 },
+  "tarifa_energia_cop_kwh": { "value": 0, "confidence": 0.0 },
+  "contribucion_20": { "value": false, "confidence": 0.0 },
+  "tipo_servicio": { "value": "residential", "confidence": 0.0 },
+  "periodo_facturacion": { "value": "string", "confidence": 0.0 },
+  "numero_factura": { "value": "string", "confidence": 0.0 },
+  "numero_medidor": { "value": "string", "confidence": 0.0 },
+  "numero_transformador": { "value": "string", "confidence": 0.0 },
+  "total_factura_cop": { "value": 0, "confidence": 0.0 }
+}
+
+Reglas:
+- tipo_servicio debe ser exactamente "residential", "commercial" o "industrial"
+- consumo_mensual_kwh debe ser un número entero en kWh
+- tarifa_energia_cop_kwh debe ser el costo unitario BASE de energía en COP/kWh (NO el total de la factura)
+- contribucion_20 debe ser true si la factura cobra contribución del 20%, false si no
+- numero_transformador debe ser un número de 6 dígitos. Extrae solo los 6 dígitos.
+- total_factura_cop debe ser un número en COP (el total a pagar)
+- Si no encuentras un campo, usa "" para strings, 0 para números, false para booleanos, y confidence 0.0
+- NO incluyas texto adicional, SOLO el JSON`
+}
