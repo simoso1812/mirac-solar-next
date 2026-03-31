@@ -43,6 +43,7 @@ export interface CotizacionInput {
   porcentajeMantenimiento: number // maintenance % of savings (e.g. 0.05)
   performanceRatioBase: number // base PR (e.g. 0.75)
   marcaInversor: string // inverter brand
+  overridePaneles: number | null // manual panel count override
 }
 
 /**
@@ -91,6 +92,7 @@ export function buildInputFromStore(
     porcentajeMantenimiento: advanced.porcentaje_mantenimiento ?? 0.05,
     performanceRatioBase: advanced.performance_ratio_base ?? 0.75,
     marcaInversor: advanced.marca_inversor ?? 'Automatico',
+    overridePaneles: technical.override_paneles,
   }
 }
 
@@ -118,7 +120,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const eficienciaEstimacion = DEFAULT_PARAMS.eficiencia_sistema_estimacion
   const kwpRaw = (consumoMensualKwh / (hspPromedio * 30 * eficienciaEstimacion)) * factorSeguridad
   const potenciaPanelKw = potenciaPanelW / 1000
-  const numeroPaneles = redondearAPar(Math.ceil(kwpRaw / potenciaPanelKw))
+  const numeroPaneles = input.overridePaneles ?? redondearAPar(Math.ceil(kwpRaw / potenciaPanelKw))
   const sizeKwp = numeroPaneles * potenciaPanelKw
 
   // Performance ratio & clipping

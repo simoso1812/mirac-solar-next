@@ -27,6 +27,7 @@ export interface TechnicalData {
   factor_seguridad: number
   tipo_cubierta: 'metalica' | 'teja' | 'losa'
   clima: 'templado' | 'calido' | 'frio'
+  override_paneles: number | null
 }
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'

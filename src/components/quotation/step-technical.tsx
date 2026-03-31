@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { Settings, ArrowLeft, ArrowRight, Zap, Sun, Hash } from 'lucide-react'
 
 export function StepTechnical() {
@@ -32,12 +33,14 @@ export function StepTechnical() {
   const consumo = watched.consumo_mensual_kwh ?? 0
   const potenciaPanel = watched.potencia_panel_w ?? 580
   const factorSeg = watched.factor_seguridad ?? 1.1
+  const overridePaneles = watched.override_paneles
 
   // Live calculation preview
   const hsp = HSP_POR_CIUDAD[projectData.ciudad] ?? 4.5
   const eficiencia = DEFAULT_PARAMS.eficiencia_sistema_estimacion
   const kwpRaw = consumo > 0 ? (consumo / (hsp * 30 * eficiencia)) * factorSeg : 0
-  const paneles = kwpRaw > 0 ? redondearAPar(Math.ceil(kwpRaw / (potenciaPanel / 1000))) : 0
+  const panelesCalc = kwpRaw > 0 ? redondearAPar(Math.ceil(kwpRaw / (potenciaPanel / 1000))) : 0
+  const paneles = overridePaneles ?? panelesCalc
   const kwp = paneles * (potenciaPanel / 1000)
   const generacionEstimada = kwp * hsp * 30 * eficiencia
 
@@ -133,6 +136,42 @@ export function StepTechnical() {
                 <option value="frio">Frío / Nublado</option>
               </select>
             </div>
+          </div>
+
+          {/* Manual panel override */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="override-toggle" className="text-sm font-medium">
+                Definir cantidad de paneles manualmente
+              </Label>
+              <Switch
+                id="override-toggle"
+                checked={overridePaneles != null}
+                onCheckedChange={(checked) => {
+                  setValue('override_paneles', checked ? (panelesCalc || 10) : null)
+                }}
+              />
+            </div>
+            {overridePaneles != null && (
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  min={2}
+                  max={5000}
+                  step={1}
+                  value={overridePaneles}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10)
+                    if (!isNaN(v)) setValue('override_paneles', v)
+                  }}
+                />
+                {panelesCalc > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Cálculo automático: {formatNumber(panelesCalc)} paneles
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Live preview */}

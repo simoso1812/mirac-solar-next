@@ -47,6 +47,7 @@ const initialTechnicalData: TechnicalData = {
   factor_seguridad: 1.1,
   tipo_cubierta: 'metalica',
   clima: 'templado',
+  override_paneles: null,
 }
 
 const initialAdvancedData: AdvancedData = {

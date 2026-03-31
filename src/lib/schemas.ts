@@ -23,6 +23,7 @@ export const technicalSchema = z.object({
   factor_seguridad: z.number().min(1.0, 'Mínimo 1.0').max(1.5, 'Máximo 1.5'),
   tipo_cubierta: z.enum(['metalica', 'teja', 'losa']),
   clima: z.enum(['templado', 'calido', 'frio']),
+  override_paneles: z.number().min(2, 'Mínimo 2 paneles').max(5000, 'Máximo 5000 paneles').nullable(),
 })
 
 export const advancedSchema = z.object({
