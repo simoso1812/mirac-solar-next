@@ -362,7 +362,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         {(() => {
           const { val, suffix } = fmtLargeMoney(r.ahorro_anual_cop)
           return (
-            <PosRow x={25} y={107}>
+            <PosRow x={25} y={106}>
               <Text style={{ fontSize: 40, fontFamily: 'DMSans', fontWeight: 'bold', color: TEXT_BLACK }}>
                 $ {val}
               </Text>
@@ -391,7 +391,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           const deducible = costoSinIVA * 0.44
           const { val, suffix } = fmtLargeMoney(deducible)
           return (
-            <PosRow x={25} y={187}>
+            <PosRow x={25} y={186}>
               <Text style={{ fontSize: 40, fontFamily: 'DMSans', fontWeight: 'bold', color: TEXT_BLACK }}>
                 $ {val}
               </Text>
