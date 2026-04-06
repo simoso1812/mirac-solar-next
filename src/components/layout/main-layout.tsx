@@ -7,7 +7,7 @@ import { MobileNav } from './mobile-nav'
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isStandalone = pathname.endsWith('/virtual') || pathname.startsWith('/propuestas/shared')
+  const isStandalone = pathname.endsWith('/virtual') || pathname.startsWith('/propuestas/shared') || pathname.startsWith('/s/')
 
   if (isStandalone) {
     return <>{children}</>
