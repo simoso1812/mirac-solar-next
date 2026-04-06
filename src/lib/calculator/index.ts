@@ -308,7 +308,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     generacion_anual_kwh: generacionAnualKwh,
     performance_ratio: pr,
     costo_total_cop: valorProyectoTotal,
-    costo_por_kwp_cop: costoPorKwp,
+    costo_por_kwp_cop: Math.ceil(valorProyectoTotal / sizeKwp),
     desglose_costos: desgloseCostos,
     ahorro_mensual_cop: Math.ceil(ahorroAnualAnio1 / 12),
     ahorro_anual_cop: Math.ceil(ahorroAnualAnio1),
