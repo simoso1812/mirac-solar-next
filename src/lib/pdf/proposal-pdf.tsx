@@ -355,7 +355,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Text>
         </PosRow>
         {/* Payback */}
-        <Pos x={153} y={74} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="right" width={30}>
+        <Pos x={153} y={76} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="right" width={30}>
           {r.payback_anios.toFixed(1)} años
         </Pos>
         {/* Annual savings */}
