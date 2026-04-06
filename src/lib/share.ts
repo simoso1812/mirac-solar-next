@@ -1,20 +1,16 @@
 /**
- * Compress/decompress proposal data for shareable URLs
+ * Compress/decompress proposal data for shareable URLs.
+ * Only stores input data (client, project, technical, advanced) —
+ * results are recalculated on the receiving end.
  */
 import type { QuotationData } from '@/lib/types'
 
-/**
- * Base64url encode a Uint8Array
- */
 function base64urlEncode(bytes: Uint8Array): string {
   let binary = ''
   for (const b of bytes) binary += String.fromCharCode(b)
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/**
- * Base64url decode to Uint8Array
- */
 function base64urlDecode(str: string): Uint8Array {
   const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
   const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
@@ -24,23 +20,65 @@ function base64urlDecode(str: string): Uint8Array {
   return bytes
 }
 
-/**
- * Compress proposal data for URL sharing.
- * Strips flujo_caja (recalculable) to minimize size.
- */
-export async function compressProposal(proposal: QuotationData): Promise<string> {
-  // Clone and strip heavy recalculable data
-  const stripped = structuredClone(proposal)
-  if (stripped.results) {
-    stripped.results.flujo_caja = []
-  }
-  // Remove drive sync info (not relevant for shared view)
-  stripped.drive_folder_link = null
-  stripped.drive_project_name = null
+/** Minimal payload — just the inputs needed to recalculate everything */
+interface SharePayload {
+  c: { n: string; d: string; e: string; t: string; a: string } // client
+  p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null } // project
+  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null } // technical
+  a: Record<string, unknown> // advanced (kept as-is, it's small)
+}
 
-  const json = JSON.stringify(stripped)
-  const encoder = new TextEncoder()
-  const input = encoder.encode(json)
+function toPayload(proposal: QuotationData): SharePayload {
+  const { client: c, project: p, technical: t, advanced: a } = proposal
+  return {
+    c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
+    p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: p.hsp_mensual_pvgis },
+    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles },
+    a: a as unknown as Record<string, unknown>,
+  }
+}
+
+function fromPayload(payload: SharePayload): Omit<QuotationData, 'results'> & { results: null } {
+  return {
+    id: 'shared',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    status: 'sent',
+    client: {
+      nombre: payload.c.n,
+      direccion: payload.c.d,
+      email: payload.c.e,
+      telefono: payload.c.t,
+      nit_cc: payload.c.a,
+    },
+    project: {
+      ciudad: payload.p.ci,
+      fecha: payload.p.f,
+      ubicacion_label: '',
+      plantilla: 'default',
+      lat: payload.p.la,
+      lon: payload.p.lo,
+      hsp_mensual_pvgis: payload.p.h,
+      map_url: null,
+    },
+    technical: {
+      consumo_mensual_kwh: payload.t.co,
+      potencia_panel_w: payload.t.pw,
+      factor_seguridad: payload.t.fs,
+      tipo_cubierta: payload.t.tc as 'metalica' | 'teja' | 'losa',
+      clima: payload.t.cl as 'templado' | 'calido' | 'frio',
+      override_paneles: payload.t.op,
+    },
+    advanced: payload.a as unknown as QuotationData['advanced'],
+    results: null,
+    drive_folder_link: null,
+    drive_project_name: null,
+  }
+}
+
+async function compress(data: unknown): Promise<string> {
+  const json = JSON.stringify(data)
+  const input = new TextEncoder().encode(json)
 
   const cs = new CompressionStream('gzip')
   const writer = cs.writable.getWriter()
@@ -66,11 +104,7 @@ export async function compressProposal(proposal: QuotationData): Promise<string>
   return base64urlEncode(compressed)
 }
 
-/**
- * Decompress proposal data from URL parameter.
- * Returns the QuotationData (results.flujo_caja will be empty — caller should recalculate).
- */
-export async function decompressProposal(encoded: string): Promise<QuotationData> {
+async function decompress(encoded: string): Promise<unknown> {
   const compressed = base64urlDecode(encoded)
 
   const ds = new DecompressionStream('gzip')
@@ -94,9 +128,25 @@ export async function decompressProposal(encoded: string): Promise<QuotationData
     offset += chunk.length
   }
 
-  const decoder = new TextDecoder()
-  const json = decoder.decode(decompressed)
-  return JSON.parse(json) as QuotationData
+  return JSON.parse(new TextDecoder().decode(decompressed))
+}
+
+/**
+ * Compress proposal inputs for URL sharing.
+ * Strips results (recalculable) and uses short keys to minimize URL length.
+ */
+export async function compressProposal(proposal: QuotationData): Promise<string> {
+  const payload = toPayload(proposal)
+  return compress(payload)
+}
+
+/**
+ * Decompress proposal data from URL parameter.
+ * Returns QuotationData with results=null — caller should recalculate.
+ */
+export async function decompressProposal(encoded: string): Promise<QuotationData> {
+  const payload = await decompress(encoded) as SharePayload
+  return fromPayload(payload) as QuotationData
 }
 
 /**
