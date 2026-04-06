@@ -1,5 +1,6 @@
 /**
  * Share proposals via short URLs backed by Upstash Redis.
+ * Supports single proposals and multi-version comparisons.
  * Only stores input data — results are recalculated on load.
  */
 import type { QuotationData } from '@/lib/types'
@@ -11,6 +12,22 @@ interface SharePayload {
   t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null }
   a: Record<string, unknown>
 }
+
+/** Multi-version wrapper */
+export interface SharedVersion {
+  label: string
+  proposal: QuotationData
+}
+
+interface StoredVersionEntry {
+  label: string
+  payload: SharePayload
+}
+
+/** What we store in Redis — either single or multi */
+type StoredData =
+  | SharePayload                            // single (legacy)
+  | { versions: StoredVersionEntry[] }      // multi
 
 function toPayload(proposal: QuotationData): SharePayload {
   const { client: c, project: p, technical: t, advanced: a } = proposal
@@ -60,10 +77,14 @@ export function fromPayload(payload: SharePayload): QuotationData {
   }
 }
 
-/**
- * Store proposal data server-side and return a short share URL.
- * URL format: /s/[8-char-id]
- */
+function isMultiVersion(data: StoredData): data is { versions: StoredVersionEntry[] } {
+  return 'versions' in data && Array.isArray(data.versions)
+}
+
+// ---------------------------------------------------------------------------
+// Single proposal sharing (backwards compatible)
+// ---------------------------------------------------------------------------
+
 export async function generateShareUrl(proposal: QuotationData): Promise<string> {
   const payload = toPayload(proposal)
 
@@ -73,24 +94,63 @@ export async function generateShareUrl(proposal: QuotationData): Promise<string>
     body: JSON.stringify({ data: payload }),
   })
 
-  if (!res.ok) {
-    throw new Error('Error al guardar la propuesta')
-  }
+  if (!res.ok) throw new Error('Error al guardar la propuesta')
+
+  const { id } = await res.json()
+  return `${window.location.origin}/s/${id}`
+}
+
+export async function fetchSharedProposal(id: string): Promise<QuotationData> {
+  const res = await fetch(`/api/share?id=${id}`)
+  if (!res.ok) throw new Error('Propuesta no encontrada o expirada')
+
+  const { data } = await res.json()
+  return fromPayload(data as SharePayload)
+}
+
+// ---------------------------------------------------------------------------
+// Multi-version sharing
+// ---------------------------------------------------------------------------
+
+export async function generateMultiShareUrl(
+  proposals: { label: string; proposal: QuotationData }[]
+): Promise<string> {
+  const versions: StoredVersionEntry[] = proposals.map((v) => ({
+    label: v.label,
+    payload: toPayload(v.proposal),
+  }))
+
+  const res = await fetch('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: { versions } }),
+  })
+
+  if (!res.ok) throw new Error('Error al guardar las propuestas')
 
   const { id } = await res.json()
   return `${window.location.origin}/s/${id}`
 }
 
 /**
- * Fetch proposal data from server by share ID.
+ * Fetch shared data — returns either a single proposal or multiple versions.
  */
-export async function fetchSharedProposal(id: string): Promise<QuotationData> {
+export async function fetchSharedData(id: string): Promise<SharedVersion[]> {
   const res = await fetch(`/api/share?id=${id}`)
+  if (!res.ok) throw new Error('Propuesta no encontrada o expirada')
 
-  if (!res.ok) {
-    throw new Error('Propuesta no encontrada o expirada')
+  const { data } = await res.json() as { data: StoredData }
+
+  if (isMultiVersion(data)) {
+    return data.versions.map((v) => ({
+      label: v.label,
+      proposal: fromPayload(v.payload),
+    }))
   }
 
-  const { data } = await res.json()
-  return fromPayload(data as SharePayload)
+  // Legacy single proposal
+  return [{
+    label: 'Propuesta',
+    proposal: fromPayload(data),
+  }]
 }

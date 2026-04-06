@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Share2, Copy, Check, MessageCircle } from 'lucide-react'
-import { generateShareUrl } from '@/lib/share'
+import { generateShareUrl, generateMultiShareUrl } from '@/lib/share'
+import { useProposalsStore } from '@/stores/proposals-store'
+import { formatKWp, formatCOPMillones } from '@/lib/formatting'
 import { toast } from 'sonner'
 import type { QuotationData } from '@/lib/types'
 
@@ -15,24 +17,64 @@ interface ShareDialogProps {
   proposal: QuotationData
 }
 
+interface VersionEntry {
+  id: string
+  proposal: QuotationData
+  label: string
+  selected: boolean
+}
+
 export function ShareDialog({ proposal }: ShareDialogProps) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [versions, setVersions] = useState<VersionEntry[]>([])
 
-  const handleOpen = async (isOpen: boolean) => {
-    setOpen(isOpen)
-    if (isOpen && !url) {
-      setGenerating(true)
-      try {
+  const getProposalsByClient = useProposalsStore((s) => s.getProposalsByClient)
+
+  useEffect(() => {
+    if (!open) return
+    setUrl('')
+
+    // Find other proposals for this client
+    const clientProposals = getProposalsByClient(proposal.client.nombre)
+      .filter((p) => p.results != null)
+
+    if (clientProposals.length > 1) {
+      setVersions(
+        clientProposals.map((p, i) => ({
+          id: p.id,
+          proposal: p,
+          label: `Opción ${i + 1}`,
+          selected: p.id === proposal.id, // pre-select current
+        }))
+      )
+    } else {
+      setVersions([])
+    }
+  }, [open, proposal, getProposalsByClient])
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    try {
+      const selected = versions.filter((v) => v.selected)
+
+      if (selected.length > 1) {
+        // Multi-version share
+        const shareUrl = await generateMultiShareUrl(
+          selected.map((v) => ({ label: v.label, proposal: v.proposal }))
+        )
+        setUrl(shareUrl)
+      } else {
+        // Single share
         const shareUrl = await generateShareUrl(proposal)
         setUrl(shareUrl)
-      } catch {
-        toast.error('Error al generar el enlace')
-      } finally {
-        setGenerating(false)
       }
+    } catch {
+      toast.error('Error al generar el enlace')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -50,8 +92,24 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
     window.open(`https://wa.me/?text=${text}`, '_blank')
   }
 
+  const toggleVersion = (id: string) => {
+    setVersions((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, selected: !v.selected } : v))
+    )
+    setUrl('') // reset URL when selection changes
+  }
+
+  const updateLabel = (id: string, label: string) => {
+    setVersions((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, label } : v))
+    )
+    setUrl('')
+  }
+
+  const selectedCount = versions.filter((v) => v.selected).length
+
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <Button variant="outline" className="border-white/20 bg-white/5 text-[#F9FAFB] hover:bg-white/10">
@@ -64,15 +122,65 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
         <DialogHeader>
           <DialogTitle className="text-[#F9FAFB]">Compartir Propuesta</DialogTitle>
           <DialogDescription className="text-[#9CA3AF]">
-            Comparte esta cotización con tu cliente mediante un enlace.
+            {versions.length > 1
+              ? 'Selecciona las versiones que quieres incluir en el enlace.'
+              : 'Comparte esta cotización con tu cliente mediante un enlace.'}
           </DialogDescription>
         </DialogHeader>
 
-        {generating ? (
-          <div className="flex items-center justify-center py-6">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#BFFF00] border-t-transparent" />
-            <span className="ml-3 text-sm text-[#9CA3AF]">Generando enlace...</span>
+        {/* Version selection (only if multiple proposals for client) */}
+        {versions.length > 1 && (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {versions.map((v) => (
+              <div
+                key={v.id}
+                className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                  v.selected ? 'border-[#BFFF00]/40 bg-[#BFFF00]/5' : 'border-white/10 bg-white/5'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={v.selected}
+                  onChange={() => toggleVersion(v.id)}
+                  className="h-4 w-4 accent-[#BFFF00]"
+                />
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={v.label}
+                    onChange={(e) => updateLabel(v.id, e.target.value)}
+                    className="w-full bg-transparent text-sm font-medium text-[#F9FAFB] outline-none placeholder:text-[#9CA3AF]"
+                  />
+                  {v.proposal.results && (
+                    <p className="text-xs text-[#9CA3AF]">
+                      {formatKWp(v.proposal.results.kwp)} · {formatCOPMillones(v.proposal.results.costo_total_cop)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* Generate or show URL */}
+        {!url ? (
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || (versions.length > 1 && selectedCount === 0)}
+            className="w-full bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80"
+          >
+            {generating ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[#111827] border-t-transparent" />
+                Generando...
+              </>
+            ) : (
+              <>
+                Generar Enlace
+                {versions.length > 1 && selectedCount > 1 && ` (${selectedCount} versiones)`}
+              </>
+            )}
+          </Button>
         ) : (
           <div className="space-y-4">
             <div className="flex gap-2">
