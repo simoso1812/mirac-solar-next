@@ -26,8 +26,14 @@ export const technicalSchema = z.object({
   override_paneles: z.number().min(2, 'Mínimo 2 paneles').max(5000, 'Máximo 5000 paneles').nullable(),
 })
 
+const inverterOverrideSchema = z.object({
+  potencia_kw: z.number().min(1),
+  cantidad: z.number().min(1).max(20),
+})
+
 export const advancedSchema = z.object({
   marca_inversor: z.string(),
+  override_inversores: z.array(inverterOverrideSchema).nullable(),
   medidor_inteligente: z.boolean(),
   modo_conexion: z.enum(['net_metering', 'net_billing', 'autoconsumo']),
   financiamiento: z.object({

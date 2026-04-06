@@ -44,6 +44,7 @@ export interface CotizacionInput {
   performanceRatioBase: number // base PR (e.g. 0.75)
   marcaInversor: string // inverter brand
   overridePaneles: number | null // manual panel count override
+  overrideInversores: { potencia_kw: number; cantidad: number }[] | null // manual inverter config
 }
 
 /**
@@ -93,6 +94,7 @@ export function buildInputFromStore(
     performanceRatioBase: advanced.performance_ratio_base ?? 0.75,
     marcaInversor: advanced.marca_inversor ?? 'Automatico',
     overridePaneles: technical.override_paneles,
+    overrideInversores: advanced.override_inversores,
   }
 }
 
@@ -125,7 +127,13 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
 
   // Performance ratio & clipping
   const pr = calcularPerformanceRatio(clima, cubierta, input.performanceRatioBase)
-  const inverterResult = recomendarInversor(sizeKwp)
+  const inverterResult = input.overrideInversores && input.overrideInversores.length > 0
+    ? {
+        label: input.overrideInversores.map((i) => `${i.cantidad}x${i.potencia_kw}kW`).join(' + '),
+        totalPower: input.overrideInversores.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0),
+        combo: Object.fromEntries(input.overrideInversores.map((i) => [i.potencia_kw, i.cantidad])),
+      }
+    : recomendarInversor(sizeKwp)
   const potenciaAcInversor = inverterResult.totalPower
   const dcAcRatio = potenciaAcInversor > 0 ? sizeKwp / potenciaAcInversor : 1.0
   const factorClipping = calcularFactorClipping(dcAcRatio)

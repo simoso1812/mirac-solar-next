@@ -32,8 +32,14 @@ export interface TechnicalData {
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'
 
+export interface InverterOverride {
+  potencia_kw: number
+  cantidad: number
+}
+
 export interface AdvancedData {
   marca_inversor: string
+  override_inversores: InverterOverride[] | null
   medidor_inteligente: boolean
   modo_conexion: ConnectionMode
   financiamiento: {

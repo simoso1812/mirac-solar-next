@@ -52,6 +52,7 @@ const initialTechnicalData: TechnicalData = {
 
 const initialAdvancedData: AdvancedData = {
   marca_inversor: 'Automatico',
+  override_inversores: null,
   medidor_inteligente: false,
   modo_conexion: 'net_metering',
   financiamiento: {

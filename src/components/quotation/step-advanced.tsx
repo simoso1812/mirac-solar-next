@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
   SlidersHorizontal, ArrowLeft, ArrowRight, ChevronDown, ChevronUp,
-  Plug, DollarSign, Settings2,
+  Plug, DollarSign, Settings2, Plus, Trash2,
 } from 'lucide-react'
 
 export function StepAdvanced() {
@@ -167,8 +167,8 @@ export function StepAdvanced() {
 
           <Separator />
 
-          {/* ─── Inverter Brand ─── */}
-          <div className="space-y-2">
+          {/* ─── Inverter Configuration ─── */}
+          <div className="space-y-3">
             <Label htmlFor="marca_inversor">Marca del Inversor</Label>
             <select
               id="marca_inversor"
@@ -182,8 +182,100 @@ export function StepAdvanced() {
                 </option>
               ))}
             </select>
-            {brandInfo && brandInfo.models.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+
+            {/* Manual inverter toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <Label htmlFor="override-inversor-toggle" className="text-sm">
+                Seleccionar inversores manualmente
+              </Label>
+              <Switch
+                id="override-inversor-toggle"
+                checked={watch('override_inversores') != null}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setValue('override_inversores', [{ potencia_kw: 10, cantidad: 1 }])
+                  } else {
+                    setValue('override_inversores', null)
+                  }
+                }}
+              />
+            </div>
+
+            {watch('override_inversores') != null && (() => {
+              const overrides = watch('override_inversores')!
+              const availableKw = brandInfo && brandInfo.models.length > 0
+                ? brandInfo.models.map((m) => m.potencia_kw)
+                : [3, 5, 6, 8, 10, 20, 30, 40, 50, 100]
+              const totalAcKw = overrides.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0)
+
+              return (
+                <div className="space-y-2 rounded-lg border p-3">
+                  {overrides.map((inv, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <select
+                        className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                        value={inv.potencia_kw}
+                        onChange={(e) => {
+                          const updated = [...overrides]
+                          updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
+                          setValue('override_inversores', updated)
+                        }}
+                      >
+                        {availableKw.map((kw) => (
+                          <option key={kw} value={kw}>{kw} kW</option>
+                        ))}
+                      </select>
+                      <span className="text-sm text-muted-foreground">×</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        className="h-9 w-20"
+                        value={inv.cantidad}
+                        onChange={(e) => {
+                          const updated = [...overrides]
+                          updated[idx] = { ...updated[idx], cantidad: Math.max(1, parseInt(e.target.value) || 1) }
+                          setValue('override_inversores', updated)
+                        }}
+                      />
+                      {overrides.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 p-0"
+                          onClick={() => {
+                            setValue('override_inversores', overrides.filter((_, i) => i !== idx))
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setValue('override_inversores', [...overrides, { potencia_kw: availableKw[0], cantidad: 1 }])
+                      }}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Agregar
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Total AC: {totalAcKw} kW
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Brand models info (only when not manual) */}
+            {watch('override_inversores') == null && brandInfo && brandInfo.models.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
                 {brandInfo.models.map((m) => (
                   <span key={m.modelo} className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
                     {m.modelo} ({m.potencia_kw}kW)
