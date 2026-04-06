@@ -1,31 +1,15 @@
 /**
- * Compress/decompress proposal data for shareable URLs.
- * Only stores input data (client, project, technical, advanced) —
- * results are recalculated on the receiving end.
+ * Share proposals via short URLs backed by Upstash Redis.
+ * Only stores input data — results are recalculated on load.
  */
 import type { QuotationData } from '@/lib/types'
 
-function base64urlEncode(bytes: Uint8Array): string {
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function base64urlDecode(str: string): Uint8Array {
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-  const binary = atob(padded)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
-/** Minimal payload — just the inputs needed to recalculate everything */
+/** Minimal payload — just the inputs needed to recalculate */
 interface SharePayload {
-  c: { n: string; d: string; e: string; t: string; a: string } // client
-  p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null } // project
-  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null } // technical
-  a: Record<string, unknown> // advanced (kept as-is, it's small)
+  c: { n: string; d: string; e: string; t: string; a: string }
+  p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null }
+  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null }
+  a: Record<string, unknown>
 }
 
 function toPayload(proposal: QuotationData): SharePayload {
@@ -38,7 +22,7 @@ function toPayload(proposal: QuotationData): SharePayload {
   }
 }
 
-function fromPayload(payload: SharePayload): Omit<QuotationData, 'results'> & { results: null } {
+export function fromPayload(payload: SharePayload): QuotationData {
   return {
     id: 'shared',
     created_at: new Date().toISOString(),
@@ -76,83 +60,37 @@ function fromPayload(payload: SharePayload): Omit<QuotationData, 'results'> & { 
   }
 }
 
-async function compress(data: unknown): Promise<string> {
-  const json = JSON.stringify(data)
-  const input = new TextEncoder().encode(json)
-
-  const cs = new CompressionStream('gzip')
-  const writer = cs.writable.getWriter()
-  writer.write(input.buffer as ArrayBuffer)
-  writer.close()
-
-  const reader = cs.readable.getReader()
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-  }
-
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0)
-  const compressed = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    compressed.set(chunk, offset)
-    offset += chunk.length
-  }
-
-  return base64urlEncode(compressed)
-}
-
-async function decompress(encoded: string): Promise<unknown> {
-  const compressed = base64urlDecode(encoded)
-
-  const ds = new DecompressionStream('gzip')
-  const writer = ds.writable.getWriter()
-  writer.write(compressed.buffer as ArrayBuffer)
-  writer.close()
-
-  const reader = ds.readable.getReader()
-  const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-  }
-
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0)
-  const decompressed = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    decompressed.set(chunk, offset)
-    offset += chunk.length
-  }
-
-  return JSON.parse(new TextDecoder().decode(decompressed))
-}
-
 /**
- * Compress proposal inputs for URL sharing.
- * Strips results (recalculable) and uses short keys to minimize URL length.
- */
-export async function compressProposal(proposal: QuotationData): Promise<string> {
-  const payload = toPayload(proposal)
-  return compress(payload)
-}
-
-/**
- * Decompress proposal data from URL parameter.
- * Returns QuotationData with results=null — caller should recalculate.
- */
-export async function decompressProposal(encoded: string): Promise<QuotationData> {
-  const payload = await decompress(encoded) as SharePayload
-  return fromPayload(payload) as QuotationData
-}
-
-/**
- * Generate a full shareable URL for a proposal
+ * Store proposal data server-side and return a short share URL.
+ * URL format: /s/[8-char-id]
  */
 export async function generateShareUrl(proposal: QuotationData): Promise<string> {
-  const encoded = await compressProposal(proposal)
-  return `${window.location.origin}/propuestas/shared?d=${encoded}`
+  const payload = toPayload(proposal)
+
+  const res = await fetch('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: payload }),
+  })
+
+  if (!res.ok) {
+    throw new Error('Error al guardar la propuesta')
+  }
+
+  const { id } = await res.json()
+  return `${window.location.origin}/s/${id}`
+}
+
+/**
+ * Fetch proposal data from server by share ID.
+ */
+export async function fetchSharedProposal(id: string): Promise<QuotationData> {
+  const res = await fetch(`/api/share?id=${id}`)
+
+  if (!res.ok) {
+    throw new Error('Propuesta no encontrada o expirada')
+  }
+
+  const { data } = await res.json()
+  return fromPayload(data as SharePayload)
 }
