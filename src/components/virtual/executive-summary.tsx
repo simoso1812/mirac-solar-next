@@ -1,88 +1,98 @@
 'use client'
 
-import { Zap, Sun, DollarSign, Clock, TrendingUp, TreePine } from 'lucide-react'
-import { formatKWp, formatCOP, formatPercent } from '@/lib/formatting'
-import type { CalculationResults } from '@/lib/types'
+import { Zap, Sun, DollarSign, Clock, TreePine } from 'lucide-react'
+import { formatCOP, formatNumber } from '@/lib/formatting'
+import type { CalculationResults, TechnicalData } from '@/lib/types'
 
 interface ExecutiveSummaryProps {
   results: CalculationResults
+  technical?: TechnicalData
 }
 
-const metrics = [
-  {
-    key: 'kwp',
-    label: 'Potencia del Sistema',
-    icon: Zap,
-    getValue: (r: CalculationResults) => formatKWp(r.kwp),
-    sub: (r: CalculationResults) => `${r.numero_paneles} paneles de ${r.potencia_panel_w}W`,
-  },
-  {
-    key: 'panels',
-    label: 'Generación Anual',
-    icon: Sun,
-    getValue: (r: CalculationResults) =>
-      `${Math.round(r.generacion_anual_kwh).toLocaleString('es-CO')} kWh`,
-    sub: (r: CalculationResults) => `PR: ${formatPercent(r.performance_ratio)}`,
-  },
-  {
-    key: 'savings',
-    label: 'Ahorro Anual',
-    icon: DollarSign,
-    getValue: (r: CalculationResults) => formatCOP(r.ahorro_anual_cop),
-    sub: (r: CalculationResults) => `${formatCOP(r.ahorro_mensual_cop)}/mes`,
-  },
-  {
-    key: 'payback',
-    label: 'Retorno de Inversión',
-    icon: Clock,
-    getValue: (r: CalculationResults) => `${r.payback_anios.toFixed(1)} años`,
-    sub: (r: CalculationResults) => `ROI: ${r.roi_porcentaje.toFixed(0)}%`,
-  },
-  {
-    key: 'tir',
-    label: 'TIR',
-    icon: TrendingUp,
-    getValue: (r: CalculationResults) => `${r.tir.toFixed(1)}%`,
-    sub: (r: CalculationResults) => `VPN: ${formatCOP(r.vpn, false)}`,
-  },
-  {
-    key: 'co2',
-    label: 'CO₂ Evitado/año',
-    icon: TreePine,
-    getValue: (r: CalculationResults) =>
-      `${r.carbon.annual_co2_avoided_tons.toFixed(1)} ton`,
-    sub: (r: CalculationResults) =>
-      `≈ ${Math.round(r.carbon.trees_saved_per_year)} árboles equivalentes`,
-  },
-] as const
+export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProps) {
+  const generacionMensual = Math.round(r.generacion_anual_kwh / 12)
+  const consumo = technical?.consumo_mensual_kwh ?? 0
+  const cobertura = consumo > 0 ? Math.round((generacionMensual / consumo) * 100) : 0
 
-export function ExecutiveSummary({ results }: ExecutiveSummaryProps) {
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-[#F9FAFB]">Resumen Ejecutivo</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {metrics.map((m) => {
-          const Icon = m.icon
-          return (
-            <div
-              key={m.key}
-              className="rounded-xl border border-white/10 bg-white/5 p-5"
-            >
-              <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-[#BFFF00]/10 p-2">
-                  <Icon className="h-5 w-5 text-[#BFFF00]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-[#9CA3AF]">{m.label}</p>
-                  <p className="text-xl font-bold text-[#BFFF00]">
-                    {m.getValue(results)}
-                  </p>
-                  <p className="text-xs text-[#9CA3AF]">{m.sub(results)}</p>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+      <h2 className="mb-6 text-2xl font-light tracking-tight text-[#F9FAFB]">Resumen Ejecutivo</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Primary: System Power */}
+        <div className="col-span-2 rounded-2xl border border-white/5 bg-white/5 p-6">
+          <p className="text-sm text-[#9CA3AF] flex items-center gap-2">
+            <Zap className="h-4 w-4 text-[#BFFF00]" />
+            Potencia Instalada
+          </p>
+          <h3 className="mt-3 text-5xl font-bold tabular-nums text-white">
+            {r.kwp.toLocaleString('es-CO', { maximumFractionDigits: 1 })}
+            <span className="ml-1 text-2xl text-[#9CA3AF]">kWp</span>
+          </h3>
+          <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4">
+            <span className="text-xs text-[#9CA3AF]">{r.potencia_panel_w}W por panel</span>
+            <span className="rounded bg-white/10 px-2 py-1 text-xs text-[#F9FAFB]">
+              {r.numero_paneles} Módulos
+            </span>
+          </div>
+        </div>
+
+        {/* Monthly Generation */}
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <Sun className="h-4 w-4 text-[#BFFF00]" />
+            <p className="text-xs text-[#9CA3AF]">Generación Mensual</p>
+          </div>
+          <p className="text-2xl font-semibold tabular-nums text-white">
+            {formatNumber(generacionMensual)} <span className="text-sm text-[#9CA3AF]">kWh</span>
+          </p>
+          {cobertura > 0 && (
+            <p className="mt-2 text-xs text-emerald-400">
+              Cubre {cobertura}% del consumo
+            </p>
+          )}
+        </div>
+
+        {/* Annual Savings */}
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="h-4 w-4 text-[#BFFF00]" />
+            <p className="text-xs text-[#9CA3AF]">Ahorro Anual</p>
+          </div>
+          <p className="text-2xl font-semibold tabular-nums text-white">
+            {formatCOP(r.ahorro_anual_cop)}
+          </p>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            {formatCOP(r.ahorro_mensual_cop)}/mes
+          </p>
+        </div>
+
+        {/* Payback */}
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-[#BFFF00]" />
+            <p className="text-xs text-[#9CA3AF]">Retorno de Inversión</p>
+          </div>
+          <p className="text-2xl font-semibold tabular-nums text-white">
+            {r.payback_anios.toFixed(1)} <span className="text-sm text-[#9CA3AF]">Años</span>
+          </p>
+          <p className="mt-2 text-xs text-[#BFFF00]">
+            TIR: {r.tir.toFixed(1)}%
+          </p>
+        </div>
+
+        {/* CO2 */}
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <TreePine className="h-4 w-4 text-[#BFFF00]" />
+            <p className="text-xs text-[#9CA3AF]">CO₂ Evitado</p>
+          </div>
+          <p className="text-2xl font-semibold tabular-nums text-white">
+            {r.carbon.annual_co2_avoided_tons.toFixed(1)} <span className="text-sm text-[#9CA3AF]">Ton/Año</span>
+          </p>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            ≈ {Math.round(r.carbon.trees_saved_per_year)} árboles
+          </p>
+        </div>
       </div>
     </section>
   )

@@ -6,6 +6,7 @@ import { VirtualHeader } from './virtual-header'
 import { VirtualFooter } from './virtual-footer'
 import { ExecutiveSummary } from './executive-summary'
 import { SystemDesignSection } from './system-design-section'
+import { PricingTable } from './pricing-table'
 import { FinancialSection } from './financial-section'
 import { ProjectDetailsSection } from './project-details-section'
 import { CallToAction } from './call-to-action'
@@ -25,8 +26,7 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
 
   const [overrides, setOverrides] = useState({
     costoKwh: baseInput.costoKwh,
-    factorSeguridad: proposal.technical.factor_seguridad,
-    indexRate: baseInput.indexRate,
+    consumoMensualKwh: baseInput.consumoMensualKwh,
   })
 
   const baseResults = proposal.results!
@@ -35,8 +35,7 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
     const input = {
       ...baseInput,
       costoKwh: overrides.costoKwh,
-      factorSeguridad: overrides.factorSeguridad,
-      indexRate: overrides.indexRate,
+      consumoMensualKwh: overrides.consumoMensualKwh,
     }
     return cotizacion(input)
   }, [baseInput, overrides])
@@ -44,9 +43,10 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
   return (
     <>
       <VirtualHeader proposal={proposal} />
-      <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
-        <ExecutiveSummary results={whatIfResults} />
+      <main className="mx-auto max-w-6xl space-y-12 px-6 py-8">
+        <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
+        <PricingTable results={whatIfResults} />
         <FinancialSection
           baseResults={baseResults}
           whatIfResults={whatIfResults}

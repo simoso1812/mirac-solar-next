@@ -9,8 +9,7 @@ import type { CalculationResults } from '@/lib/types'
 
 interface WhatIfOverrides {
   costoKwh: number
-  factorSeguridad: number
-  indexRate: number
+  consumoMensualKwh: number
 }
 
 interface FinancialSectionProps {
@@ -45,7 +44,6 @@ function RangeSlider({
 }
 
 export function FinancialSection({
-  baseResults,
   whatIfResults,
   overrides,
   onOverridesChange,
@@ -64,7 +62,7 @@ export function FinancialSection({
     { label: 'Inversión Total', value: formatCOP(r.costo_total_cop) },
     { label: 'Ahorro Anual', value: formatCOP(r.ahorro_anual_cop) },
     { label: 'Payback', value: `${r.payback_anios.toFixed(1)} años` },
-    { label: 'TIR', value: `${r.tir.toFixed(1)}%` },
+    { label: 'TIR', value: `${r.tir.toFixed(1)}%`, highlight: true },
     { label: 'VPN', value: formatCOP(r.vpn, false) },
     { label: 'ROI', value: `${r.roi_porcentaje.toFixed(0)}%` },
   ]
@@ -93,22 +91,24 @@ export function FinancialSection({
           box-shadow: 0 0 0 3px rgba(191,255,0,0.2);
         }
       `}</style>
-      <h2 className="mb-4 text-xl font-bold text-[#F9FAFB]">Análisis Financiero</h2>
-      <div className="grid gap-4 lg:grid-cols-5">
+      <h2 className="mb-2 flex items-center gap-3 text-2xl font-semibold tracking-tight text-[#F9FAFB]">
+        Simulador Financiero
+      </h2>
+      <p className="mb-6 text-sm text-[#9CA3AF]">
+        Ajuste las variables para proyectar el impacto financiero.
+      </p>
+      <div className="grid gap-4 lg:grid-cols-5 rounded-3xl border border-white/10 bg-white/[0.02] p-2 lg:p-6">
         {/* What-if sliders */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-5 lg:col-span-2">
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 lg:col-span-2">
           <h3 className="mb-4 text-sm font-medium text-[#BFFF00]">
             Calculadora What-If
           </h3>
-          <p className="mb-5 text-xs text-[#9CA3AF]">
-            Ajusta los parámetros para ver cómo cambian los resultados financieros en tiempo real.
-          </p>
           <div className="space-y-6">
             {/* Tarifa */}
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <label htmlFor="slider-tarifa" className="text-sm text-[#9CA3AF]">Tarifa energía</label>
-                <span className="text-sm font-bold text-[#BFFF00]">
+                <span className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm font-bold tabular-nums text-[#BFFF00]">
                   ${overrides.costoKwh} COP/kWh
                 </span>
               </div>
@@ -126,47 +126,25 @@ export function FinancialSection({
               </div>
             </div>
 
-            {/* Factor seguridad */}
+            {/* Consumo mensual */}
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="slider-factor" className="text-sm text-[#9CA3AF]">Factor de seguridad</label>
-                <span className="text-sm font-bold text-[#BFFF00]">
-                  {overrides.factorSeguridad.toFixed(2)}
+                <label htmlFor="slider-consumo" className="text-sm text-[#9CA3AF]">Consumo mensual</label>
+                <span className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm font-bold tabular-nums text-[#F9FAFB]">
+                  {overrides.consumoMensualKwh.toLocaleString('es-CO')} kWh
                 </span>
               </div>
               <RangeSlider
-                id="slider-factor"
-                min={0.8}
-                max={1.5}
-                step={0.05}
-                value={overrides.factorSeguridad}
-                onChange={(v) => onOverridesChange({ ...overrides, factorSeguridad: v })}
+                id="slider-consumo"
+                min={50}
+                max={Math.max(overrides.consumoMensualKwh * 2, 2000)}
+                step={50}
+                value={overrides.consumoMensualKwh}
+                onChange={(v) => onOverridesChange({ ...overrides, consumoMensualKwh: v })}
               />
               <div className="mt-1 flex justify-between text-[10px] text-[#9CA3AF]/60">
-                <span>0.80</span>
-                <span>1.50</span>
-              </div>
-            </div>
-
-            {/* Incremento anual */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="slider-index" className="text-sm text-[#9CA3AF]">Incremento anual tarifa</label>
-                <span className="text-sm font-bold text-[#BFFF00]">
-                  {(overrides.indexRate * 100).toFixed(1)}%
-                </span>
-              </div>
-              <RangeSlider
-                id="slider-index"
-                min={2}
-                max={12}
-                step={0.5}
-                value={overrides.indexRate * 100}
-                onChange={(v) => onOverridesChange({ ...overrides, indexRate: v / 100 })}
-              />
-              <div className="mt-1 flex justify-between text-[10px] text-[#9CA3AF]/60">
-                <span>2%</span>
-                <span>12%</span>
+                <span>50 kWh</span>
+                <span>{Math.max(overrides.consumoMensualKwh * 2, 2000).toLocaleString('es-CO')} kWh</span>
               </div>
             </div>
           </div>
@@ -176,19 +154,21 @@ export function FinancialSection({
             {financialMetrics.map((m) => (
               <div key={m.label} className="flex items-center justify-between">
                 <span className="text-sm text-[#9CA3AF]">{m.label}</span>
-                <span className="text-sm font-bold text-[#F9FAFB]">{m.value}</span>
+                <span className={`text-sm font-bold tabular-nums ${m.highlight ? 'text-[#BFFF00]' : 'text-[#F9FAFB]'}`}>
+                  {m.value}
+                </span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Cash flow chart */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-5 lg:col-span-3">
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-5 lg:col-span-3">
           <h3 className="mb-3 text-sm font-medium text-[#9CA3AF]">
             Flujo de Caja Acumulado (25 años)
           </h3>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={cashFlowData}>
                 <defs>
                   <linearGradient id="colorAcumulado" x1="0" y1="0" x2="0" y2="1">
