@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   FileText, Users, Zap, TrendingUp, Plus, ArrowRight,
 } from 'lucide-react'
+import { PriceEstimator } from '@/components/price-estimator'
 
 export default function DashboardPage() {
   const [hydrated, setHydrated] = useState(false)
@@ -121,8 +122,9 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Recent proposals */}
-      <Card>
+      {/* Recent proposals + Estimator */}
+      <div className="grid gap-6 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Propuestas Recientes</CardTitle>
           {totalProposals > 0 && (
@@ -166,6 +168,8 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      <PriceEstimator />
+      </div>
     </div>
   )
 }

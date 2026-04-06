@@ -2,7 +2,7 @@
  * Main calculation orchestrator — ported from cotizacion()
  */
 import { HSP_MENSUAL_POR_CIUDAD, DEFAULT_PARAMS, PROMEDIOS_COSTO, DIAS_POR_MES, INVERTER_DATABASE } from '@/lib/constants'
-import { calcularCostoPorKwp } from './cost'
+import { estimatePrice } from './cost'
 import { recomendarInversor, redondearAPar } from './inverter'
 import { calcularPerformanceRatio, calcularFactorClipping } from './performance'
 import { pmt, npv, irr } from './financial'
@@ -144,11 +144,10 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   )
   const generacionAnualKwh = monthlyGenerationInit.reduce((a, b) => a + b, 0)
 
-  // Cost
-  const costoPorKwp = calcularCostoPorKwp(sizeKwp)
-  let costoFV = costoPorKwp * sizeKwp
+  // Cost (3-segment model: small/medium/large)
+  let costoFV = estimatePrice(sizeKwp)
   if (cubierta.trim().toUpperCase() === 'TEJA') {
-    costoFV *= DEFAULT_PARAMS.ajuste_cubierta_teja
+    costoFV = Math.ceil(costoFV * DEFAULT_PARAMS.ajuste_cubierta_teja)
   }
 
   // Battery cost
@@ -346,7 +345,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   }
 }
 
-export { calcularCostoPorKwp } from './cost'
+export { estimatePrice, estimatePricePerKwp, getFullEstimate, calcularCostoPorKwp } from './cost'
 export { recomendarInversor } from './inverter'
 export { calcularPerformanceRatio, calcularFactorClipping } from './performance'
 export { pmt, npv, irr } from './financial'
