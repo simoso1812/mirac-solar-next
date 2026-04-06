@@ -320,6 +320,13 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         <Image src={`${BG}/8.jpg`} style={styles.bg} />
       </Page>
 
+      {/* MEDIDOR BIDIRECCIONAL (conditional, before page 7) */}
+      {advanced.medidor_bidireccional && (
+        <Page size="A4" style={styles.page}>
+          <Image src={`${BG}/medidor_bidireccional.jpg`} style={styles.bg} />
+        </Page>
+      )}
+
       {/* 7. TÉRMINOS / COSTOS */}
       <Page size="A4" style={styles.page}>
         <Image src={`${BG}/9.jpg`} style={styles.bg} />

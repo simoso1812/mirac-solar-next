@@ -41,6 +41,7 @@ export interface AdvancedData {
   marca_inversor: string
   override_inversores: InverterOverride[] | null
   medidor_inteligente: boolean
+  medidor_bidireccional: boolean
   modo_conexion: ConnectionMode
   financiamiento: {
     habilitado: boolean

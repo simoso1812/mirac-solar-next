@@ -316,6 +316,21 @@ export function StepAdvanced() {
             />
           </div>
 
+          {/* Bidirectional meter */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="medidor_bidireccional">Medidor Bidireccional</Label>
+              <p className="text-xs text-muted-foreground">
+                Cambio de medidor con la empresa de energía (+{formatCOP(1_300_000)})
+              </p>
+            </div>
+            <Switch
+              id="medidor_bidireccional"
+              checked={watch('medidor_bidireccional')}
+              onCheckedChange={(checked) => setValue('medidor_bidireccional', checked)}
+            />
+          </div>
+
           <Separator />
 
           {/* ─── Financing ─── */}

@@ -56,6 +56,7 @@ const initialAdvancedData: AdvancedData = {
   marca_inversor: 'Automatico',
   override_inversores: null,
   medidor_inteligente: false,
+  medidor_bidireccional: false,
   modo_conexion: 'net_metering',
   financiamiento: {
     habilitado: false,

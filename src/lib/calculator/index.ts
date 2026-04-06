@@ -45,6 +45,7 @@ export interface CotizacionInput {
   marcaInversor: string // inverter brand
   overridePaneles: number | null // manual panel count override
   overrideInversores: { potencia_kw: number; cantidad: number }[] | null // manual inverter config
+  medidorBidireccional: boolean // adds 1.3M COP to project cost
 }
 
 /**
@@ -95,6 +96,7 @@ export function buildInputFromStore(
     marcaInversor: advanced.marca_inversor ?? 'Automatico',
     overridePaneles: technical.override_paneles,
     overrideInversores: advanced.override_inversores,
+    medidorBidireccional: advanced.medidor_bidireccional ?? false,
   }
 }
 
@@ -163,6 +165,9 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   }
 
   let valorProyectoTotal = Math.ceil(costoFV + costoBateria)
+  if (input.medidorBidireccional) {
+    valorProyectoTotal += 1_300_000
+  }
   if (precioManual !== null && precioManual > 0) {
     valorProyectoTotal = precioManual
   }
