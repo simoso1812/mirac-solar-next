@@ -13,7 +13,7 @@ import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { DriveSyncButton } from '@/components/drive-sync-button'
 import Link from 'next/link'
 import {
-  ArrowLeft, Copy, Trash2, DollarSign, Zap, Sun, TreePine,
+  ArrowLeft, Copy, Trash2, Pencil, DollarSign, Zap, Sun, TreePine,
   TrendingUp, Clock, BarChart3, User, MapPin, ExternalLink,
 } from 'lucide-react'
 import {
@@ -139,6 +139,9 @@ export default function PropuestaDetailPage({
           </Link>
           <PdfDownloadButton proposal={proposal} />
           <DriveSyncButton proposal={proposal} />
+          <Button variant="outline" size="sm" onClick={() => router.push(`/cotizacion?edit=${id}`)}>
+            <Pencil className="mr-1 h-3 w-3" /> Editar
+          </Button>
           <Button variant="outline" size="sm" onClick={handleDuplicate}>
             <Copy className="mr-1 h-3 w-3" /> Duplicar
           </Button>

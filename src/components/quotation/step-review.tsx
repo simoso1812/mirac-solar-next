@@ -40,7 +40,9 @@ export function StepReview() {
   const ciudadLabel = CIUDADES.find((c) => c.value === projectData.ciudad)?.label ?? projectData.ciudad
 
   const router = useRouter()
+  const editingId = useQuotationStore((s) => s.editingId)
   const addProposal = useProposalsStore((s) => s.addProposal)
+  const updateProposal = useProposalsStore((s) => s.updateProposal)
 
   const [isSaving, setIsSaving] = useState(false)
 
@@ -49,16 +51,23 @@ export function StepReview() {
     setIsSaving(true)
 
     setResults(results)
-    const id = addProposal({
+    const proposalData = {
       client: clientData,
       project: projectData,
       technical: technicalData,
       advanced: advancedData,
       results,
-    })
+    }
 
-    setIsSaving(false)
-    router.push(`/propuestas/${id}`)
+    if (editingId) {
+      updateProposal(editingId, proposalData)
+      setIsSaving(false)
+      router.push(`/propuestas/${editingId}`)
+    } else {
+      const id = addProposal(proposalData)
+      setIsSaving(false)
+      router.push(`/propuestas/${id}`)
+    }
   }
 
   if (!results) {
@@ -237,7 +246,7 @@ export function StepReview() {
         </Button>
         <Button onClick={handleSave} disabled={isSaving} className="bg-mirac-red hover:bg-mirac-red-dark">
           <Save className="mr-2 h-4 w-4" />
-          {isSaving ? 'Guardando...' : 'Guardar Propuesta'}
+          {isSaving ? 'Guardando...' : editingId ? 'Actualizar Propuesta' : 'Guardar Propuesta'}
         </Button>
       </div>
     </div>
