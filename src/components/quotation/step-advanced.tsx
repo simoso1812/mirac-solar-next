@@ -174,6 +174,17 @@ export function StepAdvanced() {
               id="marca_inversor"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               {...register('marca_inversor')}
+              onChange={(e) => {
+                register('marca_inversor').onChange(e)
+                const brand = e.target.value
+                if (brand === 'Automatico') {
+                  setValue('override_inversores', null)
+                } else {
+                  const db = INVERTER_DATABASE[brand]
+                  const defaultKw = db?.models[4]?.potencia_kw ?? db?.models[0]?.potencia_kw ?? 10
+                  setValue('override_inversores', [{ potencia_kw: defaultKw, cantidad: 1 }])
+                }
+              }}
             >
               {Object.entries(INVERTER_DATABASE).map(([key, brand]) => (
                 <option key={key} value={key}>
@@ -183,76 +194,69 @@ export function StepAdvanced() {
               ))}
             </select>
 
-            {/* Manual inverter toggle */}
-            <div className="flex items-center justify-between pt-1">
-              <Label htmlFor="override-inversor-toggle" className="text-sm">
-                Seleccionar inversores manualmente
-              </Label>
-              <Switch
-                id="override-inversor-toggle"
-                checked={watch('override_inversores') != null}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setValue('override_inversores', [{ potencia_kw: 10, cantidad: 1 }])
-                  } else {
-                    setValue('override_inversores', null)
-                  }
-                }}
-              />
-            </div>
-
-            {watch('override_inversores') != null && (() => {
+            {/* Manual inverter config — shown when brand is not Automatico */}
+            {marcaInversor !== 'Automatico' && watch('override_inversores') != null && (() => {
               const overrides = watch('override_inversores')!
-              const availableKw = brandInfo && brandInfo.models.length > 0
-                ? brandInfo.models.map((m) => m.potencia_kw)
+              const availableModels = brandInfo?.models ?? []
+              const availableKw = availableModels.length > 0
+                ? availableModels.map((m) => m.potencia_kw)
                 : [3, 5, 6, 8, 10, 20, 30, 40, 50, 100]
               const totalAcKw = overrides.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0)
 
               return (
                 <div className="space-y-2 rounded-lg border p-3">
-                  {overrides.map((inv, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <select
-                        className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
-                        value={inv.potencia_kw}
-                        onChange={(e) => {
-                          const updated = [...overrides]
-                          updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
-                          setValue('override_inversores', updated)
-                        }}
-                      >
-                        {availableKw.map((kw) => (
-                          <option key={kw} value={kw}>{kw} kW</option>
-                        ))}
-                      </select>
-                      <span className="text-sm text-muted-foreground">×</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={20}
-                        className="h-9 w-20"
-                        value={inv.cantidad}
-                        onChange={(e) => {
-                          const updated = [...overrides]
-                          updated[idx] = { ...updated[idx], cantidad: Math.max(1, parseInt(e.target.value) || 1) }
-                          setValue('override_inversores', updated)
-                        }}
-                      />
-                      {overrides.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-9 w-9 p-0"
-                          onClick={() => {
-                            setValue('override_inversores', overrides.filter((_, i) => i !== idx))
+                  <p className="text-xs text-muted-foreground mb-2">Configuración de inversores</p>
+                  {overrides.map((inv, idx) => {
+                    const model = availableModels.find((m) => m.potencia_kw === inv.potencia_kw)
+                    return (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                          value={inv.potencia_kw}
+                          onChange={(e) => {
+                            const updated = [...overrides]
+                            updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
+                            setValue('override_inversores', updated)
                           }}
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                          {availableKw.map((kw) => {
+                            const m = availableModels.find((mod) => mod.potencia_kw === kw)
+                            return (
+                              <option key={kw} value={kw}>
+                                {m ? `${m.modelo} (${kw}kW)` : `${kw} kW`}
+                              </option>
+                            )
+                          })}
+                        </select>
+                        <span className="text-sm text-muted-foreground">×</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={20}
+                          className="h-9 w-20"
+                          value={inv.cantidad}
+                          onChange={(e) => {
+                            const updated = [...overrides]
+                            updated[idx] = { ...updated[idx], cantidad: Math.max(1, parseInt(e.target.value) || 1) }
+                            setValue('override_inversores', updated)
+                          }}
+                        />
+                        {overrides.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 w-9 p-0"
+                            onClick={() => {
+                              setValue('override_inversores', overrides.filter((_, i) => i !== idx))
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
                   <div className="flex items-center justify-between pt-1">
                     <Button
                       type="button"
@@ -263,9 +267,9 @@ export function StepAdvanced() {
                       }}
                     >
                       <Plus className="mr-1 h-3.5 w-3.5" />
-                      Agregar
+                      Agregar Inversor
                     </Button>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       Total AC: {totalAcKw} kW
                     </span>
                   </div>
@@ -273,15 +277,11 @@ export function StepAdvanced() {
               )
             })()}
 
-            {/* Brand models info (only when not manual) */}
-            {watch('override_inversores') == null && brandInfo && brandInfo.models.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {brandInfo.models.map((m) => (
-                  <span key={m.modelo} className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                    {m.modelo} ({m.potencia_kw}kW)
-                  </span>
-                ))}
-              </div>
+            {/* Auto mode info */}
+            {marcaInversor === 'Automatico' && (
+              <p className="text-xs text-muted-foreground">
+                El sistema seleccionará automáticamente la mejor combinación de inversores Huawei.
+              </p>
             )}
           </div>
 
