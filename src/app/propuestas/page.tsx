@@ -15,11 +15,31 @@ import {
 } from '@/components/ui/table'
 import {
   FolderOpen, Plus, Search, ArrowUpDown, LayoutGrid, List,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import type { QuotationData } from '@/lib/types'
 
 type SortKey = 'date' | 'client' | 'kwp' | 'cost'
 type ViewMode = 'table' | 'cards'
+
+/** Group proposals by client name */
+interface ClientGroup {
+  clientName: string
+  proposals: QuotationData[]
+}
+
+function groupByClient(proposals: QuotationData[]): ClientGroup[] {
+  const map = new Map<string, QuotationData[]>()
+  for (const p of proposals) {
+    const key = p.client.nombre.toLowerCase()
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(p)
+  }
+  return Array.from(map.entries()).map(([, props]) => ({
+    clientName: props[0].client.nombre,
+    proposals: props,
+  }))
+}
 
 export default function PropuestasPage() {
   const hydrated = useHydrated()
@@ -30,11 +50,12 @@ export default function PropuestasPage() {
   const [sortBy, setSortBy] = useState<SortKey>('date')
   const [sortAsc, setSortAsc] = useState(false)
   const [view, setView] = useState<ViewMode>('table')
+  // Track active version index per client group
+  const [activeVersions, setActiveVersions] = useState<Record<string, number>>({})
 
   const filtered = useMemo(() => {
     let result = [...proposals]
 
-    // Search
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(
@@ -45,12 +66,10 @@ export default function PropuestasPage() {
       )
     }
 
-    // Status filter
     if (statusFilter !== 'all') {
       result = result.filter((p) => p.status === statusFilter)
     }
 
-    // Sort
     result.sort((a, b) => {
       let cmp = 0
       switch (sortBy) {
@@ -73,9 +92,22 @@ export default function PropuestasPage() {
     return result
   }, [proposals, search, statusFilter, sortBy, sortAsc])
 
+  const groups = useMemo(() => groupByClient(filtered), [filtered])
+
   const toggleSort = (key: SortKey) => {
     if (sortBy === key) setSortAsc(!sortAsc)
     else { setSortBy(key); setSortAsc(false) }
+  }
+
+  const getActiveIndex = (clientName: string, total: number) => {
+    const key = clientName.toLowerCase()
+    const idx = activeVersions[key] ?? 0
+    return Math.min(idx, total - 1)
+  }
+
+  const setActiveIndex = (clientName: string, index: number) => {
+    const key = clientName.toLowerCase()
+    setActiveVersions((prev) => ({ ...prev, [key]: index }))
   }
 
   return (
@@ -163,32 +195,70 @@ export default function PropuestasPage() {
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('date')}>
                   Fecha <ArrowUpDown className="inline h-3 w-3" />
                 </TableHead>
+                <TableHead className="w-[100px]">Versión</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer" onClick={() => window.location.href = `/propuestas/${p.id}`}>
-                  <TableCell className="font-medium">{p.client.nombre}</TableCell>
-                  <TableCell>{CIUDADES.find((c) => c.value === p.project.ciudad)?.label ?? p.project.ciudad}</TableCell>
-                  <TableCell>{formatKWp(p.results?.kwp ?? 0)}</TableCell>
-                  <TableCell>{formatCOP(p.results?.costo_total_cop ?? 0)}</TableCell>
-                  <TableCell><StatusBadge status={p.status} /></TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(p.created_at).toLocaleDateString('es-CO')}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {groups.map((group) => {
+                const idx = getActiveIndex(group.clientName, group.proposals.length)
+                const p = group.proposals[idx]
+                const hasVersions = group.proposals.length > 1
+                return (
+                  <TableRow key={group.clientName} className="cursor-pointer" onClick={() => window.location.href = `/propuestas/${p.id}`}>
+                    <TableCell className="font-medium">
+                      {p.client.nombre}
+                    </TableCell>
+                    <TableCell>{CIUDADES.find((c) => c.value === p.project.ciudad)?.label ?? p.project.ciudad}</TableCell>
+                    <TableCell>{formatKWp(p.results?.kwp ?? 0)}</TableCell>
+                    <TableCell>{formatCOP(p.results?.costo_total_cop ?? 0)}</TableCell>
+                    <TableCell><StatusBadge status={p.status} /></TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(p.created_at).toLocaleDateString('es-CO')}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {hasVersions ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="rounded p-0.5 hover:bg-accent disabled:opacity-30"
+                            disabled={idx === 0}
+                            onClick={() => setActiveIndex(group.clientName, idx - 1)}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <span className="text-xs tabular-nums min-w-[2.5rem] text-center">
+                            {idx + 1}/{group.proposals.length}
+                          </span>
+                          <button
+                            className="rounded p-0.5 hover:bg-accent disabled:opacity-30"
+                            disabled={idx === group.proposals.length - 1}
+                            onClick={() => setActiveIndex(group.clientName, idx + 1)}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">1/1</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
-            <Link key={p.id} href={`/propuestas/${p.id}`}>
-              <Card className="cursor-pointer transition-shadow hover:shadow-md">
+          {groups.map((group) => {
+            const idx = getActiveIndex(group.clientName, group.proposals.length)
+            const p = group.proposals[idx]
+            const hasVersions = group.proposals.length > 1
+            return (
+              <Card key={group.clientName} className="transition-shadow hover:shadow-md">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-base">{p.client.nombre}</CardTitle>
+                    <Link href={`/propuestas/${p.id}`}>
+                      <CardTitle className="text-base cursor-pointer hover:underline">{p.client.nombre}</CardTitle>
+                    </Link>
                     <StatusBadge status={p.status} />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -196,28 +266,61 @@ export default function PropuestasPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Potencia</p>
-                      <p className="font-semibold">{formatKWp(p.results?.kwp ?? 0)}</p>
+                  <Link href={`/propuestas/${p.id}`}>
+                    <div className="grid grid-cols-2 gap-2 text-sm cursor-pointer">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Potencia</p>
+                        <p className="font-semibold">{formatKWp(p.results?.kwp ?? 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Inversión</p>
+                        <p className="font-semibold">{formatCOP(p.results?.costo_total_cop ?? 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">TIR</p>
+                        <p className="font-semibold">{(p.results?.tir ?? 0).toFixed(1)}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Payback</p>
+                        <p className="font-semibold">{(p.results?.payback_anios ?? 0).toFixed(1)} años</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Inversión</p>
-                      <p className="font-semibold">{formatCOP(p.results?.costo_total_cop ?? 0)}</p>
+                  </Link>
+
+                  {/* Version slider */}
+                  {hasVersions && (
+                    <div className="mt-3 flex items-center justify-between border-t pt-3">
+                      <button
+                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
+                        disabled={idx === 0}
+                        onClick={() => setActiveIndex(group.clientName, idx - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <div className="flex gap-1.5">
+                        {group.proposals.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveIndex(group.clientName, i)}
+                            className={`h-2 rounded-full transition-all ${
+                              i === idx ? 'w-5 bg-mirac-red' : 'w-2 bg-muted-foreground/30'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        className="rounded p-1 hover:bg-accent disabled:opacity-30"
+                        disabled={idx === group.proposals.length - 1}
+                        onClick={() => setActiveIndex(group.clientName, idx + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">TIR</p>
-                      <p className="font-semibold">{(p.results?.tir ?? 0).toFixed(1)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Payback</p>
-                      <p className="font-semibold">{(p.results?.payback_anios ?? 0).toFixed(1)} años</p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
