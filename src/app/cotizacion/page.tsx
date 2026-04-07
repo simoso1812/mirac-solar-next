@@ -22,13 +22,16 @@ function CotizacionContent() {
   const setAdvancedData = useQuotationStore((s) => s.setAdvancedData)
   const getProposal = useProposalsStore((s) => s.getProposal)
 
-  const hasInitialized = useRef(false)
+  const [wizardKey, setWizardKey] = useState(0)
+  const [ready, setReady] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [billScanKey, setBillScanKey] = useState(0)
+  const lastEditId = useRef<string | null>(null)
 
   useEffect(() => {
-    if (hasInitialized.current) return
-    hasInitialized.current = true
+    // Skip if we already initialized for this same editId
+    if (lastEditId.current === (editId ?? '__new__')) return
+    lastEditId.current = editId ?? '__new__'
 
     if (editId) {
       const proposal = getProposal(editId)
@@ -38,6 +41,9 @@ function CotizacionContent() {
     } else {
       reset()
     }
+    // Bump key to force remount wizard (so useForm picks up new defaultValues)
+    setWizardKey((k) => k + 1)
+    setReady(true)
   }, [editId, getProposal, loadProposal, reset])
 
   const handleBillData = useCallback((data: ExtractedBillData) => {
@@ -64,6 +70,14 @@ function CotizacionContent() {
     setBillScanKey((k) => k + 1)
   }, [setClientData, setTechnicalData, setAdvancedData])
 
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-mirac-red border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -76,7 +90,7 @@ function CotizacionContent() {
         </Button>
       </div>
 
-      <QuotationWizard key={billScanKey} />
+      <QuotationWizard key={`${wizardKey}-${billScanKey}`} />
 
       <ScanBillDialog
         open={scannerOpen}
