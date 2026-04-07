@@ -18,16 +18,17 @@ import {
 
 export default function CargadoresPage() {
   const [distancia, setDistancia] = useState<number>(10)
-  const [precioManual, setPrecioManual] = useState<string>('')
+  const [precioTotal, setPrecioTotal] = useState<string>('')
   const [clienteNombre, setClienteNombre] = useState('')
   const [showResults, setShowResults] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const costos = useMemo(() => {
     if (!showResults) return null
-    const manual = precioManual ? parseFloat(precioManual) : null
-    return cotizacionCargadoresCostos(distancia, manual)
-  }, [distancia, precioManual, showResults])
+    const precio = parseFloat(precioTotal)
+    if (!precio || precio <= 0) return null
+    return cotizacionCargadoresCostos(precio)
+  }, [precioTotal, showResults])
 
   const materiales = useMemo(() => {
     if (!showResults) return []
@@ -84,18 +85,18 @@ export default function CargadoresPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="distancia">
-                <Ruler className="mr-1 inline h-3.5 w-3.5" />
-                Distancia del cableado (metros)
+              <Label htmlFor="precio_total">
+                <DollarSign className="mr-1 inline h-3.5 w-3.5" />
+                Precio Total (COP, IVA incluido)
               </Label>
               <Input
-                id="distancia"
+                id="precio_total"
                 type="number"
                 min={1}
-                max={200}
-                value={distancia}
+                placeholder="Ingrese el precio total del proyecto"
+                value={precioTotal}
                 onChange={(e) => {
-                  setDistancia(Number(e.target.value))
+                  setPrecioTotal(e.target.value)
                   setShowResults(false)
                 }}
               />
@@ -103,20 +104,31 @@ export default function CargadoresPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="precio_manual">Precio manual (COP, opcional)</Label>
+            <Label htmlFor="distancia">
+              <Ruler className="mr-1 inline h-3.5 w-3.5" />
+              Distancia del cableado (metros)
+            </Label>
             <Input
-              id="precio_manual"
+              id="distancia"
               type="number"
-              placeholder="Dejar vacío para cálculo automático"
-              value={precioManual}
+              min={1}
+              max={200}
+              value={distancia}
               onChange={(e) => {
-                setPrecioManual(e.target.value)
+                setDistancia(Number(e.target.value))
                 setShowResults(false)
               }}
             />
+            <p className="text-xs text-muted-foreground">
+              Se usa para estimar la lista de materiales
+            </p>
           </div>
 
-          <Button onClick={handleCalculate} className="bg-mirac-red hover:bg-mirac-red-dark">
+          <Button
+            onClick={handleCalculate}
+            disabled={!precioTotal || parseFloat(precioTotal) <= 0}
+            className="bg-mirac-red hover:bg-mirac-red-dark"
+          >
             <Calculator className="mr-2 h-4 w-4" />
             Calcular Cotización
           </Button>
@@ -139,13 +151,10 @@ export default function CargadoresPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <CostRow label="Costo Base" value={costos.costoBase} />
-                <CostRow label="AIU (20%)" value={costos.aiu} />
-                <Separator />
                 <CostRow label="Diseño (35%)" value={costos.diseno} />
                 <CostRow label="Materiales (65%)" value={costos.materiales} />
                 <Separator />
-                <CostRow label="Subtotal (Base + AIU)" value={costos.subtotalAntesIva} />
+                <CostRow label="Subtotal" value={costos.subtotalAntesIva} />
                 <CostRow label="IVA (19%)" value={costos.iva} />
                 <Separator />
                 <div className="flex items-center justify-between">

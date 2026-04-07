@@ -1,10 +1,9 @@
 /**
- * EV Charger cost calculation — ported from chargers.py
+ * EV Charger cost calculation
+ * Takes a final price (IVA included) and back-calculates the breakdown.
  */
 
 export interface ChargerCostBreakdown {
-  costoBase: number
-  aiu: number
   subtotalAntesIva: number
   iva: number
   diseno: number
@@ -13,46 +12,21 @@ export interface ChargerCostBreakdown {
 }
 
 /**
- * Calculate charger installation costs based on cable distance
- * Formula: base = (63640 * distance + 857195) * 1.1
- * Then: +20% AIU, +19% IVA
+ * Calculate charger cost breakdown from a total price (IVA included).
+ * Subtotal = total / 1.19, IVA = total - subtotal
  */
-export function cotizacionCargadoresCostos(
-  distanciaMetros: number,
-  precioManual?: number | null
-): ChargerCostBreakdown {
-  let costoBase: number
-  let subtotalAntesIva: number
-  let iva: number
-  let costoTotal: number
-
-  if (precioManual && precioManual > 0) {
-    // Reverse calculation from total
-    costoTotal = precioManual
-    subtotalAntesIva = costoTotal / 1.19
-    iva = subtotalAntesIva * 0.19
-    costoBase = subtotalAntesIva / 1.20
-  } else {
-    // Normal calculation from distance
-    costoBase = (63640 * distanciaMetros + 857195) * 1.1
-    const primaAiu = costoBase * 0.20
-    subtotalAntesIva = costoBase + primaAiu
-    iva = subtotalAntesIva * 0.19
-    costoTotal = subtotalAntesIva + iva
-  }
-
+export function cotizacionCargadoresCostos(precioTotal: number): ChargerCostBreakdown {
+  const subtotalAntesIva = precioTotal / 1.19
+  const iva = precioTotal - subtotalAntesIva
   const diseno = 0.35 * subtotalAntesIva
   const materiales = 0.65 * subtotalAntesIva
-  const aiu = subtotalAntesIva - costoBase
 
   return {
-    costoBase: Math.ceil(costoBase),
-    aiu: Math.ceil(aiu),
     subtotalAntesIva: Math.ceil(subtotalAntesIva),
     iva: Math.ceil(iva),
     diseno: Math.ceil(diseno),
     materiales: Math.ceil(materiales),
-    costoTotal: Math.ceil(costoTotal),
+    costoTotal: Math.ceil(precioTotal),
   }
 }
 
