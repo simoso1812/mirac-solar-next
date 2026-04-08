@@ -147,8 +147,8 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
 
-  const costoSinIVA = r.costo_total_cop * (1 - PROMEDIOS_COSTO.iva / 100)
-  const valorIVA = r.costo_total_cop * (PROMEDIOS_COSTO.iva / 100)
+  const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
+  const valorIVA = r.costo_total_cop - costoSinIVA
   const omAnual = r.costo_total_cop * 0.02
 
   const usaFinanciamiento = advanced.financiamiento.habilitado

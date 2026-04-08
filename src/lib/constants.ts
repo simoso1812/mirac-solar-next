@@ -40,7 +40,7 @@ export const CIUDADES = [
 export const PROMEDIOS_COSTO = {
   equipos: 24.33,
   materiales: 16.67,
-  iva: 6.28,
+  iva_rate: 0.05, // 5% IVA on top of subtotal
   margen: 16.38,
 }
 

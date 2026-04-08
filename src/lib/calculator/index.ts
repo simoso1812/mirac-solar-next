@@ -270,7 +270,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const desgloseCostos = {
     equipos: Math.ceil(valorProyectoTotal * PROMEDIOS_COSTO.equipos / 100),
     materiales: Math.ceil(valorProyectoTotal * PROMEDIOS_COSTO.materiales / 100),
-    iva: Math.ceil(valorProyectoTotal * PROMEDIOS_COSTO.iva / 100),
+    iva: Math.ceil(valorProyectoTotal - valorProyectoTotal / (1 + PROMEDIOS_COSTO.iva_rate)),
     margen: Math.ceil(valorProyectoTotal * PROMEDIOS_COSTO.margen / 100),
   }
 

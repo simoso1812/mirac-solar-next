@@ -9,8 +9,8 @@ interface PricingTableProps {
 }
 
 export function PricingTable({ results: r }: PricingTableProps) {
-  const costoSinIVA = r.costo_total_cop * (1 - PROMEDIOS_COSTO.iva / 100)
-  const valorIVA = r.costo_total_cop * (PROMEDIOS_COSTO.iva / 100)
+  const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
+  const valorIVA = r.costo_total_cop - costoSinIVA
   const omAnual = r.costo_total_cop * 0.02
 
   return (
