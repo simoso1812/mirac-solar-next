@@ -9,7 +9,9 @@ import type { CalculationResults } from '@/lib/types'
 
 interface WhatIfOverrides {
   costoKwh: number
-  consumoMensualKwh: number
+  incluirDeduccionRenta: boolean
+  incluirDepreciacionAcelerada: boolean
+  horizonteAnios: number
 }
 
 interface FinancialSectionProps {
@@ -43,6 +45,38 @@ function RangeSlider({
   )
 }
 
+function Toggle({
+  checked, onChange, label, description,
+}: {
+  checked: boolean; onChange: (v: boolean) => void; label: string; description: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06] w-full"
+    >
+      <div
+        className={`mt-0.5 flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+          checked ? 'bg-[#BFFF00]' : 'bg-white/20'
+        }`}
+      >
+        <div
+          className={`h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
+          }`}
+        />
+      </div>
+      <div className="min-w-0">
+        <p className={`text-sm font-medium ${checked ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'}`}>
+          {label}
+        </p>
+        <p className="text-xs text-[#9CA3AF]/70 mt-0.5">{description}</p>
+      </div>
+    </button>
+  )
+}
+
 export function FinancialSection({
   whatIfResults,
   overrides,
@@ -51,7 +85,7 @@ export function FinancialSection({
   const r = whatIfResults
 
   const cashFlowData = r.flujo_caja
-    .filter((row) => row.anio > 0 && row.anio <= 25)
+    .filter((row) => row.anio > 0 && row.anio <= overrides.horizonteAnios)
     .map((row) => ({
       anio: row.anio,
       acumulado: Math.round(row.flujo_acumulado_cop),
@@ -98,12 +132,12 @@ export function FinancialSection({
         Ajuste las variables para proyectar el impacto financiero.
       </p>
       <div className="grid gap-4 lg:grid-cols-5 rounded-3xl border border-white/10 bg-white/[0.02] p-2 lg:p-6">
-        {/* What-if sliders */}
+        {/* What-if controls */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 lg:col-span-2">
           <h3 className="mb-4 text-sm font-medium text-[#BFFF00]">
             Calculadora What-If
           </h3>
-          <div className="space-y-6">
+          <div className="space-y-5">
             {/* Tarifa */}
             <div>
               <div className="mb-2 flex items-center justify-between">
@@ -126,25 +160,46 @@ export function FinancialSection({
               </div>
             </div>
 
-            {/* Consumo mensual */}
+            {/* Horizonte */}
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="slider-consumo" className="text-sm text-[#9CA3AF]">Consumo mensual</label>
+                <label htmlFor="slider-horizonte" className="text-sm text-[#9CA3AF]">Horizonte de evaluación</label>
                 <span className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm font-bold tabular-nums text-[#F9FAFB]">
-                  {overrides.consumoMensualKwh.toLocaleString('es-CO')} kWh
+                  {overrides.horizonteAnios} años
                 </span>
               </div>
               <RangeSlider
-                id="slider-consumo"
-                min={50}
-                max={Math.max(overrides.consumoMensualKwh * 2, 2000)}
-                step={50}
-                value={overrides.consumoMensualKwh}
-                onChange={(v) => onOverridesChange({ ...overrides, consumoMensualKwh: v })}
+                id="slider-horizonte"
+                min={10}
+                max={40}
+                step={5}
+                value={overrides.horizonteAnios}
+                onChange={(v) => onOverridesChange({ ...overrides, horizonteAnios: v })}
               />
               <div className="mt-1 flex justify-between text-[10px] text-[#9CA3AF]/60">
-                <span>50 kWh</span>
-                <span>{Math.max(overrides.consumoMensualKwh * 2, 2000).toLocaleString('es-CO')} kWh</span>
+                <span>10 años</span>
+                <span>40 años</span>
+              </div>
+            </div>
+
+            {/* Beneficios Tributarios */}
+            <div className="border-t border-white/10 pt-4">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                Beneficios Tributarios
+              </h4>
+              <div className="space-y-2">
+                <Toggle
+                  checked={overrides.incluirDeduccionRenta}
+                  onChange={(v) => onOverridesChange({ ...overrides, incluirDeduccionRenta: v })}
+                  label="Deducción de Renta"
+                  description="17.5% del CAPEX deducible en año 1 (Ley 1715, Art. 11)"
+                />
+                <Toggle
+                  checked={overrides.incluirDepreciacionAcelerada}
+                  onChange={(v) => onOverridesChange({ ...overrides, incluirDepreciacionAcelerada: v })}
+                  label="Depreciación Acelerada"
+                  description="33% anual por 3 años (Ley 1715, Art. 14)"
+                />
               </div>
             </div>
           </div>
@@ -165,7 +220,7 @@ export function FinancialSection({
         {/* Cash flow chart */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 lg:col-span-3">
           <h3 className="mb-3 text-sm font-medium text-[#9CA3AF]">
-            Flujo de Caja Acumulado (25 años)
+            Flujo de Caja Acumulado ({overrides.horizonteAnios} años)
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -182,7 +237,7 @@ export function FinancialSection({
                   fontSize={11}
                   tick={{ fill: '#9CA3AF' }}
                   axisLine={{ stroke: '#374151' }}
-                  interval={4}
+                  interval={Math.max(1, Math.floor(overrides.horizonteAnios / 6) - 1)}
                 />
                 <YAxis
                   fontSize={11}

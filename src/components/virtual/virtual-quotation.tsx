@@ -26,7 +26,9 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
 
   const [overrides, setOverrides] = useState({
     costoKwh: baseInput.costoKwh,
-    consumoMensualKwh: baseInput.consumoMensualKwh,
+    incluirDeduccionRenta: baseInput.incluirDeduccionRenta,
+    incluirDepreciacionAcelerada: baseInput.incluirDepreciacionAcelerada,
+    horizonteAnios: baseInput.horizonteTiempo,
   })
 
   const baseResults = proposal.results!
@@ -35,7 +37,11 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
     const input = {
       ...baseInput,
       costoKwh: overrides.costoKwh,
-      consumoMensualKwh: overrides.consumoMensualKwh,
+      // Master gate must be true so individual toggles take effect
+      incluirBeneficiosTributarios: overrides.incluirDeduccionRenta || overrides.incluirDepreciacionAcelerada,
+      incluirDeduccionRenta: overrides.incluirDeduccionRenta,
+      incluirDepreciacionAcelerada: overrides.incluirDepreciacionAcelerada,
+      horizonteTiempo: overrides.horizonteAnios,
     }
     return cotizacion(input)
   }, [baseInput, overrides])
