@@ -5,9 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
-import { INVERTER_DATABASE, HSP_POR_CIUDAD, DEFAULT_PARAMS } from '@/lib/constants'
-import { getFullEstimate } from '@/lib/calculator/cost'
-import { redondearAPar } from '@/lib/calculator/inverter'
+import { INVERTER_DATABASE } from '@/lib/constants'
+import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { formatCOP } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,23 +46,17 @@ export function StepAdvanced() {
 
   const brandInfo = INVERTER_DATABASE[marcaInversor]
 
-  // Calculate estimated kWp and price from technical data
-  const estimatedKwp = useMemo(() => {
-    const consumo = technicalData.consumo_mensual_kwh
-    if (consumo <= 0) return 0
-    const hsp = HSP_POR_CIUDAD[projectData.ciudad] ?? 4.5
-    const eficiencia = DEFAULT_PARAMS.eficiencia_sistema_estimacion
-    const factorSeg = technicalData.factor_seguridad
-    const potenciaPanel = technicalData.potencia_panel_w / 1000
-    const kwpRaw = (consumo / (hsp * 30 * eficiencia)) * factorSeg
-    const paneles = technicalData.override_paneles ?? redondearAPar(Math.ceil(kwpRaw / potenciaPanel))
-    return paneles * potenciaPanel
-  }, [technicalData, projectData.ciudad])
-
-  const priceEstimate = useMemo(() => {
-    if (estimatedKwp <= 0) return null
-    return getFullEstimate(estimatedKwp)
-  }, [estimatedKwp])
+  // Run the real calculator to get the exact price that will appear on the quote
+  const formValues = watch()
+  const calcResults = useMemo(() => {
+    if (technicalData.consumo_mensual_kwh <= 0) return null
+    // Build advanced data from current form state (not yet submitted)
+    const currentAdvanced = { ...advancedData, ...formValues, precio_manual: null } as typeof advancedData
+    const input = buildInputFromStore(technicalData, projectData, currentAdvanced)
+    // Force no manual price so we see the calculated price
+    input.precioManual = null
+    return cotizacion(input)
+  }, [technicalData, projectData, advancedData, formValues])
 
   return (
     <Card>
@@ -476,24 +469,18 @@ export function StepAdvanced() {
               Si se especifica, reemplaza el cálculo automático del costo del proyecto.
             </p>
 
-            {/* Estimated price reference */}
-            {priceEstimate && (
+            {/* Estimated price reference — uses the real calculator */}
+            {calcResults && (
               <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-muted-foreground">Precio calculado ({priceEstimate.segmentLabel})</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Precio calculado</span>
                   <span className="font-mono text-xs text-muted-foreground">
-                    {estimatedKwp.toFixed(1)} kWp
+                    {calcResults.kwp.toFixed(1)} kWp · {formatCOP(calcResults.costo_por_kwp_cop)}/kWp
                   </span>
                 </div>
                 <p className="font-mono text-lg font-bold tabular-nums">
-                  {formatCOP(priceEstimate.price)}
+                  {formatCOP(calcResults.costo_total_cop)}
                 </p>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span className="font-mono tabular-nums">{formatCOP(priceEstimate.pricePerKwp)}/kWp</span>
-                  <span className="font-mono tabular-nums">
-                    Rango: {formatCOP(Math.ceil(priceEstimate.price * 0.85))} — {formatCOP(Math.ceil(priceEstimate.price * 1.15))}
-                  </span>
-                </div>
               </div>
             )}
           </div>
