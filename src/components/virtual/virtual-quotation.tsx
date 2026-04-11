@@ -7,7 +7,9 @@ import { VirtualFooter } from './virtual-footer'
 import { ExecutiveSummary } from './executive-summary'
 import { SystemDesignSection } from './system-design-section'
 import { PricingTable } from './pricing-table'
+import { BillSimulationSection } from './bill-simulation-section'
 import { FinancialSection } from './financial-section'
+import { CostComparisonSection } from './cost-comparison-section'
 import { ProjectDetailsSection } from './project-details-section'
 import { CallToAction } from './call-to-action'
 import type { QuotationData, SignatureData } from '@/lib/types'
@@ -53,11 +55,23 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
         <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
         <PricingTable results={whatIfResults} />
+        <BillSimulationSection
+          results={whatIfResults}
+          costoKwh={overrides.costoKwh}
+          consumoMensualKwh={baseInput.consumoMensualKwh}
+        />
         <FinancialSection
           baseResults={baseResults}
           whatIfResults={whatIfResults}
           overrides={overrides}
           onOverridesChange={setOverrides}
+        />
+        <CostComparisonSection
+          results={whatIfResults}
+          costoKwh={overrides.costoKwh}
+          consumoMensualKwh={baseInput.consumoMensualKwh}
+          indexRate={baseInput.indexRate}
+          horizonteAnios={overrides.horizonteAnios}
         />
         <ProjectDetailsSection proposal={proposal} />
         <CallToAction
