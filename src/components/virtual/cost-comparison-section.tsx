@@ -36,14 +36,13 @@ export function CostComparisonSection({
 
     data.push({
       anio: i,
-      sinSolar: Math.round(acumSinSolar),
+      sinSolar: Math.round(-acumSinSolar),
       conSolar: Math.round(acumConSolar),
     })
   }
 
   const totalSinSolar = data[data.length - 1]?.sinSolar ?? 0
   const totalConSolar = data[data.length - 1]?.conSolar ?? 0
-  const ahorroTotal = totalSinSolar - (results.costo_total_cop - totalConSolar)
 
   return (
     <section>
@@ -59,7 +58,7 @@ export function CostComparisonSection({
         <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-red-400">Sin Solar ({horizonteAnios} años)</p>
           <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-red-400">
-            {formatCOP(totalSinSolar)}
+            − {formatCOP(Math.abs(totalSinSolar))}
           </p>
           <p className="mt-1 text-xs text-[#9CA3AF]">Pagados en facturas de energía</p>
         </div>
