@@ -21,7 +21,7 @@ interface VirtualQuotationProps {
 }
 
 function NotesSection({ notas }: { notas: string }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
 
   return (
     <section>
