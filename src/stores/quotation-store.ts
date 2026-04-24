@@ -50,10 +50,14 @@ const initialTechnicalData: TechnicalData = {
   tipo_cubierta: 'metalica',
   clima: 'templado',
   override_paneles: null,
+  marca_panel: '',
+  modelo_panel: '',
 }
 
 const initialAdvancedData: AdvancedData = {
   marca_inversor: 'Automatico',
+  marca_inversor_custom: '',
+  modelo_inversor: '',
   override_inversores: null,
   medidor_inteligente: false,
   medidor_bidireccional: false,

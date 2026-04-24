@@ -21,9 +21,9 @@ export function VirtualHeader({ proposal }: VirtualHeaderProps) {
         <Image
           src="/assets/LogoBlanco.png"
           alt="Mirac Energy"
-          width={120}
-          height={40}
-          className="h-8 w-auto"
+          width={240}
+          height={80}
+          className="h-16 w-auto"
         />
         <div className="text-right">
           <h1 className="text-lg font-bold text-[#F9FAFB]">

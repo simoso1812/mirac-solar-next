@@ -28,6 +28,8 @@ export interface TechnicalData {
   tipo_cubierta: 'metalica' | 'teja' | 'losa'
   clima: 'templado' | 'calido' | 'frio'
   override_paneles: number | null
+  marca_panel: string
+  modelo_panel: string
 }
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'
@@ -39,6 +41,8 @@ export interface InverterOverride {
 
 export interface AdvancedData {
   marca_inversor: string
+  marca_inversor_custom: string
+  modelo_inversor: string
   override_inversores: InverterOverride[] | null
   medidor_inteligente: boolean
   medidor_bidireccional: boolean
@@ -114,6 +118,8 @@ export interface CalculationResults {
   numero_paneles: number
   potencia_panel_w: number
   potencia_total_kw: number
+  marca_panel: string
+  modelo_panel: string
 
   // Generation
   generacion_mensual_kwh: number[]

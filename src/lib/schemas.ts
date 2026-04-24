@@ -24,6 +24,8 @@ export const technicalSchema = z.object({
   tipo_cubierta: z.enum(['metalica', 'teja', 'losa']),
   clima: z.enum(['templado', 'calido', 'frio']),
   override_paneles: z.number().min(2, 'Mínimo 2 paneles').max(5000, 'Máximo 5000 paneles').nullable(),
+  marca_panel: z.string(),
+  modelo_panel: z.string(),
 })
 
 const inverterOverrideSchema = z.object({
@@ -33,6 +35,8 @@ const inverterOverrideSchema = z.object({
 
 export const advancedSchema = z.object({
   marca_inversor: z.string(),
+  marca_inversor_custom: z.string(),
+  modelo_inversor: z.string(),
   override_inversores: z.array(inverterOverrideSchema).nullable(),
   medidor_inteligente: z.boolean(),
   medidor_bidireccional: z.boolean(),

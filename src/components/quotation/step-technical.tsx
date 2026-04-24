@@ -91,6 +91,28 @@ export function StepTechnical() {
               )}
             </div>
 
+            {/* Panel brand */}
+            <div className="space-y-2">
+              <Label htmlFor="marca_panel">Marca del Panel (opcional)</Label>
+              <Input
+                id="marca_panel"
+                type="text"
+                placeholder="Ej: Jinko, Longi, Trina"
+                {...register('marca_panel')}
+              />
+            </div>
+
+            {/* Panel model */}
+            <div className="space-y-2">
+              <Label htmlFor="modelo_panel">Modelo del Panel (opcional)</Label>
+              <Input
+                id="modelo_panel"
+                type="text"
+                placeholder="Ej: Tiger Neo 615W"
+                {...register('modelo_panel')}
+              />
+            </div>
+
             {/* Safety factor */}
             <div className="space-y-2">
               <Label>Factor de Seguridad: {factorSeg?.toFixed(2) ?? '1.10'}</Label>

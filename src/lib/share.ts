@@ -9,7 +9,7 @@ import type { QuotationData } from '@/lib/types'
 interface SharePayload {
   c: { n: string; d: string; e: string; t: string; a: string }
   p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null }
-  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null }
+  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null; mp?: string; mo?: string }
   a: Record<string, unknown>
 }
 
@@ -34,7 +34,7 @@ function toPayload(proposal: QuotationData): SharePayload {
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
     p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: p.hsp_mensual_pvgis },
-    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles },
+    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel },
     a: a as unknown as Record<string, unknown>,
   }
 }
@@ -69,6 +69,8 @@ export function fromPayload(payload: SharePayload): QuotationData {
       tipo_cubierta: payload.t.tc as 'metalica' | 'teja' | 'losa',
       clima: payload.t.cl as 'templado' | 'calido' | 'frio',
       override_paneles: payload.t.op,
+      marca_panel: payload.t.mp ?? '',
+      modelo_panel: payload.t.mo ?? '',
     },
     advanced: payload.a as unknown as QuotationData['advanced'],
     results: null,

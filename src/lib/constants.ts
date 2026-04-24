@@ -236,6 +236,12 @@ export const INVERTER_DATABASE: Record<string, InverterBrand> = {
       { modelo: 'HMS-2000-4T', potencia_kw: 2 },
     ],
   },
+  Otro: {
+    label: 'Otro (Personalizado)',
+    flag: '',
+    type: 'Manual',
+    models: [],
+  },
 } as const
 
 // Days per month

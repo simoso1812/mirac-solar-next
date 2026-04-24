@@ -193,10 +193,14 @@ export function StepAdvanced() {
                 const brand = e.target.value
                 if (brand === 'Automatico') {
                   setValue('override_inversores', null)
+                  setValue('modelo_inversor', '')
+                } else if (brand === 'Otro') {
+                  setValue('override_inversores', [{ potencia_kw: 10, cantidad: 1 }])
                 } else {
                   const db = INVERTER_DATABASE[brand]
                   const defaultKw = db?.models[4]?.potencia_kw ?? db?.models[0]?.potencia_kw ?? 10
                   setValue('override_inversores', [{ potencia_kw: defaultKw, cantidad: 1 }])
+                  setValue('modelo_inversor', '')
                 }
               }}
             >
@@ -208,10 +212,35 @@ export function StepAdvanced() {
               ))}
             </select>
 
+            {/* Custom brand/model text fields — shown when brand is Otro */}
+            {marcaInversor === 'Otro' && (
+              <div className="grid gap-3 sm:grid-cols-2 rounded-lg border p-3">
+                <div className="space-y-2">
+                  <Label htmlFor="marca_inversor_custom" className="text-xs">Nombre de Marca</Label>
+                  <Input
+                    id="marca_inversor_custom"
+                    type="text"
+                    placeholder="Ej: SMA, Fronius, GoodWe"
+                    {...register('marca_inversor_custom')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modelo_inversor_custom" className="text-xs">Modelo</Label>
+                  <Input
+                    id="modelo_inversor_custom"
+                    type="text"
+                    placeholder="Ej: Sunny Tripower 25000TL"
+                    {...register('modelo_inversor')}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Manual inverter config — shown when brand is not Automatico */}
             {marcaInversor !== 'Automatico' && watch('override_inversores') != null && (() => {
               const overrides = watch('override_inversores')!
               const availableModels = brandInfo?.models ?? []
+              const isCustomBrand = marcaInversor === 'Otro' || !brandInfo
               const availableKw = availableModels.length > 0
                 ? availableModels.map((m) => m.potencia_kw)
                 : [3, 5, 6, 8, 10, 20, 30, 40, 50, 100]
@@ -219,29 +248,50 @@ export function StepAdvanced() {
 
               return (
                 <div className="space-y-2 rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground mb-2">Configuración de inversores</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {isCustomBrand ? 'Potencia y cantidad de inversores' : 'Configuración de inversores'}
+                  </p>
                   {overrides.map((inv, idx) => {
                     const model = availableModels.find((m) => m.potencia_kw === inv.potencia_kw)
                     return (
                       <div key={idx} className="flex items-center gap-2">
-                        <select
-                          className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
-                          value={inv.potencia_kw}
-                          onChange={(e) => {
-                            const updated = [...overrides]
-                            updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
-                            setValue('override_inversores', updated)
-                          }}
-                        >
-                          {availableKw.map((kw) => {
-                            const m = availableModels.find((mod) => mod.potencia_kw === kw)
-                            return (
-                              <option key={kw} value={kw}>
-                                {m ? `${m.modelo} (${kw}kW)` : `${kw} kW`}
-                              </option>
-                            )
-                          })}
-                        </select>
+                        {isCustomBrand ? (
+                          <div className="flex flex-1 items-center gap-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={500}
+                              step={0.5}
+                              className="h-9"
+                              value={inv.potencia_kw}
+                              onChange={(e) => {
+                                const updated = [...overrides]
+                                updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) || 0 }
+                                setValue('override_inversores', updated)
+                              }}
+                            />
+                            <span className="text-sm text-muted-foreground">kW</span>
+                          </div>
+                        ) : (
+                          <select
+                            className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                            value={inv.potencia_kw}
+                            onChange={(e) => {
+                              const updated = [...overrides]
+                              updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
+                              setValue('override_inversores', updated)
+                            }}
+                          >
+                            {availableKw.map((kw) => {
+                              const m = availableModels.find((mod) => mod.potencia_kw === kw)
+                              return (
+                                <option key={kw} value={kw}>
+                                  {m ? `${m.modelo} (${kw}kW)` : `${kw} kW`}
+                                </option>
+                              )
+                            })}
+                          </select>
+                        )}
                         <span className="text-sm text-muted-foreground">×</span>
                         <Input
                           type="number"

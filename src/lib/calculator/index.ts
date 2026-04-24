@@ -43,6 +43,10 @@ export interface CotizacionInput {
   porcentajeMantenimiento: number // maintenance % of savings (e.g. 0.05)
   performanceRatioBase: number // base PR (e.g. 0.75)
   marcaInversor: string // inverter brand
+  marcaInversorCustom: string // custom brand name when marcaInversor === 'Otro'
+  modeloInversor: string // custom model name (applies when marcaInversor === 'Otro')
+  marcaPanel: string // free-text panel brand
+  modeloPanel: string // free-text panel model
   overridePaneles: number | null // manual panel count override
   overrideInversores: { potencia_kw: number; cantidad: number }[] | null // manual inverter config
   medidorBidireccional: boolean // adds 1.3M COP to project cost
@@ -94,6 +98,10 @@ export function buildInputFromStore(
     porcentajeMantenimiento: advanced.porcentaje_mantenimiento ?? 0.05,
     performanceRatioBase: advanced.performance_ratio_base ?? 0.75,
     marcaInversor: advanced.marca_inversor ?? 'Automatico',
+    marcaInversorCustom: advanced.marca_inversor_custom ?? '',
+    modeloInversor: advanced.modelo_inversor ?? '',
+    marcaPanel: technical.marca_panel ?? '',
+    modeloPanel: technical.modelo_panel ?? '',
     overridePaneles: technical.override_paneles,
     overrideInversores: advanced.override_inversores,
     medidorBidireccional: advanced.medidor_bidireccional ?? false,
@@ -112,6 +120,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     incluirBeneficiosTributarios, incluirDeduccionRenta,
     incluirDepreciacionAcelerada, precioManual, demora6Meses,
     hspMensualPVGIS, modoConexion, marcaInversor,
+    marcaInversorCustom, modeloInversor, marcaPanel, modeloPanel,
   } = input
 
   // Use PVGIS data if available, otherwise fall back to city-based HSP
@@ -308,6 +317,8 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     numero_paneles: numeroPaneles,
     potencia_panel_w: potenciaPanelW,
     potencia_total_kw: sizeKwp,
+    marca_panel: marcaPanel,
+    modelo_panel: modeloPanel,
     generacion_mensual_kwh: monthlyGenerationInit,
     generacion_anual_kwh: generacionAnualKwh,
     performance_ratio: pr,
@@ -322,6 +333,16 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     vpn,
     inversores: Object.entries(inverterResult.combo).map(([kw, count]) => {
       const kwNum = Number(kw)
+      // Custom brand: use the free-text brand/model supplied by the user
+      if (marcaInversor === 'Otro') {
+        return {
+          marca: marcaInversorCustom || 'Personalizado',
+          modelo: modeloInversor || `${kwNum}kW`,
+          potencia_kw: kwNum,
+          cantidad: count,
+          potencia_total_kw: kwNum * count,
+        }
+      }
       // Resolve brand and model name from database
       const brand = marcaInversor && marcaInversor !== 'Automatico'
         ? marcaInversor : 'Huawei'

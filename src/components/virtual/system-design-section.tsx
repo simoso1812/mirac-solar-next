@@ -20,9 +20,15 @@ export function SystemDesignSection({ results, technical }: SystemDesignSectionP
     consumo: technical.consumo_mensual_kwh,
   }))
 
+  const panelLabel = [results.marca_panel, results.modelo_panel].filter(Boolean).join(' ').trim()
   const specs = [
     { label: 'Potencia Total', value: formatKWp(results.kwp) },
-    { label: 'Paneles', value: `${results.numero_paneles} × ${results.potencia_panel_w}W` },
+    {
+      label: 'Paneles',
+      value: panelLabel
+        ? `${results.numero_paneles} × ${panelLabel} (${results.potencia_panel_w}W)`
+        : `${results.numero_paneles} × ${results.potencia_panel_w}W`,
+    },
     { label: 'Generación Anual', value: formatKWh(Math.round(results.generacion_anual_kwh)) },
     { label: 'Performance Ratio', value: formatPercent(results.performance_ratio) },
     {

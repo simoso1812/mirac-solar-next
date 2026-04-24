@@ -51,10 +51,12 @@ export function ProjectDetailsSection({ proposal }: ProjectDetailsSectionProps) 
 
 function TechTab({ proposal }: { proposal: QuotationData }) {
   const r = proposal.results!
+  const panelLabel = [r.marca_panel, r.modelo_panel].filter(Boolean).join(' ').trim()
   const rows = [
     ['Potencia del Sistema', formatKWp(r.kwp)],
     ['Número de Paneles', `${r.numero_paneles} unidades`],
     ['Potencia por Panel', `${r.potencia_panel_w}W`],
+    ...(panelLabel ? [['Módulo FV', panelLabel]] : []),
     ['Inversores', r.inversores.map((i) => `${i.cantidad}× ${i.marca} ${i.modelo} (${i.potencia_kw}kW)`).join(', ')],
     ['Tipo de Cubierta', proposal.technical.tipo_cubierta.charAt(0).toUpperCase() + proposal.technical.tipo_cubierta.slice(1)],
     ['Clima', proposal.technical.clima.charAt(0).toUpperCase() + proposal.technical.clima.slice(1)],
