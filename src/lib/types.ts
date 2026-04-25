@@ -58,6 +58,8 @@ export interface AdvancedData {
     capacidad_kwh: number
     profundidad_descarga: number
     eficiencia: number
+    horas_autonomia: number
+    costo_kwh_bateria: number
   }
   beneficios_tributarios: boolean
   precio_manual: number | null
@@ -146,6 +148,17 @@ export interface CalculationResults {
 
   // Inverter
   inversores: InverterRecommendation[]
+
+  // Battery (null when not enabled)
+  bateria: {
+    habilitada: boolean
+    capacidad_nominal_kwh: number
+    capacidad_util_kwh: number
+    profundidad_descarga: number
+    eficiencia: number
+    horas_autonomia: number
+    costo_cop: number
+  } | null
 
   // Carbon
   carbon: CarbonMetrics

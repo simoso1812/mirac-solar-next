@@ -315,6 +315,78 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         </Pos>
       </Page>
 
+      {/* 6.5 BATERÍAS (conditional) */}
+      {r.bateria?.habilitada && (() => {
+        const horasAutonomia = typeof r.bateria!.horas_autonomia === 'number' ? r.bateria!.horas_autonomia : 0
+        return (
+        <Page size="A4" style={styles.page}>
+          <View style={{
+            position: 'absolute', top: 0, left: 0,
+            width: mm(210), height: mm(297),
+            backgroundColor: '#FFFFFF',
+          }} />
+          {/* Title */}
+          <Pos x={20} y={25} fontSize={28} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED}>
+            Sistema de Almacenamiento
+          </Pos>
+          <View style={{
+            position: 'absolute', left: mm(20), top: mm(38),
+            width: mm(170), height: 1, backgroundColor: BRAND_YELLOW,
+          }} />
+          {/* Headline capacity */}
+          <Pos x={20} y={50} fontSize={12} fontFamily="Roboto" color="#666666">
+            CAPACIDAD NOMINAL
+          </Pos>
+          <PosRow x={20} y={58}>
+            <Text style={{ fontSize: 48, fontFamily: 'DMSans', fontWeight: 'bold', color: TEXT_BLACK }}>
+              {fmtNumber(r.bateria.capacidad_nominal_kwh, 1)}
+            </Text>
+            <Text style={{ fontSize: 48, fontFamily: 'DMSans', fontWeight: 'bold', color: BRAND_YELLOW }}>
+              {' '}kWh
+            </Text>
+          </PosRow>
+          {/* Subtitle */}
+          <Pos x={20} y={86} fontSize={11} fontFamily="Roboto" color="#444444" width={170}>
+            Capacidad útil de {fmtNumber(r.bateria.capacidad_util_kwh, 1)} kWh por ciclo, dimensionada para
+            {' '}{fmtNumber(horasAutonomia, 1)} {horasAutonomia === 1 ? 'hora' : 'horas'} de autonomía sin generación solar.
+          </Pos>
+          {/* Specs grid */}
+          <View style={{
+            position: 'absolute', left: mm(20), top: mm(110),
+            width: mm(170),
+          }}>
+            {[
+              ['Profundidad de descarga (DoD)', `${Math.round(r.bateria.profundidad_descarga * 100)} %`],
+              ['Eficiencia round-trip', `${Math.round(r.bateria.eficiencia * 100)} %`],
+              ['Autonomía dimensionada', `${fmtNumber(r.bateria.horas_autonomia, 1)} ${r.bateria.horas_autonomia === 1 ? 'hora' : 'horas'}`],
+              ['Capacidad útil por ciclo', `${fmtNumber(r.bateria.capacidad_util_kwh, 1)} kWh`],
+              ['Inversión almacenamiento', fmtCurrency(r.bateria.costo_cop)],
+            ].map(([label, value], i) => (
+              <View
+                key={label}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  borderBottomWidth: i < 4 ? 0.5 : 0,
+                  borderBottomColor: '#E5E5E5',
+                  borderBottomStyle: 'solid',
+                }}
+              >
+                <Text style={{ fontSize: 12, fontFamily: 'Roboto', color: '#444444' }}>{label}</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Roboto', fontWeight: 'bold', color: TEXT_BLACK }}>{value}</Text>
+              </View>
+            ))}
+          </View>
+          {/* Footer note */}
+          <Pos x={20} y={250} fontSize={9} fontFamily="Roboto" color="#888888" width={170}>
+            El sistema de almacenamiento permite respaldar el consumo durante eventos sin red o sin generación solar,
+            y maximiza el aprovechamiento de la energía generada en horarios de baja demanda.
+          </Pos>
+        </Page>
+        )
+      })()}
+
       {/* 6. ALCANCE */}
       <Page size="A4" style={styles.page}>
         <Image src={`${BG}/8.jpg`} style={styles.bg} />

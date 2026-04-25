@@ -12,6 +12,9 @@ export function PricingTable({ results: r }: PricingTableProps) {
   const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
   const valorIVA = r.costo_total_cop - costoSinIVA
   const omAnual = r.costo_total_cop * 0.02
+  const costoBateria = r.bateria?.habilitada ? r.bateria.costo_cop : 0
+  const costoFvSinIVA = costoSinIVA - costoBateria / (1 + PROMEDIOS_COSTO.iva_rate)
+  const bateriaSinIVA = costoBateria / (1 + PROMEDIOS_COSTO.iva_rate)
 
   return (
     <section>
@@ -23,8 +26,14 @@ export function PricingTable({ results: r }: PricingTableProps) {
         <div className="p-6 space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-[#9CA3AF]">Sistema Fotovoltaico (sin IVA)</span>
-            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(costoSinIVA)}</span>
+            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(costoFvSinIVA)}</span>
           </div>
+          {costoBateria > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[#9CA3AF]">Sistema de Almacenamiento (sin IVA)</span>
+              <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(bateriaSinIVA)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-[#9CA3AF]">IVA</span>
             <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(valorIVA)}</span>

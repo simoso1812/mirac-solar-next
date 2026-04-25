@@ -73,6 +73,8 @@ const initialAdvancedData: AdvancedData = {
     capacidad_kwh: 5,
     profundidad_descarga: 0.9,
     eficiencia: 0.95,
+    horas_autonomia: 48,
+    costo_kwh_bateria: 400000,
   },
   beneficios_tributarios: true,
   precio_manual: null,

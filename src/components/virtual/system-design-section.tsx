@@ -37,6 +37,12 @@ export function SystemDesignSection({ results, technical }: SystemDesignSectionP
         .map((inv) => `${inv.cantidad}× ${inv.marca} ${inv.modelo}`)
         .join(', '),
     },
+    ...(results.bateria?.habilitada
+      ? [{
+          label: 'Almacenamiento',
+          value: `${results.bateria.capacidad_nominal_kwh.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kWh`,
+        }]
+      : []),
     { label: 'Tipo de Cubierta', value: technical.tipo_cubierta.charAt(0).toUpperCase() + technical.tipo_cubierta.slice(1) },
   ]
 

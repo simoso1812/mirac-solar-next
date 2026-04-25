@@ -4,13 +4,15 @@ import { useCallback } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCOP, formatKWp } from '@/lib/formatting'
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
-import type { QuotationData } from '@/lib/types'
+import type { CalculationResults, QuotationData } from '@/lib/types'
 
 interface ProjectDetailsSectionProps {
   proposal: QuotationData
+  results?: CalculationResults
 }
 
-export function ProjectDetailsSection({ proposal }: ProjectDetailsSectionProps) {
+export function ProjectDetailsSection({ proposal, results }: ProjectDetailsSectionProps) {
+  const liveResults = results ?? proposal.results ?? null
   return (
     <section>
       <h2 className="mb-4 text-xl font-bold text-[#F9FAFB]">Detalles del Proyecto</h2>
@@ -32,7 +34,7 @@ export function ProjectDetailsSection({ proposal }: ProjectDetailsSectionProps) 
           </TabsList>
 
           <TabsContent value="tech" className="mt-4">
-            <TechTab proposal={proposal} />
+            <TechTab proposal={proposal} results={liveResults} />
           </TabsContent>
           <TabsContent value="timeline" className="mt-4">
             <TimelineTab />
@@ -49,15 +51,27 @@ export function ProjectDetailsSection({ proposal }: ProjectDetailsSectionProps) 
   )
 }
 
-function TechTab({ proposal }: { proposal: QuotationData }) {
-  const r = proposal.results!
+function TechTab({ proposal, results }: { proposal: QuotationData; results: CalculationResults | null }) {
+  const r = results ?? proposal.results
+  if (!r) return null
   const panelLabel = [r.marca_panel, r.modelo_panel].filter(Boolean).join(' ').trim()
+  const horas = r.bateria?.horas_autonomia
   const rows = [
     ['Potencia del Sistema', formatKWp(r.kwp)],
     ['Número de Paneles', `${r.numero_paneles} unidades`],
     ['Potencia por Panel', `${r.potencia_panel_w}W`],
     ...(panelLabel ? [['Módulo FV', panelLabel]] : []),
     ['Inversores', r.inversores.map((i) => `${i.cantidad}× ${i.marca} ${i.modelo} (${i.potencia_kw}kW)`).join(', ')],
+    ...(r.bateria?.habilitada
+      ? [
+          ['Almacenamiento', `${r.bateria.capacidad_nominal_kwh.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kWh nominal`],
+          ['Profundidad de Descarga', `${Math.round(r.bateria.profundidad_descarga * 100)}%`],
+          ['Eficiencia Batería', `${Math.round(r.bateria.eficiencia * 100)}%`],
+          ...(typeof horas === 'number'
+            ? [['Autonomía', `${horas.toLocaleString('es-CO', { maximumFractionDigits: 1 })} ${horas === 1 ? 'hora' : 'horas'}`]]
+            : []),
+        ]
+      : []),
     ['Tipo de Cubierta', proposal.technical.tipo_cubierta.charAt(0).toUpperCase() + proposal.technical.tipo_cubierta.slice(1)],
     ['Clima', proposal.technical.clima.charAt(0).toUpperCase() + proposal.technical.clima.slice(1)],
     ['Costo Total', formatCOP(r.costo_total_cop)],

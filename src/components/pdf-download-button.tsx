@@ -7,6 +7,7 @@ import { getStaticMapUrlForPdf } from '@/lib/pdf/get-map-url'
 import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-react'
+import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import type { QuotationData } from '@/lib/types'
 
 interface PdfDownloadButtonProps {
@@ -22,13 +23,19 @@ export function PdfDownloadButton({ proposal, className }: PdfDownloadButtonProp
     setLoading(true)
 
     try {
+      // Recompute results so the PDF matches the live virtual quotation
+      // (handles schema changes since the proposal was originally saved).
+      const liveResults = cotizacion(
+        buildInputFromStore(proposal.technical, proposal.project, proposal.advanced)
+      )
+
       const mapImageUrl =
         proposal.project.lat != null && proposal.project.lon != null
           ? getStaticMapUrlForPdf(proposal.project.lat, proposal.project.lon)
           : null
 
       const chartImageUrl = renderGenerationChart(
-        proposal.results.generacion_mensual_kwh,
+        liveResults.generacion_mensual_kwh,
         proposal.technical.consumo_mensual_kwh,
         proposal.advanced.bateria.habilitada
       )
@@ -39,7 +46,7 @@ export function PdfDownloadButton({ proposal, className }: PdfDownloadButtonProp
           project={proposal.project}
           technical={proposal.technical}
           advanced={proposal.advanced}
-          results={proposal.results}
+          results={liveResults}
           mapImageUrl={mapImageUrl}
           chartImageUrl={chartImageUrl}
         />

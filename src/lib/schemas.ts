@@ -52,6 +52,8 @@ export const advancedSchema = z.object({
     capacidad_kwh: z.number().min(0),
     profundidad_descarga: z.number().min(0).max(1),
     eficiencia: z.number().min(0).max(1),
+    horas_autonomia: z.number().min(1).max(168),
+    costo_kwh_bateria: z.number().min(100000).max(2000000),
   }),
   beneficios_tributarios: z.boolean(),
   precio_manual: z.number().nullable(),

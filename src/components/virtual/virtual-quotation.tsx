@@ -6,6 +6,7 @@ import { VirtualHeader } from './virtual-header'
 import { VirtualFooter } from './virtual-footer'
 import { ExecutiveSummary } from './executive-summary'
 import { SystemDesignSection } from './system-design-section'
+import { BatterySection } from './battery-section'
 import { PricingTable } from './pricing-table'
 import { BillSimulationSection } from './bill-simulation-section'
 import { FinancialSection } from './financial-section'
@@ -84,6 +85,7 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
       <main className="mx-auto max-w-6xl space-y-12 px-6 py-8">
         <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
+        <BatterySection results={whatIfResults} />
         <PricingTable results={whatIfResults} />
         <BillSimulationSection
           results={whatIfResults}
@@ -103,7 +105,7 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
           indexRate={baseInput.indexRate}
           horizonteAnios={overrides.horizonteAnios}
         />
-        <ProjectDetailsSection proposal={proposal} />
+        <ProjectDetailsSection proposal={proposal} results={whatIfResults} />
         {proposal.advanced.notas?.trim() && (
           <NotesSection notas={proposal.advanced.notas} />
         )}

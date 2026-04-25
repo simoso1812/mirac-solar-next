@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
 import { prepareDriveUpload } from '@/app/actions/drive'
 import { generarContratoDocx } from '@/lib/contract/generator'
+import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import type { QuotationData } from '@/lib/types'
 
 interface DriveSyncButtonProps {
@@ -71,6 +72,12 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
     setError(null)
 
     try {
+      // Recompute results so the PDF matches the live virtual quotation
+      // (handles schema changes since the proposal was originally saved).
+      const liveResults = cotizacion(
+        buildInputFromStore(proposal.technical, proposal.project, proposal.advanced)
+      )
+
       // 1. Generate PDF
       const mapImageUrl =
         proposal.project.lat != null && proposal.project.lon != null
@@ -78,7 +85,7 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           : null
 
       const chartImageUrl = renderGenerationChart(
-        proposal.results.generacion_mensual_kwh,
+        liveResults.generacion_mensual_kwh,
         proposal.technical.consumo_mensual_kwh,
         proposal.advanced.bateria.habilitada
       )
@@ -89,7 +96,7 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           project={proposal.project}
           technical={proposal.technical}
           advanced={proposal.advanced}
-          results={proposal.results}
+          results={liveResults}
           mapImageUrl={mapImageUrl}
           chartImageUrl={chartImageUrl}
         />
@@ -113,18 +120,18 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
 
       // 4. Generate and upload contract .docx
       try {
-        const inversorLabel = proposal.results.inversores.length > 0
-          ? proposal.results.inversores.map((i) => `${i.cantidad}x ${i.modelo}`).join(', ')
+        const inversorLabel = liveResults.inversores.length > 0
+          ? liveResults.inversores.map((i) => `${i.cantidad}x ${i.modelo}`).join(', ')
           : ''
         const contractBytes = await generarContratoDocx({
           nombreCliente: proposal.client.nombre,
           documentoCliente: proposal.client.nit_cc ?? '',
           direccionProyecto: proposal.project.ubicacion_label ?? '',
-          tamanoSistemaKwp: proposal.results.kwp,
-          cantidadPaneles: proposal.results.numero_paneles,
+          tamanoSistemaKwp: liveResults.kwp,
+          cantidadPaneles: liveResults.numero_paneles,
           potenciaPanel: proposal.technical.potencia_panel_w,
           inversorRecomendado: inversorLabel,
-          valorTotalCOP: proposal.results.costo_total_cop,
+          valorTotalCOP: liveResults.costo_total_cop,
           fechaPropuesta: proposal.project.fecha,
         })
         const docxBlob = new Blob([contractBytes as BlobPart], {

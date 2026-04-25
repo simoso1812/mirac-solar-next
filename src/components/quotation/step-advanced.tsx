@@ -439,7 +439,7 @@ export function StepAdvanced() {
             {bateriaHabilitada && (
               <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Capacidad (kWh)</Label>
+                  <Label>Capacidad nominal (kWh)</Label>
                   <Input type="number" min={1} step={1} {...register('bateria.capacidad_kwh', { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
@@ -462,6 +462,26 @@ export function StepAdvanced() {
                     step={1}
                     value={Number((watch('bateria.eficiencia') * 100).toFixed(0))}
                     onChange={(e) => setValue('bateria.eficiencia', Number(e.target.value) / 100)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Horas de autonomía</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={168}
+                    step={1}
+                    {...register('bateria.horas_autonomia', { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Costo por kWh (COP)</Label>
+                  <Input
+                    type="number"
+                    min={100000}
+                    max={2000000}
+                    step={10000}
+                    {...register('bateria.costo_kwh_bateria', { valueAsNumber: true })}
                   />
                 </div>
               </div>

@@ -27,9 +27,10 @@ export interface CotizacionInput {
   plazoCreditoAnios: number
   incluirBaterias: boolean
   costoKwhBateria: number
+  capacidadBateriaKwh: number // user-entered nominal capacity; if > 0, overrides auto-sizing
   profundidadDescarga: number
   eficienciaBateria: number
-  diasAutonomia: number
+  horasAutonomia: number
   horizonteTiempo: number
   incluirBeneficiosTributarios: boolean
   incluirDeduccionRenta: boolean
@@ -81,10 +82,11 @@ export function buildInputFromStore(
     tasaInteresCredito: advanced.financiamiento.tasa_interes,
     plazoCreditoAnios: Math.round(advanced.financiamiento.plazo_meses / 12),
     incluirBaterias: advanced.bateria.habilitada,
-    costoKwhBateria: 400000, // COP/kWh default
+    costoKwhBateria: advanced.bateria.costo_kwh_bateria ?? 400000,
+    capacidadBateriaKwh: advanced.bateria.capacidad_kwh ?? 0,
     profundidadDescarga: advanced.bateria.profundidad_descarga,
     eficienciaBateria: advanced.bateria.eficiencia,
-    diasAutonomia: 2,
+    horasAutonomia: advanced.bateria.horas_autonomia ?? 48,
     horizonteTiempo: advanced.horizonte_anios ?? 25,
     incluirBeneficiosTributarios: advanced.beneficios_tributarios,
     incluirDeduccionRenta: advanced.beneficios_tributarios,
@@ -116,7 +118,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     consumoMensualKwh, potenciaPanelW, factorSeguridad, ciudad, cubierta,
     clima, costoKwh, indexRate, discountRate, percFinanciamiento,
     tasaInteresCredito, plazoCreditoAnios, incluirBaterias, costoKwhBateria,
-    profundidadDescarga, diasAutonomia, horizonteTiempo,
+    capacidadBateriaKwh, profundidadDescarga, eficienciaBateria, horasAutonomia, horizonteTiempo,
     incluirBeneficiosTributarios, incluirDeduccionRenta,
     incluirDepreciacionAcelerada, precioManual, demora6Meses,
     hspMensualPVGIS, modoConexion, marcaInversor,
@@ -161,15 +163,22 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     costoFV = Math.ceil(costoFV * DEFAULT_PARAMS.ajuste_cubierta_teja)
   }
 
-  // Battery cost
+  // Battery sizing
+  // If user entered a capacity (capacidadBateriaKwh > 0) → that's the nominal source of truth.
+  // Otherwise auto-size from hourly consumption × autonomy hours ÷ DoD.
   let costoBateria = 0
   let capacidadNominalBateria = 0
+  let capacidadUtilBateria = 0
   if (incluirBaterias) {
-    const consumoDiario = consumoMensualKwh / 30
-    const capacidadUtil = consumoDiario * diasAutonomia
-    capacidadNominalBateria = profundidadDescarga > 0
-      ? capacidadUtil / profundidadDescarga
-      : capacidadUtil / 0.8
+    const dod = profundidadDescarga > 0 ? profundidadDescarga : 0.8
+    if (capacidadBateriaKwh > 0) {
+      capacidadNominalBateria = capacidadBateriaKwh
+      capacidadUtilBateria = capacidadNominalBateria * dod
+    } else {
+      const consumoHorario = consumoMensualKwh / 30 / 24
+      capacidadUtilBateria = consumoHorario * horasAutonomia
+      capacidadNominalBateria = capacidadUtilBateria / dod
+    }
     costoBateria = capacidadNominalBateria * costoKwhBateria
   }
 
@@ -356,6 +365,25 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
         potencia_total_kw: kwNum * count,
       }
     }),
+    bateria: incluirBaterias
+      ? (() => {
+          const consumoHorario = consumoMensualKwh / 30 / 24
+          // When capacity was user-entered, derive real autonomy from útil ÷ hourly consumption.
+          // Otherwise use the user-entered autonomy (which drove the auto-sizing).
+          const horasReales = capacidadBateriaKwh > 0 && consumoHorario > 0
+            ? capacidadUtilBateria / consumoHorario
+            : horasAutonomia
+          return {
+            habilitada: true,
+            capacidad_nominal_kwh: capacidadNominalBateria,
+            capacidad_util_kwh: capacidadUtilBateria,
+            profundidad_descarga: profundidadDescarga,
+            eficiencia: eficienciaBateria,
+            horas_autonomia: horasReales,
+            costo_cop: Math.ceil(costoBateria),
+          }
+        })()
+      : null,
     carbon,
     flujo_caja: flujoCaja.map((row) => ({
       mes: 0,
