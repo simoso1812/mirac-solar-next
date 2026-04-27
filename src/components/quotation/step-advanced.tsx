@@ -29,6 +29,7 @@ export function StepAdvanced() {
     handleSubmit,
     watch,
     setValue,
+    formState: { errors },
   } = useForm<AdvancedFormValues>({
     resolver: zodResolver(advancedSchema),
     defaultValues: advancedData,
@@ -628,6 +629,18 @@ export function StepAdvanced() {
             />
           </div>
 
+          {Object.keys(errors).length > 0 && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <p className="font-medium">Hay campos con errores. Revisa:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {Object.entries(errors).map(([key, err]) => (
+                  <li key={key}>
+                    {key}: {(err as { message?: string })?.message ?? 'inválido'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(2)}>
               <ArrowLeft className="mr-2 h-4 w-4" />

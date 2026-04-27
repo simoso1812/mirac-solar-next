@@ -90,6 +90,20 @@ const initialAdvancedData: AdvancedData = {
   demora_6_meses: false,
 }
 
+function deepMerge<T>(base: T, partial: unknown): T {
+  if (partial === null || partial === undefined) return base
+  if (typeof base !== 'object' || base === null) return (partial as T) ?? base
+  if (Array.isArray(base)) return (partial as T) ?? base
+  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
+  const src = (partial as Record<string, unknown>) ?? {}
+  for (const key of Object.keys(out)) {
+    if (key in src) {
+      out[key] = deepMerge(out[key], src[key])
+    }
+  }
+  return out as T
+}
+
 export const useQuotationStore = create<QuotationState>()(
   persist(
     (set) => ({
@@ -149,6 +163,17 @@ export const useQuotationStore = create<QuotationState>()(
     }),
     {
       name: 'mirac-quotation',
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<QuotationState>
+        return {
+          ...current,
+          ...p,
+          clientData: deepMerge(current.clientData, p.clientData),
+          projectData: deepMerge(current.projectData, p.projectData),
+          technicalData: deepMerge(current.technicalData, p.technicalData),
+          advancedData: deepMerge(current.advancedData, p.advancedData),
+        }
+      },
     }
   )
 )
