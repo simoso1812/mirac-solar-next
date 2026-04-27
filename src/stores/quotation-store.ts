@@ -54,7 +54,7 @@ const initialTechnicalData: TechnicalData = {
   modelo_panel: '',
 }
 
-const initialAdvancedData: AdvancedData = {
+export const initialAdvancedData: AdvancedData = {
   marca_inversor: 'Automatico',
   marca_inversor_custom: '',
   modelo_inversor: '',
@@ -143,10 +143,10 @@ export const useQuotationStore = create<QuotationState>()(
         set({
           currentStep: 0,
           editingId: proposal.id,
-          clientData: proposal.client,
-          projectData: proposal.project,
-          technicalData: proposal.technical,
-          advancedData: proposal.advanced,
+          clientData: deepMerge(initialClientData, proposal.client),
+          projectData: deepMerge(initialProjectData, proposal.project),
+          technicalData: deepMerge(initialTechnicalData, proposal.technical),
+          advancedData: deepMerge(initialAdvancedData, proposal.advanced),
           results: proposal.results,
         }),
 

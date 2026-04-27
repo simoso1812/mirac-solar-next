@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
-import { useQuotationStore } from '@/stores/quotation-store'
+import { useQuotationStore, initialAdvancedData } from '@/stores/quotation-store'
 import { INVERTER_DATABASE } from '@/lib/constants'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { formatCOP } from '@/lib/formatting'
@@ -32,7 +32,12 @@ export function StepAdvanced() {
     formState: { errors },
   } = useForm<AdvancedFormValues>({
     resolver: zodResolver(advancedSchema),
-    defaultValues: advancedData,
+    defaultValues: {
+      ...initialAdvancedData,
+      ...advancedData,
+      financiamiento: { ...initialAdvancedData.financiamiento, ...advancedData.financiamiento },
+      bateria: { ...initialAdvancedData.bateria, ...advancedData.bateria },
+    },
   })
 
   const financiamientoHabilitado = watch('financiamiento.habilitado')
