@@ -108,6 +108,8 @@ function formatCOP(value: number): string {
 export interface ContractData {
   nombreCliente: string
   documentoCliente: string
+  telefonoCliente?: string
+  emailCliente?: string
   direccionProyecto: string
   tamanoSistemaKwp: number
   cantidadPaneles: number
@@ -143,6 +145,8 @@ export async function generarContratoDocx(data: ContractData): Promise<Uint8Arra
   doc.render({
     NOMBRE_CLIENTE: data.nombreCliente,
     DOCUMENTO_CLIENTE: data.documentoCliente,
+    TELEFONO_CLIENTE: data.telefonoCliente ?? '',
+    EMAIL_CLIENTE: data.emailCliente ?? '',
     DIRECCION_PROYECTO: data.direccionProyecto,
     TAMANO_DEL_SISTEMA_KWP: String(data.tamanoSistemaKwp),
     CANTIDAD_PANELES: String(data.cantidadPaneles),
@@ -151,6 +155,7 @@ export async function generarContratoDocx(data: ContractData): Promise<Uint8Arra
     VALOR_TOTAL_PROYECTO_NUMEROS: formatCOP(data.valorTotalCOP),
     VALOR_TOTAL_PROYECTO_LETRAS: valorLetras,
     FECHA_FIRMA: formatFechaEspanol(data.fechaPropuesta),
+    DOCUSEAL_SIGNATURE: '{{signature}}',
   })
 
   // 5. Generate output

@@ -126,7 +126,9 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         const contractBytes = await generarContratoDocx({
           nombreCliente: proposal.client.nombre,
           documentoCliente: proposal.client.nit_cc ?? '',
-          direccionProyecto: proposal.project.ubicacion_label ?? '',
+          telefonoCliente: proposal.client.telefono ?? '',
+          emailCliente: proposal.client.email ?? '',
+          direccionProyecto: proposal.project.ubicacion_label || proposal.client.direccion || '',
           tamanoSistemaKwp: liveResults.kwp,
           cantidadPaneles: liveResults.numero_paneles,
           potenciaPanel: proposal.technical.potencia_panel_w,
