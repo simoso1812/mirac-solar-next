@@ -82,6 +82,7 @@ src/
 │   ├── contract/generator.ts          # docx contract generation
 │   ├── chargers.ts + chargers-pdf.ts  # EV charger calculator
 │   ├── share.ts                       # Upstash share-link helpers
+│   ├── defaults.ts                    # initial form/store defaults + deepMerge backfill helper
 │   ├── schemas.ts                     # zod schemas for all wizard steps
 │   ├── types.ts                       # ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData, SignatureData
 │   ├── constants.ts                   # HSP, PROMEDIOS_COSTO (iva 7%), inverter DB, defaults
@@ -100,9 +101,10 @@ src/
 
 - **IVA**: 7% (changed from 5%). Source: `PROMEDIOS_COSTO.iva_rate = 0.07` in `src/lib/constants.ts`. Solar PV under Ley 1715 has a reduced rate.
 - **Tax benefits** (Ley 1715): two independent toggles
-  - `incluirDeduccionRenta` — 50% income deduction over 15 years
-  - `incluirDepreciacionAcelerada` — accelerated depreciation
-  - Both gated by master `incluirBeneficiosTributarios` (set true when either toggle is on)
+  - Store fields: `incluir_deduccion_renta` and `incluir_depreciacion_acelerada`
+  - Calculator input fields: `incluirDeduccionRenta` and `incluirDepreciacionAcelerada`
+  - Both are gated by master `beneficios_tributarios` / `incluirBeneficiosTributarios`
+  - The advanced form must set `beneficios_tributarios` true when either child toggle is on, and false when both are off.
 - **Connection modes**:
   - `net_metering` — 1:1 valuation of surplus energy
   - `net_billing` — surplus at reduced `precio_excedentes` (default 300 COP/kWh)
@@ -141,10 +143,11 @@ All battery display sites have defensive guards (`typeof horas === 'number'`) so
 When you add new fields to `AdvancedData` (or other persisted shapes):
 
 1. Users with old `localStorage` state miss the new fields → `z.number()` rejects undefined → `handleSubmit` silently fails (button does nothing).
-2. The store has a `deepMerge` in the persist `merge` option that backfills missing keys from initial state.
+2. Defaults and `deepMerge` live in `src/lib/defaults.ts`; the quotation store imports them for persist `merge`.
 3. `loadProposal` also deep-merges with initial defaults (so editing an old proposal works).
 4. `step-advanced.tsx` form defaults are also deep-merged with `initialAdvancedData` as a third layer of defense.
-5. The advanced form **surfaces** `formState.errors` so future Zod failures are visible instead of silent.
+5. Shared Redis payloads are also backfilled in `src/lib/share.ts` via `fromPayload()` before live recomputation.
+6. The advanced form **surfaces** `formState.errors` so future Zod failures are visible instead of silent.
 
 **Rule**: when adding a new required field to a persisted shape, verify the deep-merge covers it (especially nested objects like `bateria.*` and `financiamiento.*`).
 
@@ -153,12 +156,12 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 ### Adding a new field to the quote
 1. Add to `src/lib/types.ts` (AdvancedData or TechnicalData)
 2. Add to zod schema in `src/lib/schemas.ts`
-3. Add default value to `initialAdvancedData` / `initialTechnicalData` in `src/stores/quotation-store.ts`
+3. Add default value to `initialAdvancedData` / `initialTechnicalData` in `src/lib/defaults.ts`
 4. Add form input in the relevant `src/components/quotation/step-*.tsx`
 5. Read it in `buildInputFromStore` (`src/lib/calculator/index.ts`)
 6. Use it in `cotizacion` math
 7. Display in `src/components/virtual/*` and `src/lib/pdf/proposal-pdf.tsx`
-8. **Verify deep-merge handles old persisted state** (refresh page; submit "Revisar y Generar" should not silently fail)
+8. **Verify deep-merge handles old persisted and shared state** (refresh page; submit "Revisar y Generar"; load `/s/[id]` shares)
 
 ### Modifying the PDF
 - Single source: `src/lib/pdf/proposal-pdf.tsx`
@@ -170,6 +173,8 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 
 ### Sharing a proposal
 - `src/lib/share.ts` writes to Upstash Redis with a short id
+- `/api/share` creates the Upstash Redis client lazily inside request handlers; do not instantiate Redis at module scope, or `next build` logs missing-env warnings.
+- `fromPayload()` must deep-merge `initialClientData`, `initialProjectData`, `initialTechnicalData`, and `initialAdvancedData` before returning a `QuotationData`, so old public links keep working after schema changes.
 - Public route: `src/app/s/[id]/page.tsx`
 - E-signature path: `<CallToAction>` → `<ESignDialog>` → `signature` saved to proposal
 
@@ -185,6 +190,15 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 - **No backwards-compat shims** — when renaming, change everything in one pass and rely on the live-recompute pattern.
 - **Avoid premature abstraction** — three similar React sections beats a generic over-parameterized one.
 - **`npx tsc --noEmit`** must be clean before considering a change done.
+- **`npm run lint`** must have zero errors before considering a change done. Current known warnings: React Hook Form `watch()` can trigger a React Compiler compatibility warning, and `@react-pdf/renderer` `<Image>` may trigger web alt-text warnings.
+
+## Next 16 / React 19 gotchas
+
+- `next.config.ts` sets `turbopack.root` to this app directory. Keep it, because a parent `/Users/simonosorio/package-lock.json` caused Next to infer the wrong workspace root.
+- Do not call `setState` synchronously inside `useEffect` only to mark hydration. Use `useHydrated()` (`useSyncExternalStore`) instead.
+- Do not initialize media-query state with effect-time `setState`; use `useMediaQuery()` (`useSyncExternalStore`).
+- Do not read `ref.current` during render. Callback refs should be stable functions (for example `useCallback`) passed directly to `ref`.
+- For App Router dynamic params in client pages, this codebase currently unwraps `params: Promise<{ id: string }>` with React `use(params)`.
 
 ## Commands
 
@@ -211,3 +225,6 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 5. Autonomy migrated from days → hours throughout (schema, types, store, form, math, displays, PDF).
 6. PDF download + Drive sync now re-run `cotizacion(buildInputFromStore(...))` so PDFs reflect live calculator changes without re-saving proposals.
 7. Bug: "Revisar y generar" was silently failing on accounts with stale localStorage. Fixed by (a) `deepMerge` in Zustand persist `merge`, (b) `loadProposal` deep-merges defaults, (c) form `defaultValues` deep-merges initialAdvancedData, (d) form now surfaces `formState.errors` so silent failures stop happening.
+8. React 19 lint errors fixed: hydration guards now use `useHydrated()`, media queries use `useSyncExternalStore`, e-sign canvas no longer reads refs during render, and stale `proposal.results!` usage was removed from the virtual quotation financial path.
+9. Next 16 build warnings fixed: `turbopack.root` pins the project root and `/api/share` lazy-loads Upstash Redis so missing env vars are not logged during static build.
+10. Tax benefits are now truly independent persisted fields (`incluir_deduccion_renta`, `incluir_depreciacion_acelerada`) under master `beneficios_tributarios`; `buildInputFromStore()` maps them to calculator booleans and old saved/shared proposals are backfilled from `src/lib/defaults.ts`.
