@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
-
 const EXPIRY_SECONDS = 60 * 60 * 24 * 90 // 90 days
+
+function getRedis(): Redis {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) {
+    throw new Error('Upstash Redis no está configurado')
+  }
+  return new Redis({ url, token })
+}
 
 /** POST — store proposal data, return short ID */
 export async function POST(request: NextRequest) {
@@ -17,6 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No data provided' }, { status: 400 })
     }
 
+    const redis = getRedis()
     const id = nanoid(8)
     await redis.set(`share:${id}`, body.data, { ex: EXPIRY_SECONDS })
 
@@ -35,6 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const redis = getRedis()
     const data = await redis.get(`share:${id}`)
     if (!data) {
       return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })

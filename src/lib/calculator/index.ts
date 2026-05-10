@@ -88,9 +88,11 @@ export function buildInputFromStore(
     eficienciaBateria: advanced.bateria.eficiencia,
     horasAutonomia: advanced.bateria.horas_autonomia ?? 48,
     horizonteTiempo: advanced.horizonte_anios ?? 25,
-    incluirBeneficiosTributarios: advanced.beneficios_tributarios,
-    incluirDeduccionRenta: advanced.beneficios_tributarios,
-    incluirDepreciacionAcelerada: advanced.beneficios_tributarios,
+    incluirBeneficiosTributarios: advanced.beneficios_tributarios && (
+      advanced.incluir_deduccion_renta || advanced.incluir_depreciacion_acelerada
+    ),
+    incluirDeduccionRenta: advanced.beneficios_tributarios && advanced.incluir_deduccion_renta,
+    incluirDepreciacionAcelerada: advanced.beneficios_tributarios && advanced.incluir_depreciacion_acelerada,
     precioManual: advanced.precio_manual,
     demora6Meses: advanced.demora_6_meses ?? false,
     hspMensualPVGIS: project.hsp_mensual_pvgis,
@@ -213,14 +215,12 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const porcentajeMantenimiento = input.porcentajeMantenimiento ?? DEFAULT_PARAMS.porcentaje_mantenimiento
 
   const cashflowFree: number[] = []
-  let totalLifetimeGeneration = 0
   let ahorroAnualAnio1 = 0
 
   for (let i = 0; i < horizonteTiempo; i++) {
     const currentMonthly = monthlyGenerationInit.map(
       (gen) => gen * Math.pow(1 - tasaDegradacion, i)
     )
-    totalLifetimeGeneration += currentMonthly.reduce((a, b) => a + b, 0)
 
     let ahorroAnualTotal = 0
     if (incluirBaterias) {

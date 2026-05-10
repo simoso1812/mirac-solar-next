@@ -1,9 +1,10 @@
 'use client'
 
-import { use, useMemo, useState, useEffect } from 'react'
+import { use, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useProposalsStore } from '@/stores/proposals-store'
+import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp } from '@/lib/formatting'
 import { CIUDADES } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,10 +23,9 @@ export default function ClienteDetailPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => setHydrated(true), [])
+  const hydrated = useHydrated()
   const storeProposals = useProposalsStore((s) => s.proposals)
-  const proposals = hydrated ? storeProposals : []
+  const proposals = useMemo(() => hydrated ? storeProposals : [], [hydrated, storeProposals])
 
   const decodedId = decodeURIComponent(id)
 

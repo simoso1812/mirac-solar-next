@@ -64,8 +64,6 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
     horizonteAnios: baseInput.horizonteTiempo,
   })
 
-  const baseResults = proposal.results!
-
   const whatIfResults = useMemo(() => {
     const input = {
       ...baseInput,
@@ -93,7 +91,6 @@ export function VirtualQuotation({ proposal, isShared, onSign }: VirtualQuotatio
           consumoMensualKwh={baseInput.consumoMensualKwh}
         />
         <FinancialSection
-          baseResults={baseResults}
           whatIfResults={whatIfResults}
           overrides={overrides}
           onOverridesChange={setOverrides}

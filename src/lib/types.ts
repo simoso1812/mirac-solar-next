@@ -62,6 +62,8 @@ export interface AdvancedData {
     costo_kwh_bateria: number
   }
   beneficios_tributarios: boolean
+  incluir_deduccion_renta: boolean
+  incluir_depreciacion_acelerada: boolean
   precio_manual: number | null
   notas: string
   // Advanced financial parameters

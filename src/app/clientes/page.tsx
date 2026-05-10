@@ -13,7 +13,7 @@ import { Users, Search, Mail, Phone, FileText } from 'lucide-react'
 export default function ClientesPage() {
   const hydrated = useHydrated()
   const storeProposals = useProposalsStore((s) => s.proposals)
-  const proposals = hydrated ? storeProposals : []
+  const proposals = useMemo(() => hydrated ? storeProposals : [], [hydrated, storeProposals])
   const [search, setSearch] = useState('')
 
   // Build unique clients with stats

@@ -85,7 +85,7 @@ function processPVGISData(data: Record<string, unknown>, lat: number, lon: numbe
     }
 
     if (hspDiario == null || hspDiario <= 0 || hspDiario > 8) {
-      const region = getClimateData(lat, lon)
+      const region = getClimateData(lat)
       const seasonal = getSeasonalFactor(lat, monthIndex)
       const altitude = getAltitudeFactor(lat, lon)
       hspDiario = (region.baseHsp + region.variation * seasonal) * altitude
@@ -97,7 +97,7 @@ function processPVGISData(data: Record<string, unknown>, lat: number, lon: numbe
   // Fill missing months
   while (hspMensual.length < 12) {
     const idx = hspMensual.length
-    const region = getClimateData(lat, lon)
+    const region = getClimateData(lat)
     const seasonal = getSeasonalFactor(lat, idx)
     const altitude = getAltitudeFactor(lat, lon)
     hspMensual.push(Math.round((region.baseHsp + region.variation * seasonal) * altitude * 100) / 100)
@@ -108,7 +108,7 @@ function processPVGISData(data: Record<string, unknown>, lat: number, lon: numbe
 
 function getHSPEstimado(lat: number, lon: number): number[] {
   const hsp: number[] = []
-  const region = getClimateData(lat, lon)
+  const region = getClimateData(lat)
   const altitude = getAltitudeFactor(lat, lon)
 
   for (let i = 0; i < 12; i++) {
@@ -121,7 +121,7 @@ function getHSPEstimado(lat: number, lon: number): number[] {
   return hsp
 }
 
-function getClimateData(lat: number, _lon: number) {
+function getClimateData(lat: number) {
   const absLat = Math.abs(lat)
   if (absLat < 10) return { baseHsp: 5.2, variation: 0.8 }
   if (absLat < 30) return { baseHsp: 4.8, variation: 1.2 }

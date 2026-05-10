@@ -5,7 +5,6 @@ import { fetchSharedData, type SharedVersion } from '@/lib/share'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { VersionSelector } from '@/components/virtual/version-selector'
-import type { QuotationData } from '@/lib/types'
 
 export default function SharedShortPage({
   params,

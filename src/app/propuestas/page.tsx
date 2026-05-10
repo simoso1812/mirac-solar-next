@@ -49,7 +49,7 @@ const statusConfig = {
 export default function PropuestasPage() {
   const hydrated = useHydrated()
   const storeProposals = useProposalsStore((s) => s.proposals)
-  const proposals = hydrated ? storeProposals : []
+  const proposals = useMemo(() => hydrated ? storeProposals : [], [hydrated, storeProposals])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<SortKey>('date')

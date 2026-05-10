@@ -56,6 +56,8 @@ export const advancedSchema = z.object({
     costo_kwh_bateria: z.number().min(100000).max(2000000),
   }),
   beneficios_tributarios: z.boolean(),
+  incluir_deduccion_renta: z.boolean(),
+  incluir_depreciacion_acelerada: z.boolean(),
   precio_manual: z.number().nullable(),
   notas: z.string(),
   costo_kwh: z.number().min(1).max(5000),

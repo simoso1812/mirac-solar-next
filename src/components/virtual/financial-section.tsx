@@ -15,7 +15,6 @@ interface WhatIfOverrides {
 }
 
 interface FinancialSectionProps {
-  baseResults: CalculationResults
   whatIfResults: CalculationResults
   overrides: WhatIfOverrides
   onOverridesChange: (overrides: WhatIfOverrides) => void

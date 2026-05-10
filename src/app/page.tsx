@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useProposalsStore } from '@/stores/proposals-store'
+import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp } from '@/lib/formatting'
 import { CIUDADES } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,8 +14,7 @@ import {
 import { PriceEstimator } from '@/components/price-estimator'
 
 export default function DashboardPage() {
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => setHydrated(true), [])
+  const hydrated = useHydrated()
 
   const proposals = useProposalsStore((s) => s.proposals)
   const uniqueClients = useProposalsStore((s) => s.getUniqueClients)

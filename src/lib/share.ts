@@ -4,6 +4,13 @@
  * Only stores input data — results are recalculated on load.
  */
 import type { QuotationData } from '@/lib/types'
+import {
+  deepMerge,
+  initialAdvancedData,
+  initialClientData,
+  initialProjectData,
+  initialTechnicalData,
+} from '@/lib/defaults'
 
 /** Minimal payload — just the inputs needed to recalculate */
 interface SharePayload {
@@ -40,39 +47,44 @@ function toPayload(proposal: QuotationData): SharePayload {
 }
 
 export function fromPayload(payload: SharePayload): QuotationData {
+  const client = deepMerge(initialClientData, {
+    nombre: payload.c.n,
+    direccion: payload.c.d,
+    email: payload.c.e,
+    telefono: payload.c.t,
+    nit_cc: payload.c.a,
+  })
+  const project = deepMerge(initialProjectData, {
+    ciudad: payload.p.ci,
+    fecha: payload.p.f,
+    ubicacion_label: '',
+    plantilla: 'default',
+    lat: payload.p.la,
+    lon: payload.p.lo,
+    hsp_mensual_pvgis: payload.p.h,
+    map_url: null,
+  })
+  const technical = deepMerge(initialTechnicalData, {
+    consumo_mensual_kwh: payload.t.co,
+    potencia_panel_w: payload.t.pw,
+    factor_seguridad: payload.t.fs,
+    tipo_cubierta: payload.t.tc,
+    clima: payload.t.cl,
+    override_paneles: payload.t.op,
+    marca_panel: payload.t.mp ?? '',
+    modelo_panel: payload.t.mo ?? '',
+  })
+  const advanced = deepMerge(initialAdvancedData, payload.a)
+
   return {
     id: 'shared',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     status: 'sent',
-    client: {
-      nombre: payload.c.n,
-      direccion: payload.c.d,
-      email: payload.c.e,
-      telefono: payload.c.t,
-      nit_cc: payload.c.a,
-    },
-    project: {
-      ciudad: payload.p.ci,
-      fecha: payload.p.f,
-      ubicacion_label: '',
-      plantilla: 'default',
-      lat: payload.p.la,
-      lon: payload.p.lo,
-      hsp_mensual_pvgis: payload.p.h,
-      map_url: null,
-    },
-    technical: {
-      consumo_mensual_kwh: payload.t.co,
-      potencia_panel_w: payload.t.pw,
-      factor_seguridad: payload.t.fs,
-      tipo_cubierta: payload.t.tc as 'metalica' | 'teja' | 'losa',
-      clima: payload.t.cl as 'templado' | 'calido' | 'frio',
-      override_paneles: payload.t.op,
-      marca_panel: payload.t.mp ?? '',
-      modelo_panel: payload.t.mo ?? '',
-    },
-    advanced: payload.a as unknown as QuotationData['advanced'],
+    client,
+    project,
+    technical,
+    advanced,
     results: null,
     drive_folder_link: null,
     drive_project_name: null,

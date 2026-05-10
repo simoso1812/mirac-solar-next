@@ -1,8 +1,9 @@
 'use client'
 
-import { use, useState, useEffect } from 'react'
+import { use } from 'react'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
+import { useHydrated } from '@/hooks/use-hydration'
 import type { SignatureData } from '@/lib/types'
 
 export default function VirtualPage({
@@ -11,11 +12,7 @@ export default function VirtualPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const [hydrated, setHydrated] = useState(false)
-
-  useEffect(() => {
-    setHydrated(true)
-  }, [])
+  const hydrated = useHydrated()
 
   if (!hydrated) {
     return (

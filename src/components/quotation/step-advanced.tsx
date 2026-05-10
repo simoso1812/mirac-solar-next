@@ -44,10 +44,34 @@ export function StepAdvanced() {
   const bateriaHabilitada = watch('bateria.habilitada')
   const modoConexion = watch('modo_conexion')
   const marcaInversor = watch('marca_inversor')
+  const overrideInversores = watch('override_inversores')
+  const beneficiosTributarios = watch('beneficios_tributarios')
+  const incluirDeduccionRenta = watch('incluir_deduccion_renta')
+  const incluirDepreciacionAcelerada = watch('incluir_depreciacion_acelerada')
 
   const onSubmit = (data: AdvancedFormValues) => {
-    setAdvancedData(data)
+    setAdvancedData({
+      ...data,
+      beneficios_tributarios: data.incluir_deduccion_renta || data.incluir_depreciacion_acelerada,
+    })
     setStep(4)
+  }
+
+  const setAllTaxBenefits = (enabled: boolean) => {
+    setValue('beneficios_tributarios', enabled)
+    setValue('incluir_deduccion_renta', enabled)
+    setValue('incluir_depreciacion_acelerada', enabled)
+  }
+
+  const setTaxBenefit = (
+    field: 'incluir_deduccion_renta' | 'incluir_depreciacion_acelerada',
+    enabled: boolean,
+  ) => {
+    const otherEnabled = field === 'incluir_deduccion_renta'
+      ? incluirDepreciacionAcelerada
+      : incluirDeduccionRenta
+    setValue(field, enabled)
+    setValue('beneficios_tributarios', enabled || otherEnabled)
   }
 
   const brandInfo = INVERTER_DATABASE[marcaInversor]
@@ -243,8 +267,8 @@ export function StepAdvanced() {
             )}
 
             {/* Manual inverter config — shown when brand is not Automatico */}
-            {marcaInversor !== 'Automatico' && watch('override_inversores') != null && (() => {
-              const overrides = watch('override_inversores')!
+            {marcaInversor !== 'Automatico' && overrideInversores != null && (() => {
+              const overrides = overrideInversores
               const availableModels = brandInfo?.models ?? []
               const isCustomBrand = marcaInversor === 'Otro' || !brandInfo
               const availableKw = availableModels.length > 0
@@ -257,9 +281,7 @@ export function StepAdvanced() {
                   <p className="text-xs text-muted-foreground mb-2">
                     {isCustomBrand ? 'Potencia y cantidad de inversores' : 'Configuración de inversores'}
                   </p>
-                  {overrides.map((inv, idx) => {
-                    const model = availableModels.find((m) => m.potencia_kw === inv.potencia_kw)
-                    return (
+                  {overrides.map((inv, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         {isCustomBrand ? (
                           <div className="flex flex-1 items-center gap-2">
@@ -325,8 +347,7 @@ export function StepAdvanced() {
                           </Button>
                         )}
                       </div>
-                    )
-                  })}
+                    ))}
                   <div className="flex items-center justify-between pt-1">
                     <Button
                       type="button"
@@ -497,17 +518,44 @@ export function StepAdvanced() {
           <Separator />
 
           {/* ─── Tax Benefits ─── */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-semibold">Beneficios Tributarios</Label>
-              <p className="text-sm text-muted-foreground">
-                Deducción de renta (17.5% CAPEX) y depreciación acelerada (33% x 3 años)
-              </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-semibold">Beneficios Tributarios</Label>
+                <p className="text-sm text-muted-foreground">
+                  Activa la deducción de renta y/o la depreciación acelerada de Ley 1715.
+                </p>
+              </div>
+              <Switch
+                checked={beneficiosTributarios}
+                onCheckedChange={(checked) => setAllTaxBenefits(Boolean(checked))}
+              />
             </div>
-            <Switch
-              checked={watch('beneficios_tributarios')}
-              onCheckedChange={(checked) => setValue('beneficios_tributarios', checked)}
-            />
+
+            {beneficiosTributarios && (
+              <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label>Deducción de renta</Label>
+                    <p className="text-xs text-muted-foreground">17.5% del CAPEX en año 1</p>
+                  </div>
+                  <Switch
+                    checked={incluirDeduccionRenta}
+                    onCheckedChange={(checked) => setTaxBenefit('incluir_deduccion_renta', Boolean(checked))}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label>Depreciación acelerada</Label>
+                    <p className="text-xs text-muted-foreground">33% anual por 3 años</p>
+                  </div>
+                  <Switch
+                    checked={incluirDepreciacionAcelerada}
+                    onCheckedChange={(checked) => setTaxBenefit('incluir_depreciacion_acelerada', Boolean(checked))}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ─── 6-month delay ─── */}

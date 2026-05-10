@@ -23,7 +23,7 @@ export function ScanBillDialog({ open, onOpenChange, onDataAccepted }: ScanBillD
   const [state, setState] = useState<DialogState>('upload')
   const [scanResult, setScanResult] = useState<{ data: ExtractedBillData; time: number } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
-  const { scanBill, isScanning } = useBillScanner()
+  const { scanBill } = useBillScanner()
 
   const handleFilesSelected = useCallback(async (files: File[]) => {
     setState('processing')

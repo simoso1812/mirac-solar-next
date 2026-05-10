@@ -1,14 +1,14 @@
 'use client'
 
-import { use, useCallback, useState, useEffect } from 'react'
+import { use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProposalsStore } from '@/stores/proposals-store'
+import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp, formatKWh, formatPercent } from '@/lib/formatting'
 import { CIUDADES, MESES } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { DriveSyncButton } from '@/components/drive-sync-button'
 import Link from 'next/link'
@@ -32,8 +32,7 @@ export default function PropuestaDetailPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => setHydrated(true), [])
+  const hydrated = useHydrated()
   const proposal = useProposalsStore((s) => s.getProposal(id))
   const updateProposal = useProposalsStore((s) => s.updateProposal)
   const deleteProposal = useProposalsStore((s) => s.deleteProposal)

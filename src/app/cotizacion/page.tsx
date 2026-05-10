@@ -20,10 +20,8 @@ function CotizacionContent() {
   const setClientData = useQuotationStore((s) => s.setClientData)
   const setTechnicalData = useQuotationStore((s) => s.setTechnicalData)
   const setAdvancedData = useQuotationStore((s) => s.setAdvancedData)
-  const getProposal = useProposalsStore((s) => s.getProposal)
+  const proposalToEdit = useProposalsStore((s) => editId ? s.getProposal(editId) : undefined)
 
-  const [wizardKey, setWizardKey] = useState(0)
-  const [ready, setReady] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [billScanKey, setBillScanKey] = useState(0)
   const lastEditId = useRef<string | null>(null)
@@ -34,17 +32,15 @@ function CotizacionContent() {
     lastEditId.current = editId ?? '__new__'
 
     if (editId) {
-      const proposal = getProposal(editId)
-      if (proposal) {
-        loadProposal(proposal)
+      if (proposalToEdit) {
+        loadProposal(proposalToEdit)
+      } else {
+        reset()
       }
     } else {
       reset()
     }
-    // Bump key to force remount wizard (so useForm picks up new defaultValues)
-    setWizardKey((k) => k + 1)
-    setReady(true)
-  }, [editId, getProposal, loadProposal, reset])
+  }, [editId, proposalToEdit, loadProposal, reset])
 
   const handleBillData = useCallback((data: ExtractedBillData) => {
     setClientData({
@@ -70,6 +66,10 @@ function CotizacionContent() {
     setBillScanKey((k) => k + 1)
   }, [setClientData, setTechnicalData, setAdvancedData])
 
+  const ready = editId
+    ? (!proposalToEdit && editingId === null) || editingId === editId
+    : editingId === null
+
   if (!ready) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -90,7 +90,7 @@ function CotizacionContent() {
         </Button>
       </div>
 
-      <QuotationWizard key={`${wizardKey}-${billScanKey}`} />
+      <QuotationWizard key={`${editId ?? 'new'}-${billScanKey}`} />
 
       <ScanBillDialog
         open={scannerOpen}

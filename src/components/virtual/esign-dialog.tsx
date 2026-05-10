@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
@@ -25,7 +25,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
   const [hasDrawn, setHasDrawn] = useState(false)
   const canvasInitialized = useRef(false)
 
-  const initCanvas = useRef((canvas: HTMLCanvasElement | null) => {
+  const initCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (!canvas || canvasInitialized.current) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -40,7 +40,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
     ctx.lineJoin = 'round'
     canvasRef.current = canvas
     canvasInitialized.current = true
-  })
+  }, [])
 
   useEffect(() => {
     if (!open) {
@@ -176,7 +176,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
               </Button>
             </div>
             <canvas
-              ref={initCanvas.current}
+              ref={initCanvas}
               className="h-32 w-full cursor-crosshair rounded-lg border border-white/10 bg-white/5 touch-none"
               onMouseDown={startDraw}
               onMouseMove={draw}
