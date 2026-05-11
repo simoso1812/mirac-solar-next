@@ -2,17 +2,17 @@
 
 import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { ShareDialog } from './share-dialog'
-import { ESignDialog } from './esign-dialog'
-import type { QuotationData, SignatureData } from '@/lib/types'
+import { DocusealSignDialog } from './docuseal-sign-dialog'
+import type { DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface CallToActionProps {
   proposal: QuotationData
   isShared?: boolean
-  onSign?: (signature: SignatureData) => void
+  onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
 }
 
-export function CallToAction({ proposal, isShared, onSign }: CallToActionProps) {
-  const isSigned = proposal.status === 'accepted' || !!proposal.signature
+export function CallToAction({ proposal, isShared, onDocusealUpdate }: CallToActionProps) {
+  const isSigned = proposal.status === 'accepted' || proposal.docuseal?.status === 'completed' || !!proposal.signature
 
   return (
     <section>
@@ -23,7 +23,7 @@ export function CallToAction({ proposal, isShared, onSign }: CallToActionProps) 
         <p className="mb-6 text-sm text-[#9CA3AF]">
           {isSigned
             ? 'Esta propuesta ha sido firmada y aceptada. Nuestro equipo se pondrá en contacto contigo.'
-            : 'Descarga el PDF, comparte con tu equipo o firma digitalmente para confirmar.'}
+            : 'Descarga el PDF, comparte con tu equipo o firma el contrato para confirmar.'}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <PdfDownloadButton
@@ -31,10 +31,25 @@ export function CallToAction({ proposal, isShared, onSign }: CallToActionProps) 
             className="border-white/20 bg-white/5 text-[#F9FAFB] hover:bg-white/10"
           />
           {!isShared && <ShareDialog proposal={proposal} />}
-          {!isSigned && onSign && (
-            <ESignDialog onSign={onSign} />
+          {!isSigned && onDocusealUpdate && (
+            <DocusealSignDialog
+              proposal={proposal}
+              onUpdate={onDocusealUpdate}
+            />
           )}
         </div>
+        {isSigned && proposal.docuseal?.completed_at && (
+          <div className="mt-4 inline-block rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-[#9CA3AF]">
+            Contrato firmado con DocuSeal el{' '}
+            {new Date(proposal.docuseal.completed_at).toLocaleDateString('es-CO', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </div>
+        )}
         {isSigned && proposal.signature && (
           <div className="mt-4 inline-block rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-[#9CA3AF]">
             Firmado por {proposal.signature.name} el{' '}

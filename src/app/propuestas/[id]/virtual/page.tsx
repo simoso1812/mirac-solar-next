@@ -4,7 +4,7 @@ import { use } from 'react'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { useHydrated } from '@/hooks/use-hydration'
-import type { SignatureData } from '@/lib/types'
+import type { DocusealSignatureData } from '@/lib/types'
 
 export default function VirtualPage({
   params,
@@ -42,14 +42,17 @@ function VirtualPageContent({ id }: { id: string }) {
     )
   }
 
-  const handleSign = (signature: SignatureData) => {
-    updateProposal(id, { status: 'accepted', signature })
+  const handleDocusealUpdate = (docuseal: DocusealSignatureData, accepted?: boolean) => {
+    updateProposal(id, {
+      docuseal,
+      ...(accepted ? { status: 'accepted' as const } : {}),
+    })
   }
 
   return (
     <VirtualQuotation
       proposal={proposal}
-      onSign={handleSign}
+      onDocusealUpdate={handleDocusealUpdate}
     />
   )
 }

@@ -176,6 +176,20 @@ export interface SignatureData {
   timestamp: string
 }
 
+export interface DocusealSignatureData {
+  submission_id: number
+  submitter_id: number
+  submitter_slug: string
+  embed_src: string
+  status: 'pending' | 'completed' | 'declined' | 'expired'
+  document_url: string | null
+  audit_log_url: string | null
+  completed_at: string | null
+  declined_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface QuotationData {
   id: string
   created_at: string
@@ -187,6 +201,7 @@ export interface QuotationData {
   advanced: AdvancedData
   results: CalculationResults | null
   signature?: SignatureData
+  docuseal?: DocusealSignatureData
   // Google Drive sync
   drive_folder_link: string | null
   drive_project_name: string | null

@@ -18,6 +18,7 @@ interface SharePayload {
   p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null }
   t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null; mp?: string; mo?: string }
   a: Record<string, unknown>
+  d?: Record<string, unknown>
 }
 
 /** Multi-version wrapper */
@@ -43,6 +44,7 @@ function toPayload(proposal: QuotationData): SharePayload {
     p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: p.hsp_mensual_pvgis },
     t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel },
     a: a as unknown as Record<string, unknown>,
+    d: proposal.docuseal as unknown as Record<string, unknown> | undefined,
   }
 }
 
@@ -86,6 +88,7 @@ export function fromPayload(payload: SharePayload): QuotationData {
     technical,
     advanced,
     results: null,
+    docuseal: payload.d as unknown as QuotationData['docuseal'],
     drive_folder_link: null,
     drive_project_name: null,
   }

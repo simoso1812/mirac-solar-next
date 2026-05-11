@@ -5,6 +5,7 @@ import { fetchSharedData, type SharedVersion } from '@/lib/share'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { VersionSelector } from '@/components/virtual/version-selector'
+import type { DocusealSignatureData } from '@/lib/types'
 
 export default function SharedShortPage({
   params,
@@ -38,6 +39,23 @@ export default function SharedShortPage({
   }, [id])
 
   const activeProposal = versions?.[activeIndex]?.proposal ?? null
+
+  const handleDocusealUpdate = (docuseal: DocusealSignatureData, accepted?: boolean) => {
+    setVersions((current) => {
+      if (!current) return current
+      return current.map((version, index) => {
+        if (index !== activeIndex) return version
+        return {
+          ...version,
+          proposal: {
+            ...version.proposal,
+            docuseal,
+            ...(accepted ? { status: 'accepted' as const } : {}),
+          },
+        }
+      })
+    })
+  }
 
   const versionMeta = useMemo(() => {
     if (!versions) return []
@@ -86,6 +104,7 @@ export default function SharedShortPage({
         key={activeIndex}
         proposal={activeProposal}
         isShared
+        onDocusealUpdate={handleDocusealUpdate}
       />
     </div>
   )

@@ -119,17 +119,7 @@ export interface ContractData {
   fechaPropuesta: string // YYYY-MM-DD
 }
 
-/**
- * Generate a contract .docx from template.
- * Must be called in the browser (fetches template from /assets/).
- */
-export async function generarContratoDocx(data: ContractData): Promise<Uint8Array> {
-  // 1. Fetch the template
-  const templateRes = await fetch('/assets/contrato_plantilla.docx')
-  if (!templateRes.ok) throw new Error('No se pudo cargar la plantilla del contrato')
-  const templateBuffer = await templateRes.arrayBuffer()
-
-  // 2. Load into PizZip + Docxtemplater
+export function renderContratoDocx(templateBuffer: ArrayBuffer | Uint8Array, data: ContractData): Uint8Array {
   const zip = new PizZip(templateBuffer)
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
@@ -161,4 +151,15 @@ export async function generarContratoDocx(data: ContractData): Promise<Uint8Arra
   // 5. Generate output
   const output = doc.getZip().generate({ type: 'uint8array' })
   return output
+}
+
+/**
+ * Generate a contract .docx from template.
+ * Must be called in the browser (fetches template from /assets/).
+ */
+export async function generarContratoDocx(data: ContractData): Promise<Uint8Array> {
+  const templateRes = await fetch('/assets/contrato_plantilla.docx')
+  if (!templateRes.ok) throw new Error('No se pudo cargar la plantilla del contrato')
+  const templateBuffer = await templateRes.arrayBuffer()
+  return renderContratoDocx(templateBuffer, data)
 }
