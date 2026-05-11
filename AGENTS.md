@@ -40,9 +40,14 @@ src/
 │   ├── s/[id]/page.tsx                # public shared proposal (Upstash-backed)
 │   ├── clientes/page.tsx
 │   ├── cargadores/page.tsx            # EV charger calculator
-│   └── actions/
-│       ├── drive.ts                   # server action: prepare Drive folders + access token
-│       └── scan-bill.ts               # server action: Anthropic-powered utility bill OCR
+│   ├── actions/
+│   │   ├── drive.ts                   # server actions: prepare Drive folders + access token, register/upload signed contract mapping
+│   │   └── scan-bill.ts               # server action: Anthropic-powered utility bill OCR
+│   └── api/
+│       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash)
+│       └── docuseal/
+│           ├── submission/route.ts    # create / refresh DocuSeal submission
+│           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
 ├── components/
 │   ├── quotation/                     # wizard steps (client, project, technical, advanced, review)
 │   ├── virtual/                       # virtual web quotation sections + dialogs
@@ -81,7 +86,10 @@ src/
 │   │   └── render-chart.ts            # canvas-based chart PNG for PDF
 │   ├── contract/generator.ts          # docx contract generation
 │   ├── chargers.ts + chargers-pdf.ts  # EV charger calculator
-│   ├── share.ts                       # Upstash share-link helpers
+│   ├── share.ts                       # Upstash share-link helpers (POST + PATCH client)
+│   ├── proposal-drive-map.ts          # Upstash mapping: proposalId → Drive upload folder (used by webhook)
+│   ├── docuseal.ts                    # DocuSeal API client (submissions, signatures)
+│   ├── integrations/drive.ts          # googleapis Drive client (server-side upload helper)
 │   ├── defaults.ts                    # initial form/store defaults + deepMerge backfill helper
 │   ├── schemas.ts                     # zod schemas for all wizard steps
 │   ├── types.ts                       # ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData, SignatureData
@@ -176,12 +184,36 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 - `/api/share` creates the Upstash Redis client lazily inside request handlers; do not instantiate Redis at module scope, or `next build` logs missing-env warnings.
 - `fromPayload()` must deep-merge `initialClientData`, `initialProjectData`, `initialTechnicalData`, and `initialAdvancedData` before returning a `QuotationData`, so old public links keep working after schema changes.
 - Public route: `src/app/s/[id]/page.tsx`
-- E-signature path: `<CallToAction>` → `<ESignDialog>` → `signature` saved to proposal
+- `PATCH /api/share` updates `c` (client short-keys) on the stored payload — used by the pre-sign data form so clients can fill missing email/cédula/teléfono from the shared link, and the change persists across reloads.
+- E-signature paths: `<CallToAction>` → either `<ESignDialog>` (legacy canvas signature, stored on `proposal.signature`) or `<DocusealSignDialog>` (DocuSeal embed). DocuSeal is the primary flow.
+
+### Pre-sign client data flow
+- `<DocusealSignDialog>` checks `hasMissingClientData(client)` (email or nit_cc blank) before creating the DocuSeal submission.
+- If missing, it switches to a `stage: 'collect-data'` form (email + cédula + teléfono) inside the same dialog, then calls the optional `onClientUpdate` prop to persist:
+  - On shared page (`/s/[id]`): `updateSharedClient(id, patch)` → PATCH `/api/share`.
+  - On local page (`/propuestas/[id]/virtual`): `updateProposal(id, { client })` in Zustand.
+- Then creates the DocuSeal submission with the merged client data, and switches to `stage: 'embed'`.
+- The wizard's `step-client` schema already allows blank email/nit_cc/teléfono — quotes can be created without them.
 
 ### Drive sync
-- `prepareDriveUpload(clientName, addressLabel)` server action returns `{ uploadFolderId, accessToken, folderLink, projectName }`
-- PDF and contract `.docx` are uploaded **direct from browser to googleapis** (bypasses Vercel 4.5 MB limit)
-- Folder structure: `ESTRUCTURA_CARPETAS` in constants.ts
+- `prepareDriveUpload(clientName, addressLabel)` server action returns `{ uploadFolderId, accessToken, folderLink, projectName }`.
+- Proposal PDF is uploaded **direct from browser to googleapis** (bypasses Vercel 4.5 MB limit).
+- Drive sync **no longer generates the unsigned contract DOCX** — that file is delivered only via DocuSeal (signed PDF lands in Drive via the webhook).
+- After the proposal PDF upload, `registerProposalDriveMapping(proposalId, uploadFolderId, fileBaseName)` writes a record to Upstash so the DocuSeal webhook can find the destination folder later.
+- If the proposal is already signed when sync runs (`docuseal.status === 'completed'`), `uploadSignedContractToDrive()` fetches the signed PDF from DocuSeal and uploads it in the same flow.
+- Folder structure: `ESTRUCTURA_CARPETAS` in constants.ts. Signed contracts land in `01_Propuesta_y_Contratacion/` as `Contrato_Firmado_<cliente>_<fecha>.pdf`.
+
+### DocuSeal signed-contract webhook
+- Endpoint: `POST /api/docuseal/webhook` (configure in DocuSeal dashboard → Settings → Webhooks → event `form.completed`).
+- Optional HMAC verification via `DOCUSEAL_WEBHOOK_SECRET` env var — when set, requests without a matching `X-Docuseal-Signature` (hex HMAC-SHA256 of the body) are rejected.
+- Flow on `form.completed`: look up `getProposalDriveMapping(external_id)` from Upstash → fetch the signed PDF via `getDocusealSubmission(submission_id).documents[0].url` → `uploadBytesToDriveFolder()` server-side.
+- If no mapping exists (signed before Drive sync), the webhook is a no-op; the next Drive sync picks up the signed PDF via the live re-fetch path.
+- Owner notifications go via DocuSeal's built-in "notify me on completion" setting — there's no custom email path.
+
+### Static signatures in the contract template
+- `public/assets/contrato_plantilla.docx` carries Samuel's representante legal signature as an embedded PNG (added directly in Word, no code path).
+- Only the client signs via DocuSeal — Samuel's signature is pre-filled on every contract.
+- If you re-version the template, keep the client `{{signature}}` placeholder intact for DocuSeal.
 
 ## Constraints / preferences
 
@@ -213,8 +245,10 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 ## Env vars (`.env.local`)
 
 - `GOOGLE_*` — service account / OAuth for Drive + Static Maps
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — shared proposals
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — shared proposals and proposal→Drive mapping
 - `ANTHROPIC_API_KEY` — bill scanner
+- `DOCUSEAL_API_KEY`, `DOCUSEAL_API_URL` — DocuSeal Cloud
+- `DOCUSEAL_WEBHOOK_SECRET` — optional. When set, `/api/docuseal/webhook` validates the `X-Docuseal-Signature` header.
 
 ## Recent context (chronological)
 
@@ -231,3 +265,9 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 11. Contract template was replaced with a generic version based on the Augusto Posada DOCX. It now uses placeholders for client/project/value/date data and includes a DocuSeal signature tag in the client signature line.
 12. DocuSeal Cloud integration is implemented and verified with the API key in `.env.local`. Current flow: `/api/docuseal/submission` generates the live contract DOCX from `public/assets/contrato_plantilla.docx`, sends it to DocuSeal, and returns signer metadata; the virtual quotation embeds the DocuSeal signer form and stores `docuseal` state on proposals.
 13. Verified locally: `npx tsc --noEmit` passes, `npm run build` passes, and a read-only DocuSeal API call succeeded with the configured key.
+14. Drive sync stopped generating the unsigned contract DOCX — only the proposal PDF is uploaded. Removed `generarContratoDocx` call from `drive-sync-button.tsx`.
+15. DocuSeal webhook auto-uploads the signed contract to Drive. New files: `src/app/api/docuseal/webhook/route.ts`, `src/lib/proposal-drive-map.ts`. New server actions: `registerProposalDriveMapping`, `uploadSignedContractToDrive`. New exported helper: `uploadBytesToDriveFolder` in `src/lib/integrations/drive.ts`. Optional HMAC validation via `DOCUSEAL_WEBHOOK_SECRET`.
+16. Samuel's representante legal signature is now an embedded PNG in `public/assets/contrato_plantilla.docx`. Every generated contract carries his signature; only the client signs via DocuSeal.
+17. For notifications, the user prefers DocuSeal's built-in owner notification (Settings → Email & Notifications) over a custom Resend integration — the Resend code was added then removed in the same session.
+18. Pre-sign data collection on the shared link: clients filling the proposal via WhatsApp typically have nombre + dirección only. The `<DocusealSignDialog>` now shows a `Confirma tus datos` form (email + cédula required, teléfono optional) before creating the DocuSeal submission whenever those fields are blank. The form persists via `PATCH /api/share` (shared link) or Zustand `updateProposal` (local), and `onClientUpdate` is threaded through `VirtualQuotation → CallToAction → DocusealSignDialog`.
+19. Notion CRM integration was already removed in commit `07817cf` (history shows no remaining references in `src/`, `package.json`, or env files).
