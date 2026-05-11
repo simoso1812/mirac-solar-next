@@ -32,6 +32,56 @@ export async function POST(request: NextRequest) {
   }
 }
 
+interface ClientShortKeys {
+  n?: string
+  d?: string
+  e?: string
+  t?: string
+  a?: string
+}
+
+/** PATCH — update client info on an existing shared proposal */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json() as {
+      id?: string
+      clientPatch?: { email?: string; telefono?: string; nit_cc?: string }
+    }
+    if (!body.id || !body.clientPatch) {
+      return NextResponse.json({ error: 'Missing id or clientPatch' }, { status: 400 })
+    }
+
+    const redis = getRedis()
+    const data = await redis.get(`share:${body.id}`) as Record<string, unknown> | null
+    if (!data) {
+      return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
+    }
+
+    const patch: ClientShortKeys = {}
+    if (body.clientPatch.email !== undefined) patch.e = body.clientPatch.email
+    if (body.clientPatch.telefono !== undefined) patch.t = body.clientPatch.telefono
+    if (body.clientPatch.nit_cc !== undefined) patch.a = body.clientPatch.nit_cc
+
+    const applyPatch = (c: ClientShortKeys | undefined): ClientShortKeys => ({ ...(c ?? {}), ...patch })
+
+    if (Array.isArray((data as { versions?: unknown }).versions)) {
+      const versions = (data as { versions: { payload: { c: ClientShortKeys } }[] }).versions
+      for (const v of versions) {
+        v.payload.c = applyPatch(v.payload.c)
+      }
+    } else {
+      const single = data as { c?: ClientShortKeys }
+      single.c = applyPatch(single.c)
+    }
+
+    await redis.set(`share:${body.id}`, data, { ex: EXPIRY_SECONDS })
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
 /** GET — retrieve proposal data by ID */
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id')

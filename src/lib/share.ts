@@ -117,6 +117,21 @@ export async function generateShareUrl(proposal: QuotationData): Promise<string>
   return `${window.location.origin}/s/${id}`
 }
 
+export async function updateSharedClient(
+  id: string,
+  clientPatch: { email?: string; telefono?: string; nit_cc?: string },
+): Promise<void> {
+  const res = await fetch('/api/share', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, clientPatch }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error ?? 'No se pudo actualizar los datos del cliente')
+  }
+}
+
 export async function fetchSharedProposal(id: string): Promise<QuotationData> {
   const res = await fetch(`/api/share?id=${id}`)
   if (!res.ok) throw new Error('Propuesta no encontrada o expirada')

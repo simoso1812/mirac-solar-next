@@ -1,11 +1,11 @@
 'use client'
 
 import { use, useEffect, useState, useMemo } from 'react'
-import { fetchSharedData, type SharedVersion } from '@/lib/share'
+import { fetchSharedData, updateSharedClient, type SharedVersion } from '@/lib/share'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { VersionSelector } from '@/components/virtual/version-selector'
-import type { DocusealSignatureData } from '@/lib/types'
+import type { ClientData, DocusealSignatureData } from '@/lib/types'
 
 export default function SharedShortPage({
   params,
@@ -57,6 +57,24 @@ export default function SharedShortPage({
     })
   }
 
+  const handleClientUpdate = async (clientPatch: Partial<ClientData>) => {
+    await updateSharedClient(id, {
+      email: clientPatch.email,
+      telefono: clientPatch.telefono,
+      nit_cc: clientPatch.nit_cc,
+    })
+    setVersions((current) => {
+      if (!current) return current
+      return current.map((version) => ({
+        ...version,
+        proposal: {
+          ...version.proposal,
+          client: { ...version.proposal.client, ...clientPatch },
+        },
+      }))
+    })
+  }
+
   const versionMeta = useMemo(() => {
     if (!versions) return []
     return versions.map((v) => ({
@@ -105,6 +123,7 @@ export default function SharedShortPage({
         proposal={activeProposal}
         isShared
         onDocusealUpdate={handleDocusealUpdate}
+        onClientUpdate={handleClientUpdate}
       />
     </div>
   )

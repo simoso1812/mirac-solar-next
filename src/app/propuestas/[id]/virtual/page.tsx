@@ -4,7 +4,7 @@ import { use } from 'react'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { useHydrated } from '@/hooks/use-hydration'
-import type { DocusealSignatureData } from '@/lib/types'
+import type { ClientData, DocusealSignatureData } from '@/lib/types'
 
 export default function VirtualPage({
   params,
@@ -49,10 +49,17 @@ function VirtualPageContent({ id }: { id: string }) {
     })
   }
 
+  const handleClientUpdate = (clientPatch: Partial<ClientData>) => {
+    updateProposal(id, {
+      client: { ...proposal.client, ...clientPatch },
+    })
+  }
+
   return (
     <VirtualQuotation
       proposal={proposal}
       onDocusealUpdate={handleDocusealUpdate}
+      onClientUpdate={handleClientUpdate}
     />
   )
 }

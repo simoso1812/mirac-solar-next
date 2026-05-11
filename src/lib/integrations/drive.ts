@@ -95,6 +95,16 @@ async function crearSubcarpetas(
 // File upload helpers
 // ---------------------------------------------------------------------------
 
+export async function uploadBytesToDriveFolder(
+  folderId: string,
+  fileName: string,
+  content: Buffer,
+  mimeType: string,
+): Promise<string | null> {
+  const drive = getDriveService()
+  return subirArchivo(drive, folderId, fileName, content, mimeType)
+}
+
 async function subirArchivo(
   drive: drive_v3.Drive,
   folderId: string,

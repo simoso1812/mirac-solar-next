@@ -5,13 +5,16 @@ import {
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { FileSignature, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { DocusealSignatureData, QuotationData } from '@/lib/types'
+import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface DocusealSignDialogProps {
   proposal: QuotationData
   onUpdate: (docuseal: DocusealSignatureData, accepted?: boolean) => void
+  onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
   disabled?: boolean
 }
 
@@ -55,10 +58,21 @@ async function requestDocusealSubmission(proposal: QuotationData): Promise<Docus
   return data.docuseal as DocusealSignatureData
 }
 
-export function DocusealSignDialog({ proposal, onUpdate, disabled }: DocusealSignDialogProps) {
+function hasMissingClientData(client: ClientData): boolean {
+  return !client.email?.trim() || !client.nit_cc?.trim()
+}
+
+type Stage = 'idle' | 'collect-data' | 'embed'
+
+export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disabled }: DocusealSignDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [docuseal, setDocuseal] = useState<DocusealSignatureData | null>(proposal.docuseal ?? null)
+  const [stage, setStage] = useState<Stage>('idle')
+  const [emailInput, setEmailInput] = useState(proposal.client.email ?? '')
+  const [cedulaInput, setCedulaInput] = useState(proposal.client.nit_cc ?? '')
+  const [telefonoInput, setTelefonoInput] = useState(proposal.client.telefono ?? '')
+  const [formError, setFormError] = useState<string | null>(null)
   const formHostRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -66,7 +80,13 @@ export function DocusealSignDialog({ proposal, onUpdate, disabled }: DocusealSig
   }, [proposal.docuseal])
 
   useEffect(() => {
-    if (!open || !docuseal?.embed_src || !formHostRef.current) return
+    setEmailInput(proposal.client.email ?? '')
+    setCedulaInput(proposal.client.nit_cc ?? '')
+    setTelefonoInput(proposal.client.telefono ?? '')
+  }, [proposal.client.email, proposal.client.nit_cc, proposal.client.telefono])
+
+  useEffect(() => {
+    if (!open || stage !== 'embed' || !docuseal?.embed_src || !formHostRef.current) return
 
     let formEl: HTMLElement | null = null
     let cancelled = false
@@ -102,22 +122,76 @@ export function DocusealSignDialog({ proposal, onUpdate, disabled }: DocusealSig
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, docuseal?.embed_src, proposal.id, proposal.client.email, proposal.client.nombre])
+  }, [open, stage, docuseal?.embed_src, proposal.id, proposal.client.email, proposal.client.nombre])
 
-  const prepareSigning = async () => {
-    setOpen(true)
-    if (docuseal?.embed_src && docuseal.status !== 'completed') return
-
+  const createSubmission = async (effectiveProposal: QuotationData) => {
     setLoading(true)
     try {
-      const nextDocuseal = await requestDocusealSubmission(proposal)
+      const nextDocuseal = await requestDocusealSubmission(effectiveProposal)
       setDocuseal(nextDocuseal)
       onUpdate(nextDocuseal, nextDocuseal.status === 'completed')
+      setStage('embed')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo preparar el contrato')
     } finally {
       setLoading(false)
     }
+  }
+
+  const prepareSigning = async () => {
+    setOpen(true)
+    setFormError(null)
+
+    if (docuseal?.embed_src && docuseal.status !== 'completed') {
+      setStage('embed')
+      return
+    }
+
+    if (hasMissingClientData(proposal.client)) {
+      setStage('collect-data')
+      return
+    }
+
+    await createSubmission(proposal)
+  }
+
+  const handleDataSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+
+    const email = emailInput.trim()
+    const cedula = cedulaInput.trim()
+    const telefono = telefonoInput.trim()
+
+    if (!email) {
+      setFormError('El correo electrónico es obligatorio para firmar.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError('Ingresa un correo electrónico válido.')
+      return
+    }
+    if (!cedula) {
+      setFormError('La cédula o NIT es obligatoria para el contrato.')
+      return
+    }
+
+    const clientPatch: Partial<ClientData> = { email, nit_cc: cedula, telefono }
+
+    if (onClientUpdate) {
+      try {
+        await onClientUpdate(clientPatch)
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : 'No se pudieron guardar los datos')
+        return
+      }
+    }
+
+    const effective: QuotationData = {
+      ...proposal,
+      client: { ...proposal.client, ...clientPatch },
+    }
+    await createSubmission(effective)
   }
 
   const refreshSubmission = async (accepted: boolean) => {
@@ -175,21 +249,78 @@ export function DocusealSignDialog({ proposal, onUpdate, disabled }: DocusealSig
       />
       <DialogContent className="bg-[#111827] border-white/10 text-[#F9FAFB] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-[#F9FAFB]">Firma del Contrato</DialogTitle>
+          <DialogTitle className="text-[#F9FAFB]">
+            {stage === 'collect-data' ? 'Confirma tus datos' : 'Firma del Contrato'}
+          </DialogTitle>
           <DialogDescription className="text-[#9CA3AF]">
-            Revisa y firma el contrato de prestación de servicios.
+            {stage === 'collect-data'
+              ? 'Necesitamos estos datos para preparar tu contrato.'
+              : 'Revisa y firma el contrato de prestación de servicios.'}
           </DialogDescription>
         </DialogHeader>
+
+        {stage === 'collect-data' && !loading && (
+          <form onSubmit={handleDataSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="presign-email" className="text-[#D1D5DB]">Correo electrónico</Label>
+              <Input
+                id="presign-email"
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="cliente@ejemplo.com"
+                autoFocus
+                required
+                className="bg-white/5 border-white/10 text-[#F9FAFB]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="presign-cedula" className="text-[#D1D5DB]">Cédula o NIT</Label>
+              <Input
+                id="presign-cedula"
+                value={cedulaInput}
+                onChange={(e) => setCedulaInput(e.target.value)}
+                placeholder="1234567890"
+                required
+                className="bg-white/5 border-white/10 text-[#F9FAFB]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="presign-telefono" className="text-[#D1D5DB]">
+                Teléfono <span className="text-[#6B7280]">(opcional)</span>
+              </Label>
+              <Input
+                id="presign-telefono"
+                value={telefonoInput}
+                onChange={(e) => setTelefonoInput(e.target.value)}
+                placeholder="+57 300 123 4567"
+                className="bg-white/5 border-white/10 text-[#F9FAFB]"
+              />
+            </div>
+            {formError && (
+              <p className="text-sm text-red-400">{formError}</p>
+            )}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80 font-bold"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Continuar a la firma
+            </Button>
+          </form>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center py-16 text-[#9CA3AF]">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Preparando contrato...
           </div>
         )}
-        {!loading && docuseal?.embed_src && (
+        {!loading && stage === 'embed' && docuseal?.embed_src && (
           <div ref={formHostRef} className="min-h-[640px] overflow-hidden rounded-lg bg-white text-black" />
         )}
-        {!loading && !docuseal?.embed_src && (
+        {!loading && stage === 'embed' && !docuseal?.embed_src && (
           <div className="rounded-lg border border-white/10 bg-white/5 p-6 text-sm text-[#9CA3AF]">
             No se pudo preparar el formulario de firma.
           </div>

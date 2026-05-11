@@ -8,8 +8,11 @@ import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
-import { prepareDriveUpload } from '@/app/actions/drive'
-import { generarContratoDocx } from '@/lib/contract/generator'
+import {
+  prepareDriveUpload,
+  registerProposalDriveMapping,
+  uploadSignedContractToDrive,
+} from '@/app/actions/drive'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import type { QuotationData } from '@/lib/types'
 
@@ -78,7 +81,7 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         buildInputFromStore(proposal.technical, proposal.project, proposal.advanced)
       )
 
-      // 1. Generate PDF
+      // 1. Generate proposal PDF
       const mapImageUrl =
         proposal.project.lat != null && proposal.project.lon != null
           ? getStaticMapUrlForPdf(proposal.project.lat, proposal.project.lon)
@@ -102,7 +105,9 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         />
       ).toBlob()
 
-      const pdfName = `Propuesta_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.pdf`
+      const safeClient = proposal.client.nombre.replace(/\s+/g, '_')
+      const pdfName = `Propuesta_${safeClient}_${proposal.project.fecha}.pdf`
+      const signedContractBaseName = `Contrato_Firmado_${safeClient}_${proposal.project.fecha}`
 
       // 2. Server action: create folder structure + get access token (small payload, no PDF)
       const driveResult = await prepareDriveUpload(
@@ -118,34 +123,32 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
       // 3. Upload PDF directly from browser to Google Drive (bypasses Vercel limit)
       await uploadFileToDrive(blob, pdfName, driveResult.uploadFolderId, driveResult.accessToken)
 
-      // 4. Generate and upload contract .docx
-      try {
-        const inversorLabel = liveResults.inversores.length > 0
-          ? liveResults.inversores.map((i) => `${i.cantidad}x ${i.modelo}`).join(', ')
-          : ''
-        const contractBytes = await generarContratoDocx({
-          nombreCliente: proposal.client.nombre,
-          documentoCliente: proposal.client.nit_cc ?? '',
-          telefonoCliente: proposal.client.telefono ?? '',
-          emailCliente: proposal.client.email ?? '',
-          direccionProyecto: proposal.project.ubicacion_label || proposal.client.direccion || '',
-          tamanoSistemaKwp: liveResults.kwp,
-          cantidadPaneles: liveResults.numero_paneles,
-          potenciaPanel: proposal.technical.potencia_panel_w,
-          inversorRecomendado: inversorLabel,
-          valorTotalCOP: liveResults.costo_total_cop,
-          fechaPropuesta: proposal.project.fecha,
-        })
-        const docxBlob = new Blob([contractBytes as BlobPart], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        })
-        const docxName = `Contrato_${proposal.client.nombre.replace(/\s+/g, '_')}_${proposal.project.fecha}.docx`
-        await uploadFileToDrive(docxBlob, docxName, driveResult.uploadFolderId, driveResult.accessToken)
-      } catch (contractError) {
-        console.warn('Contract generation failed (PDF was uploaded):', contractError)
+      // 4. Register webhook mapping so DocuSeal can deliver the signed
+      // contract to this folder later.
+      await registerProposalDriveMapping(
+        proposal.id,
+        driveResult.uploadFolderId,
+        signedContractBaseName,
+      )
+
+      // 5. If the proposal was already signed before this sync, fetch the
+      // signed PDF from DocuSeal and upload it now.
+      if (
+        proposal.docuseal?.status === 'completed' &&
+        proposal.docuseal.submission_id
+      ) {
+        try {
+          await uploadSignedContractToDrive(
+            proposal.docuseal.submission_id,
+            driveResult.uploadFolderId,
+            signedContractBaseName,
+          )
+        } catch (signedErr) {
+          console.warn('Signed contract upload failed (proposal PDF was uploaded):', signedErr)
+        }
       }
 
-      // 5. Update proposal with Drive link
+      // 6. Update proposal with Drive link
       updateProposal(proposal.id, {
         drive_folder_link: driveResult.folderLink,
         drive_project_name: driveResult.projectName,

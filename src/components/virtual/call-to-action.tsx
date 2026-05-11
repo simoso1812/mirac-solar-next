@@ -3,15 +3,16 @@
 import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { ShareDialog } from './share-dialog'
 import { DocusealSignDialog } from './docuseal-sign-dialog'
-import type { DocusealSignatureData, QuotationData } from '@/lib/types'
+import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface CallToActionProps {
   proposal: QuotationData
   isShared?: boolean
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
+  onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
 }
 
-export function CallToAction({ proposal, isShared, onDocusealUpdate }: CallToActionProps) {
+export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpdate }: CallToActionProps) {
   const isSigned = proposal.status === 'accepted' || proposal.docuseal?.status === 'completed' || !!proposal.signature
 
   return (
@@ -35,6 +36,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate }: CallToAct
             <DocusealSignDialog
               proposal={proposal}
               onUpdate={onDocusealUpdate}
+              onClientUpdate={onClientUpdate}
             />
           )}
         </div>

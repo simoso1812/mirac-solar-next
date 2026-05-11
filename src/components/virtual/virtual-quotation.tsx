@@ -13,12 +13,13 @@ import { FinancialSection } from './financial-section'
 import { CostComparisonSection } from './cost-comparison-section'
 import { ProjectDetailsSection } from './project-details-section'
 import { CallToAction } from './call-to-action'
-import type { DocusealSignatureData, QuotationData } from '@/lib/types'
+import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface VirtualQuotationProps {
   proposal: QuotationData
   isShared?: boolean
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
+  onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
 }
 
 function NotesSection({ notas }: { notas: string }) {
@@ -51,7 +52,7 @@ function NotesSection({ notas }: { notas: string }) {
   )
 }
 
-export function VirtualQuotation({ proposal, isShared, onDocusealUpdate }: VirtualQuotationProps) {
+export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClientUpdate }: VirtualQuotationProps) {
   const baseInput = useMemo(
     () => buildInputFromStore(proposal.technical, proposal.project, proposal.advanced),
     [proposal.technical, proposal.project, proposal.advanced]
@@ -110,6 +111,7 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate }: Virtu
           proposal={proposal}
           isShared={isShared}
           onDocusealUpdate={onDocusealUpdate}
+          onClientUpdate={onClientUpdate}
         />
       </main>
       <VirtualFooter />

@@ -7,6 +7,7 @@ interface DocusealSubmitter {
   status?: string
   completed_at?: string | null
   declined_at?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 interface DocusealDocument {
