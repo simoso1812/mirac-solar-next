@@ -16,6 +16,7 @@ export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: P
   const ahorroAnual = Math.round(results.generacion_anual_kwh * ahorroPorKwh)
   const ahorroTotal = ahorroAnual * duracionAnios
   const pagoMiracAnual = Math.round(results.generacion_anual_kwh * precioKwhPpa)
+  const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
 
   // Bar heights normalized to the higher value (utility)
   const maxPrice = Math.max(costoKwh, precioKwhPpa, 1)
@@ -96,11 +97,12 @@ export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: P
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
-              Ahorro Total ({duracionAnios} años)
+              Pago Mensual a Mirac
             </p>
             <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-[#F9FAFB]">
-              {formatCOP(ahorroTotal)}
+              {formatCOP(pagoMiracMensual)}
             </p>
+            <p className="mt-1 text-xs text-[#9CA3AF]">O&amp;M incluido</p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -110,7 +112,15 @@ export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: P
             <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-[#F9FAFB]">
               {formatCOP(pagoMiracAnual)}
             </p>
-            <p className="mt-1 text-xs text-[#9CA3AF]">O&amp;M incluido</p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
+              Ahorro Total ({duracionAnios} años)
+            </p>
+            <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-[#F9FAFB]">
+              {formatCOP(ahorroTotal)}
+            </p>
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@
  * Conversion: 1mm = 2.8346pt
  */
 import {
-  Document, Page, Text, View, Image, Font, StyleSheet,
+  Document, Page, Text, View, Image, Font, StyleSheet, Svg, Rect,
 } from '@react-pdf/renderer'
 import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData } from '@/lib/types'
 import { PROMEDIOS_COSTO } from '@/lib/constants'
@@ -393,24 +393,30 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         const precioRed = advanced.costo_kwh
         const ahorroPorKwh = Math.max(0, precioRed - precioPpa)
         const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
-        const ahorroAnual = Math.round(r.generacion_anual_kwh * ahorroPorKwh)
+        const generacionAnual = r.generacion_anual_kwh
+        const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
         const duracion = advanced.ppa.duracion_anios
         const ahorroTotal = ahorroAnual * duracion
-        const pagoMiracAnual = Math.round(r.generacion_anual_kwh * precioPpa)
+        const pagoMiracAnual = Math.round(generacionAnual * precioPpa)
+        const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
 
-        // Bar chart geometry (mm)
-        const chartLeft = 20
-        const chartTop = 120
-        const chartHeight = 80
+        // SVG chart geometry (in SVG user units, 1:1 with mm via viewBox)
+        const svgLeft = 20
+        const svgTop = 115
+        const svgWidth = 90
+        const svgHeight = 88
+
+        const chartTopPad = 10
+        const chartBottomPad = 14
+        const chartArea = svgHeight - chartTopPad - chartBottomPad
         const barWidth = 22
-        const gap = 16
-        const utilityBarX = chartLeft + 10
-        const ppaBarX = utilityBarX + barWidth + gap
-        const axisBottom = chartTop + chartHeight
+        const utilityX = 8
+        const ppaX = utilityX + barWidth + 18
 
         const maxPrice = Math.max(precioRed, precioPpa, 1)
-        const utilityBarHeight = (precioRed / maxPrice) * chartHeight
-        const ppaBarHeight = (precioPpa / maxPrice) * chartHeight
+        const utilityH = (precioRed / maxPrice) * chartArea
+        const ppaH = (precioPpa / maxPrice) * chartArea
+        const axisY = chartTopPad + chartArea
 
         return (
         <Page size="A4" style={styles.page}>
@@ -436,112 +442,102 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
 
           {/* Price lines */}
-          <Pos x={20} y={95} fontSize={12} fontFamily="Roboto" color="#444444">
+          <Pos x={20} y={88} fontSize={12} fontFamily="Roboto" color="#444444">
             Precio energía red:
           </Pos>
-          <Pos x={75} y={95} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={TEXT_BLACK}>
+          <Pos x={75} y={88} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={TEXT_BLACK}>
             ${precioRed.toLocaleString('en-US')} / kWh
           </Pos>
-          <Pos x={20} y={104} fontSize={12} fontFamily="Roboto" color="#444444">
+          <Pos x={20} y={97} fontSize={12} fontFamily="Roboto" color="#444444">
             Precio energía Mirac:
           </Pos>
-          <Pos x={75} y={104} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={BRAND_RED}>
+          <Pos x={75} y={97} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={BRAND_RED}>
             ${precioPpa.toLocaleString('en-US')} / kWh
           </Pos>
 
-          {/* Bar chart — Y-axis label */}
-          <Pos x={6} y={chartTop + chartHeight / 2 - 5} fontSize={8} fontFamily="Roboto" color="#888888" width={14} align="center">
-            COP/kWh
+          {/* Bar chart axis label */}
+          <Pos x={20} y={108} fontSize={9} fontFamily="Roboto" color="#888888">
+            Precio de la energía (COP/kWh)
           </Pos>
 
-          {/* Bar chart — axis line */}
+          {/* SVG chart */}
           <View style={{
             position: 'absolute',
-            left: mm(chartLeft),
-            top: mm(axisBottom),
-            width: mm(chartLeft + 70 - chartLeft),
-            height: 0.6,
-            backgroundColor: '#888888',
-          }} />
+            left: mm(svgLeft),
+            top: mm(svgTop),
+          }}>
+            <Svg width={mm(svgWidth)} height={mm(svgHeight)} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+              {/* Axis line */}
+              <Rect x={0} y={axisY} width={svgWidth} height={0.3} fill="#888888" />
+              {/* Utility bar */}
+              <Rect x={utilityX} y={axisY - utilityH} width={barWidth} height={utilityH} fill="#9CA3AF" />
+              {/* PPA bar */}
+              <Rect x={ppaX} y={axisY - ppaH} width={barWidth} height={ppaH} fill={BRAND_YELLOW} />
+            </Svg>
+          </View>
 
-          {/* Utility bar */}
-          <View style={{
-            position: 'absolute',
-            left: mm(utilityBarX),
-            top: mm(axisBottom - utilityBarHeight),
-            width: mm(barWidth),
-            height: mm(utilityBarHeight),
-            backgroundColor: '#9CA3AF',
-          }} />
-          <Pos x={utilityBarX} y={axisBottom - utilityBarHeight - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth} align="center">
+          {/* Labels above bars */}
+          <Pos x={svgLeft + utilityX} y={svgTop + (axisY - utilityH) - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth} align="center">
             ${precioRed.toLocaleString('en-US')}
           </Pos>
-          <Pos x={utilityBarX} y={axisBottom + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
-            Red
-          </Pos>
-
-          {/* PPA bar */}
-          <View style={{
-            position: 'absolute',
-            left: mm(ppaBarX),
-            top: mm(axisBottom - ppaBarHeight),
-            width: mm(barWidth),
-            height: mm(ppaBarHeight),
-            backgroundColor: BRAND_YELLOW,
-          }} />
-          <Pos x={ppaBarX} y={axisBottom - ppaBarHeight - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth} align="center">
+          <Pos x={svgLeft + ppaX} y={svgTop + (axisY - ppaH) - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth} align="center">
             ${precioPpa.toLocaleString('en-US')}
           </Pos>
-          <Pos x={ppaBarX} y={axisBottom + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
+          {/* Labels below bars */}
+          <Pos x={svgLeft + utilityX} y={svgTop + axisY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
+            Red
+          </Pos>
+          <Pos x={svgLeft + ppaX} y={svgTop + axisY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
             Mirac
           </Pos>
 
-          {/* Percentage savings badge */}
+          {/* Percentage savings badge — positioned in the gap between the two bar tops */}
           <View style={{
             position: 'absolute',
-            left: mm(ppaBarX + barWidth / 2 - 9),
-            top: mm(axisBottom - ((utilityBarHeight + ppaBarHeight) / 2) - 4),
+            left: mm(svgLeft + ppaX + barWidth / 2 - 9),
+            top: mm(svgTop + (axisY - utilityH) + (utilityH - ppaH) / 2 - 3),
             width: mm(18),
-            paddingVertical: 3,
+            paddingVertical: 2,
             backgroundColor: BRAND_RED,
-            borderRadius: 4,
+            borderRadius: 3,
           }}>
-            <Text style={{ fontSize: 11, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
+            <Text style={{ fontSize: 10, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
               -{porcentajeAhorro}%
             </Text>
           </View>
 
           {/* Stat cards — right side */}
           {[
-            { label: `Ahorro Anual`, value: fmtCurrency(ahorroAnual), accent: true },
+            { label: 'Ahorro Anual', value: fmtCurrency(ahorroAnual), accent: true },
+            { label: 'Pago Mensual a Mirac', value: fmtCurrency(pagoMiracMensual), accent: false, hint: 'O&M incluido' },
+            { label: 'Pago Anual a Mirac', value: fmtCurrency(pagoMiracAnual), accent: false },
             { label: `Ahorro Total (${duracion} años)`, value: fmtCurrency(ahorroTotal), accent: false },
-            { label: `Pago Anual a Mirac`, value: fmtCurrency(pagoMiracAnual), accent: false, hint: 'O&M incluido' },
           ].map((card, i) => (
             <View
               key={card.label}
               style={{
                 position: 'absolute',
                 left: mm(115),
-                top: mm(chartTop + i * 28),
+                top: mm(115 + i * 24),
                 width: mm(80),
-                height: mm(24),
+                height: mm(20),
                 borderWidth: 0.6,
                 borderColor: card.accent ? BRAND_YELLOW : '#E5E5E5',
                 borderStyle: 'solid',
                 backgroundColor: card.accent ? '#FFFBEB' : '#FAFAFA',
-                paddingHorizontal: mm(5),
-                paddingVertical: mm(3),
+                paddingHorizontal: 10,
+                paddingVertical: 5,
                 borderRadius: 4,
               }}
             >
-              <Text style={{ fontSize: 9, fontFamily: 'Roboto', color: '#666666', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              <Text style={{ fontSize: 8, fontFamily: 'Roboto', color: '#666666', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {card.label}
               </Text>
-              <Text style={{ fontSize: 14, fontFamily: 'DMSans', fontWeight: 'bold', color: card.accent ? BRAND_RED : TEXT_BLACK, marginTop: 2 }}>
+              <Text style={{ fontSize: 13, fontFamily: 'DMSans', fontWeight: 'bold', color: card.accent ? BRAND_RED : TEXT_BLACK, marginTop: 2 }}>
                 {card.value}
               </Text>
               {card.hint && (
-                <Text style={{ fontSize: 8, fontFamily: 'Roboto', color: '#888888', marginTop: 1 }}>
+                <Text style={{ fontSize: 7, fontFamily: 'Roboto', color: '#888888', marginTop: 1 }}>
                   {card.hint}
                 </Text>
               )}
