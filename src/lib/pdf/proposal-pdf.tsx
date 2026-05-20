@@ -7,7 +7,7 @@
  * Conversion: 1mm = 2.8346pt
  */
 import {
-  Document, Page, Text, View, Image, Font, StyleSheet, Svg, Rect,
+  Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
 import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData } from '@/lib/types'
 import { PROMEDIOS_COSTO } from '@/lib/constants'
@@ -140,9 +140,10 @@ export interface ProposalPdfProps {
   results: CalculationResults
   mapImageUrl?: string | null
   chartImageUrl?: string | null
+  ppaChartImageUrl?: string | null
 }
 
-export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl }: ProposalPdfProps) {
+export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl, ppaChartImageUrl }: ProposalPdfProps) {
   const r = results
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
@@ -400,23 +401,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         const pagoMiracAnual = Math.round(generacionAnual * precioPpa)
         const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
 
-        // SVG chart geometry (in SVG user units, 1:1 with mm via viewBox)
-        const svgLeft = 20
-        const svgTop = 115
-        const svgWidth = 90
-        const svgHeight = 88
-
-        const chartTopPad = 10
-        const chartBottomPad = 14
-        const chartArea = svgHeight - chartTopPad - chartBottomPad
-        const barWidth = 22
-        const utilityX = 8
-        const ppaX = utilityX + barWidth + 18
-
-        const maxPrice = Math.max(precioRed, precioPpa, 1)
-        const utilityH = (precioRed / maxPrice) * chartArea
-        const ppaH = (precioPpa / maxPrice) * chartArea
-        const axisY = chartTopPad + chartArea
+        // Chart geometry (mm) — Image rendered at this size
+        const chartLeft = 20
+        const chartTop = 115
+        const chartWidth = 90
+        const chartHeight = 80
 
         return (
         <Page size="A4" style={styles.page}>
@@ -455,59 +444,23 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             ${precioPpa.toLocaleString('en-US')} / kWh
           </Pos>
 
-          {/* Bar chart axis label */}
-          <Pos x={20} y={108} fontSize={9} fontFamily="Roboto" color="#888888">
-            Precio de la energía (COP/kWh)
-          </Pos>
-
-          {/* SVG chart */}
-          <Svg
-            width={mm(svgWidth)}
-            height={mm(svgHeight)}
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            style={{
-              position: 'absolute',
-              left: mm(svgLeft),
-              top: mm(svgTop),
-            }}
-          >
-            {/* Axis line */}
-            <Rect x={0} y={axisY} width={svgWidth} height={0.4} fill="#888888" />
-            {/* Utility bar */}
-            <Rect x={utilityX} y={axisY - utilityH} width={barWidth} height={utilityH} fill="#9CA3AF" />
-            {/* PPA bar */}
-            <Rect x={ppaX} y={axisY - ppaH} width={barWidth} height={ppaH} fill={BRAND_YELLOW} />
-          </Svg>
-
-          {/* Labels above bars */}
-          <Pos x={svgLeft + utilityX} y={svgTop + (axisY - utilityH) - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth} align="center">
-            ${precioRed.toLocaleString('en-US')}
-          </Pos>
-          <Pos x={svgLeft + ppaX} y={svgTop + (axisY - ppaH) - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth} align="center">
-            ${precioPpa.toLocaleString('en-US')}
-          </Pos>
-          {/* Labels below bars */}
-          <Pos x={svgLeft + utilityX} y={svgTop + axisY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
-            Red
-          </Pos>
-          <Pos x={svgLeft + ppaX} y={svgTop + axisY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
-            Mirac
-          </Pos>
-
-          {/* Percentage savings badge — positioned in the gap between the two bar tops */}
-          <View style={{
-            position: 'absolute',
-            left: mm(svgLeft + ppaX + barWidth / 2 - 9),
-            top: mm(svgTop + (axisY - utilityH) + (utilityH - ppaH) / 2 - 3),
-            width: mm(18),
-            paddingVertical: 2,
-            backgroundColor: BRAND_RED,
-            borderRadius: 3,
-          }}>
-            <Text style={{ fontSize: 10, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
-              -{porcentajeAhorro}%
-            </Text>
-          </View>
+          {/* Bar chart — pre-rendered PNG (canvas-based, reliable) */}
+          {ppaChartImageUrl ? (
+            <Image
+              src={ppaChartImageUrl}
+              style={{
+                position: 'absolute',
+                left: mm(chartLeft),
+                top: mm(chartTop),
+                width: mm(chartWidth),
+                height: mm(chartHeight),
+              }}
+            />
+          ) : (
+            <Pos x={chartLeft} y={chartTop + chartHeight / 2} fontSize={10} fontFamily="Roboto" color="#888888" width={chartWidth} align="center">
+              (gráfico no disponible)
+            </Pos>
+          )}
 
           {/* Stat cards — right side */}
           {[
