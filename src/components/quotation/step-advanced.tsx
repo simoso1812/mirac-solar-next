@@ -542,7 +542,7 @@ export function StepAdvanced() {
                     type="number"
                     min={1}
                     max={10000}
-                    step={10}
+                    step="any"
                     {...register('ppa.precio_kwh', { valueAsNumber: true })}
                   />
                   <p className="text-xs text-muted-foreground">
