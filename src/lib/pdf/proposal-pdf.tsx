@@ -401,11 +401,20 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         const pagoMiracAnual = Math.round(generacionAnual * precioPpa)
         const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
 
-        // Chart geometry (mm) — Image rendered at this size
+        // Chart geometry (mm)
         const chartLeft = 20
         const chartTop = 115
         const chartWidth = 90
         const chartHeight = 80
+        const barWidth = 22
+        const barGap = 16
+        const barsStartX = chartLeft + 12
+        const utilityBarX = barsStartX
+        const ppaBarX = barsStartX + barWidth + barGap
+        const axisBottomY = chartTop + chartHeight
+        const maxPrice = Math.max(precioRed, precioPpa, 1)
+        const utilityBarH = (precioRed / maxPrice) * (chartHeight - 14)
+        const ppaBarH = (precioPpa / maxPrice) * (chartHeight - 14)
 
         return (
         <Page size="A4" style={styles.page}>
@@ -444,23 +453,90 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             ${precioPpa.toLocaleString('en-US')} / kWh
           </Pos>
 
-          {/* Bar chart — pre-rendered PNG (canvas-based, reliable) */}
-          {ppaChartImageUrl ? (
-            <Image
-              src={ppaChartImageUrl}
-              style={{
-                position: 'absolute',
-                left: mm(chartLeft),
-                top: mm(chartTop),
-                width: mm(chartWidth),
-                height: mm(chartHeight),
-              }}
-            />
-          ) : (
-            <Pos x={chartLeft} y={chartTop + chartHeight / 2} fontSize={10} fontFamily="Roboto" color="#888888" width={chartWidth} align="center">
-              (gráfico no disponible)
-            </Pos>
-          )}
+          {/* Bar chart — native @react-pdf View bars (force-rendered with Text children) */}
+          {/* Chart container background */}
+          <View style={{
+            position: 'absolute',
+            left: mm(chartLeft),
+            top: mm(chartTop),
+            width: mm(chartWidth),
+            height: mm(chartHeight),
+            backgroundColor: '#FAFAFA',
+            borderWidth: 0.5,
+            borderColor: '#E5E5E5',
+            borderStyle: 'solid',
+          }}>
+            <Text> </Text>
+          </View>
+
+          {/* Axis baseline */}
+          <View style={{
+            position: 'absolute',
+            left: mm(chartLeft),
+            top: mm(axisBottomY),
+            width: mm(chartWidth),
+            height: 1,
+            backgroundColor: '#888888',
+          }}>
+            <Text> </Text>
+          </View>
+
+          {/* Utility bar */}
+          <View style={{
+            position: 'absolute',
+            left: mm(utilityBarX),
+            top: mm(axisBottomY - utilityBarH),
+            width: mm(barWidth),
+            height: mm(utilityBarH),
+            backgroundColor: '#9CA3AF',
+          }}>
+            <Text> </Text>
+          </View>
+
+          {/* PPA bar */}
+          <View style={{
+            position: 'absolute',
+            left: mm(ppaBarX),
+            top: mm(axisBottomY - ppaBarH),
+            width: mm(barWidth),
+            height: mm(ppaBarH),
+            backgroundColor: BRAND_YELLOW,
+          }}>
+            <Text> </Text>
+          </View>
+
+          {/* Value labels above each bar */}
+          <Pos x={utilityBarX - 4} y={axisBottomY - utilityBarH - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth + 8} align="center">
+            ${precioRed.toLocaleString('en-US')}
+          </Pos>
+          <Pos x={ppaBarX - 4} y={axisBottomY - ppaBarH - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth + 8} align="center">
+            ${precioPpa.toLocaleString('en-US')}
+          </Pos>
+
+          {/* Category labels below the axis */}
+          <Pos x={utilityBarX - 4} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 8} align="center">
+            Red eléctrica
+          </Pos>
+          <Pos x={ppaBarX - 4} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 8} align="center">
+            PPA Mirac
+          </Pos>
+
+          {/* Savings badge — sits in the gap between the two bar tops */}
+          <View style={{
+            position: 'absolute',
+            left: mm(utilityBarX + barWidth + barGap / 2 - 11),
+            top: mm(axisBottomY - utilityBarH + (utilityBarH - ppaBarH) / 2 - 4),
+            width: mm(22),
+            height: mm(8),
+            backgroundColor: BRAND_RED,
+            borderRadius: 3,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 10, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
+              -{porcentajeAhorro}%
+            </Text>
+          </View>
 
           {/* Stat cards — right side */}
           {[

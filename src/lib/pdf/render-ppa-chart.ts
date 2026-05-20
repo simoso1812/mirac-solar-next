@@ -7,8 +7,8 @@ export function renderPpaChart(
   precioRed: number,
   precioPpa: number,
 ): string {
-  const W = 800
-  const H = 700
+  const W = 600
+  const H = 500
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
@@ -19,8 +19,9 @@ export function renderPpaChart(
   const YELLOW = '#FAC107'
   const RED = '#FA323F'
 
-  // Background — transparent
-  ctx.clearRect(0, 0, W, H)
+  // Solid white background (transparent PNGs render unreliably in @react-pdf)
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillRect(0, 0, W, H)
 
   // Margins
   const mLeft = 110
