@@ -39,46 +39,62 @@ export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: P
       </p>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Bar chart */}
+        {/* Bar chart — matches PDF design: gray utility / yellow PPA / red -X% badge in gap */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 lg:col-span-3">
           <p className="mb-6 text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
             Precio de la energía (COP/kWh)
           </p>
-          <div className="flex h-64 items-end gap-8">
+          <div className="relative flex h-72 items-end justify-center gap-12 pt-8">
             {/* Utility bar */}
-            <div className="flex flex-1 flex-col items-center">
-              <p className="mb-2 font-mono text-lg font-bold tabular-nums text-[#F9FAFB]">
-                ${costoKwh.toLocaleString('es-CO')}
-              </p>
-              <div className="relative w-full max-w-[140px] flex-1 overflow-hidden rounded-t-lg bg-white/10">
+            <div className="flex h-full w-32 flex-col items-center">
+              <div className="relative flex h-full w-full flex-col justify-end">
+                {/* Value label above bar */}
                 <div
-                  className="absolute bottom-0 w-full rounded-t-lg bg-gradient-to-t from-cyan-500/40 to-cyan-400/30"
+                  className="absolute left-1/2 -translate-x-1/2 font-mono text-base font-bold tabular-nums text-[#F9FAFB]"
+                  style={{ bottom: `calc(${utilityBarPct}% + 8px)` }}
+                >
+                  ${costoKwh.toLocaleString('es-CO')}
+                </div>
+                {/* Bar */}
+                <div
+                  className="w-full bg-[#9CA3AF]"
                   style={{ height: `${utilityBarPct}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-[#9CA3AF]">Red eléctrica</p>
+              <p className="mt-2 text-xs text-[#9CA3AF]">Red eléctrica</p>
             </div>
 
             {/* Mirac PPA bar */}
-            <div className="flex flex-1 flex-col items-center">
-              <p className="mb-2 font-mono text-lg font-bold tabular-nums text-[#BFFF00]">
-                ${precioKwhPpa.toLocaleString('es-CO')}
-              </p>
-              <div className="relative w-full max-w-[140px] flex-1 overflow-hidden rounded-t-lg bg-white/10">
+            <div className="flex h-full w-32 flex-col items-center">
+              <div className="relative flex h-full w-full flex-col justify-end">
+                {/* Value label above bar */}
                 <div
-                  className="absolute bottom-0 w-full rounded-t-lg bg-gradient-to-t from-[#BFFF00]/60 to-[#BFFF00]/40"
+                  className="absolute left-1/2 -translate-x-1/2 font-mono text-base font-bold tabular-nums text-[#FA323F]"
+                  style={{ bottom: `calc(${miracBarPct}% + 8px)` }}
+                >
+                  ${precioKwhPpa.toLocaleString('es-CO')}
+                </div>
+                {/* Bar */}
+                <div
+                  className="w-full bg-[#FAC107]"
                   style={{ height: `${miracBarPct}%` }}
                 />
-                {/* Savings label */}
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 rounded-md bg-[#BFFF00] px-2 py-1 text-sm font-bold text-black shadow-lg"
-                  style={{ top: `${100 - utilityBarPct + (utilityBarPct - miracBarPct) / 2}%`, transform: 'translate(-50%, -50%)' }}
-                >
-                  -{porcentajeAhorro}%
-                </div>
               </div>
-              <p className="mt-3 text-xs text-[#9CA3AF]">PPA Mirac</p>
+              <p className="mt-2 text-xs text-[#9CA3AF]">PPA Mirac</p>
             </div>
+
+            {/* Savings badge — centered in the gap between the two bar tops */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 rounded-md bg-[#FA323F] px-3 py-1 text-sm font-bold text-white shadow-lg"
+              style={{
+                bottom: `calc(${(utilityBarPct + miracBarPct) / 2}% + 28px)`,
+              }}
+            >
+              -{porcentajeAhorro}%
+            </div>
+
+            {/* Axis baseline */}
+            <div className="absolute bottom-6 left-0 right-0 h-px bg-white/20" />
           </div>
         </div>
 
