@@ -461,20 +461,23 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
 
           {/* SVG chart */}
-          <View style={{
-            position: 'absolute',
-            left: mm(svgLeft),
-            top: mm(svgTop),
-          }}>
-            <Svg width={mm(svgWidth)} height={mm(svgHeight)} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-              {/* Axis line */}
-              <Rect x={0} y={axisY} width={svgWidth} height={0.3} fill="#888888" />
-              {/* Utility bar */}
-              <Rect x={utilityX} y={axisY - utilityH} width={barWidth} height={utilityH} fill="#9CA3AF" />
-              {/* PPA bar */}
-              <Rect x={ppaX} y={axisY - ppaH} width={barWidth} height={ppaH} fill={BRAND_YELLOW} />
-            </Svg>
-          </View>
+          <Svg
+            width={mm(svgWidth)}
+            height={mm(svgHeight)}
+            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+            style={{
+              position: 'absolute',
+              left: mm(svgLeft),
+              top: mm(svgTop),
+            }}
+          >
+            {/* Axis line */}
+            <Rect x={0} y={axisY} width={svgWidth} height={0.4} fill="#888888" />
+            {/* Utility bar */}
+            <Rect x={utilityX} y={axisY - utilityH} width={barWidth} height={utilityH} fill="#9CA3AF" />
+            {/* PPA bar */}
+            <Rect x={ppaX} y={axisY - ppaH} width={barWidth} height={ppaH} fill={BRAND_YELLOW} />
+          </Svg>
 
           {/* Labels above bars */}
           <Pos x={svgLeft + utilityX} y={svgTop + (axisY - utilityH) - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth} align="center">
