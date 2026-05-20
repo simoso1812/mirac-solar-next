@@ -37,11 +37,13 @@ export function StepAdvanced() {
       ...advancedData,
       financiamiento: { ...initialAdvancedData.financiamiento, ...advancedData.financiamiento },
       bateria: { ...initialAdvancedData.bateria, ...advancedData.bateria },
+      ppa: { ...initialAdvancedData.ppa, ...advancedData.ppa },
     },
   })
 
   const financiamientoHabilitado = watch('financiamiento.habilitado')
   const bateriaHabilitada = watch('bateria.habilitada')
+  const ppaHabilitada = watch('ppa.habilitada')
   const modoConexion = watch('modo_conexion')
   const marcaInversor = watch('marca_inversor')
   const overrideInversores = watch('override_inversores')
@@ -509,6 +511,52 @@ export function StepAdvanced() {
                     max={2000000}
                     step={10000}
                     {...register('bateria.costo_kwh_bateria', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* ─── PPA (Opción Cero Inversión) ─── */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-semibold">PPA — Opción Cero Inversión</Label>
+                <p className="text-sm text-muted-foreground">
+                  Mostrar al cliente la opción de pagar solo por la energía generada, sin inversión inicial.
+                </p>
+              </div>
+              <Switch
+                checked={ppaHabilitada}
+                onCheckedChange={(checked) => setValue('ppa.habilitada', checked)}
+              />
+            </div>
+
+            {ppaHabilitada && (
+              <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Precio energía Mirac (COP/kWh)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    step={10}
+                    {...register('ppa.precio_kwh', { valueAsNumber: true })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Debe ser menor al precio de la utility ({formValues.costo_kwh} COP/kWh).
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Duración del contrato (años)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={40}
+                    step={1}
+                    {...register('ppa.duracion_anios', { valueAsNumber: true })}
                   />
                 </div>
               </div>

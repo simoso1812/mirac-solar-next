@@ -55,6 +55,11 @@ export const advancedSchema = z.object({
     horas_autonomia: z.number().min(1).max(168),
     costo_kwh_bateria: z.number().min(100000).max(2000000),
   }),
+  ppa: z.object({
+    habilitada: z.boolean(),
+    precio_kwh: z.number().min(1).max(10000),
+    duracion_anios: z.number().min(1).max(40),
+  }),
   beneficios_tributarios: z.boolean(),
   incluir_deduccion_renta: z.boolean(),
   incluir_depreciacion_acelerada: z.boolean(),

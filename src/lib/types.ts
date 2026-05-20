@@ -61,6 +61,11 @@ export interface AdvancedData {
     horas_autonomia: number
     costo_kwh_bateria: number
   }
+  ppa: {
+    habilitada: boolean
+    precio_kwh: number // COP/kWh — Mirac sells solar generation at this price
+    duracion_anios: number // contract duration in years
+  }
   beneficios_tributarios: boolean
   incluir_deduccion_renta: boolean
   incluir_depreciacion_acelerada: boolean

@@ -52,6 +52,11 @@ export const initialAdvancedData: AdvancedData = {
     horas_autonomia: 48,
     costo_kwh_bateria: 400000,
   },
+  ppa: {
+    habilitada: false,
+    precio_kwh: 600,
+    duracion_anios: 20,
+  },
   beneficios_tributarios: true,
   incluir_deduccion_renta: true,
   incluir_depreciacion_acelerada: true,

@@ -387,6 +387,177 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         )
       })()}
 
+      {/* PPA — Opción Cero Inversión (conditional) */}
+      {advanced.ppa?.habilitada && (() => {
+        const precioPpa = advanced.ppa.precio_kwh
+        const precioRed = advanced.costo_kwh
+        const ahorroPorKwh = Math.max(0, precioRed - precioPpa)
+        const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
+        const ahorroAnual = Math.round(r.generacion_anual_kwh * ahorroPorKwh)
+        const duracion = advanced.ppa.duracion_anios
+        const ahorroTotal = ahorroAnual * duracion
+        const pagoMiracAnual = Math.round(r.generacion_anual_kwh * precioPpa)
+
+        // Bar chart geometry (mm)
+        const chartLeft = 20
+        const chartTop = 120
+        const chartHeight = 80
+        const barWidth = 22
+        const gap = 16
+        const utilityBarX = chartLeft + 10
+        const ppaBarX = utilityBarX + barWidth + gap
+        const axisBottom = chartTop + chartHeight
+
+        const maxPrice = Math.max(precioRed, precioPpa, 1)
+        const utilityBarHeight = (precioRed / maxPrice) * chartHeight
+        const ppaBarHeight = (precioPpa / maxPrice) * chartHeight
+
+        return (
+        <Page size="A4" style={styles.page}>
+          <View style={{
+            position: 'absolute', top: 0, left: 0,
+            width: mm(210), height: mm(297),
+            backgroundColor: '#FFFFFF',
+          }} />
+          {/* Title */}
+          <Pos x={20} y={25} fontSize={28} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED}>
+            Opción Cero Inversión
+          </Pos>
+          <View style={{
+            position: 'absolute', left: mm(20), top: mm(38),
+            width: mm(170), height: 1, backgroundColor: BRAND_YELLOW,
+          }} />
+
+          {/* Description */}
+          <Pos x={20} y={50} fontSize={11} fontFamily="Roboto" color="#444444" width={170}>
+            Con nuestro PPA Cero Inversión, accedes al sistema solar sin costo inicial. Pagas solo por la
+            energía generada a ${precioPpa.toLocaleString('en-US')}/kWh (vs. ${precioRed.toLocaleString('en-US')}/kWh
+            de la red), con O&amp;M incluido, y ahorras {porcentajeAhorro}% anual = {fmtCurrency(ahorroTotal)} en {duracion} años.
+          </Pos>
+
+          {/* Price lines */}
+          <Pos x={20} y={95} fontSize={12} fontFamily="Roboto" color="#444444">
+            Precio energía red:
+          </Pos>
+          <Pos x={75} y={95} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={TEXT_BLACK}>
+            ${precioRed.toLocaleString('en-US')} / kWh
+          </Pos>
+          <Pos x={20} y={104} fontSize={12} fontFamily="Roboto" color="#444444">
+            Precio energía Mirac:
+          </Pos>
+          <Pos x={75} y={104} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={BRAND_RED}>
+            ${precioPpa.toLocaleString('en-US')} / kWh
+          </Pos>
+
+          {/* Bar chart — Y-axis label */}
+          <Pos x={6} y={chartTop + chartHeight / 2 - 5} fontSize={8} fontFamily="Roboto" color="#888888" width={14} align="center">
+            COP/kWh
+          </Pos>
+
+          {/* Bar chart — axis line */}
+          <View style={{
+            position: 'absolute',
+            left: mm(chartLeft),
+            top: mm(axisBottom),
+            width: mm(chartLeft + 70 - chartLeft),
+            height: 0.6,
+            backgroundColor: '#888888',
+          }} />
+
+          {/* Utility bar */}
+          <View style={{
+            position: 'absolute',
+            left: mm(utilityBarX),
+            top: mm(axisBottom - utilityBarHeight),
+            width: mm(barWidth),
+            height: mm(utilityBarHeight),
+            backgroundColor: '#9CA3AF',
+          }} />
+          <Pos x={utilityBarX} y={axisBottom - utilityBarHeight - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth} align="center">
+            ${precioRed.toLocaleString('en-US')}
+          </Pos>
+          <Pos x={utilityBarX} y={axisBottom + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
+            Red
+          </Pos>
+
+          {/* PPA bar */}
+          <View style={{
+            position: 'absolute',
+            left: mm(ppaBarX),
+            top: mm(axisBottom - ppaBarHeight),
+            width: mm(barWidth),
+            height: mm(ppaBarHeight),
+            backgroundColor: BRAND_YELLOW,
+          }} />
+          <Pos x={ppaBarX} y={axisBottom - ppaBarHeight - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth} align="center">
+            ${precioPpa.toLocaleString('en-US')}
+          </Pos>
+          <Pos x={ppaBarX} y={axisBottom + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth} align="center">
+            Mirac
+          </Pos>
+
+          {/* Percentage savings badge */}
+          <View style={{
+            position: 'absolute',
+            left: mm(ppaBarX + barWidth / 2 - 9),
+            top: mm(axisBottom - ((utilityBarHeight + ppaBarHeight) / 2) - 4),
+            width: mm(18),
+            paddingVertical: 3,
+            backgroundColor: BRAND_RED,
+            borderRadius: 4,
+          }}>
+            <Text style={{ fontSize: 11, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
+              -{porcentajeAhorro}%
+            </Text>
+          </View>
+
+          {/* Stat cards — right side */}
+          {[
+            { label: `Ahorro Anual`, value: fmtCurrency(ahorroAnual), accent: true },
+            { label: `Ahorro Total (${duracion} años)`, value: fmtCurrency(ahorroTotal), accent: false },
+            { label: `Pago Anual a Mirac`, value: fmtCurrency(pagoMiracAnual), accent: false, hint: 'O&M incluido' },
+          ].map((card, i) => (
+            <View
+              key={card.label}
+              style={{
+                position: 'absolute',
+                left: mm(115),
+                top: mm(chartTop + i * 28),
+                width: mm(80),
+                height: mm(24),
+                borderWidth: 0.6,
+                borderColor: card.accent ? BRAND_YELLOW : '#E5E5E5',
+                borderStyle: 'solid',
+                backgroundColor: card.accent ? '#FFFBEB' : '#FAFAFA',
+                paddingHorizontal: mm(5),
+                paddingVertical: mm(3),
+                borderRadius: 4,
+              }}
+            >
+              <Text style={{ fontSize: 9, fontFamily: 'Roboto', color: '#666666', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {card.label}
+              </Text>
+              <Text style={{ fontSize: 14, fontFamily: 'DMSans', fontWeight: 'bold', color: card.accent ? BRAND_RED : TEXT_BLACK, marginTop: 2 }}>
+                {card.value}
+              </Text>
+              {card.hint && (
+                <Text style={{ fontSize: 8, fontFamily: 'Roboto', color: '#888888', marginTop: 1 }}>
+                  {card.hint}
+                </Text>
+              )}
+            </View>
+          ))}
+
+          {/* Footer note */}
+          <Pos x={20} y={245} fontSize={9} fontFamily="Roboto" color="#888888" width={170}>
+            Con el modelo PPA (Power Purchase Agreement), Mirac instala, opera y mantiene el sistema solar sin
+            inversión inicial del cliente. El cliente paga únicamente por la energía generada a una tarifa fija
+            durante la vigencia del contrato, garantizando ahorros desde el primer mes.
+          </Pos>
+        </Page>
+        )
+      })()}
+
       {/* 6. ALCANCE */}
       <Page size="A4" style={styles.page}>
         <Image src={`${BG}/8.jpg`} style={styles.bg} />

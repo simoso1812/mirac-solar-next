@@ -11,6 +11,7 @@ import { PricingTable } from './pricing-table'
 import { BillSimulationSection } from './bill-simulation-section'
 import { FinancialSection } from './financial-section'
 import { CostComparisonSection } from './cost-comparison-section'
+import { PpaSection } from './ppa-section'
 import { ProjectDetailsSection } from './project-details-section'
 import { CallToAction } from './call-to-action'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
@@ -103,6 +104,14 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           indexRate={baseInput.indexRate}
           horizonteAnios={overrides.horizonteAnios}
         />
+        {proposal.advanced.ppa?.habilitada && (
+          <PpaSection
+            results={whatIfResults}
+            costoKwh={overrides.costoKwh}
+            precioKwhPpa={proposal.advanced.ppa.precio_kwh}
+            duracionAnios={proposal.advanced.ppa.duracion_anios}
+          />
+        )}
         <ProjectDetailsSection proposal={proposal} results={whatIfResults} />
         {proposal.advanced.notas?.trim() && (
           <NotesSection notas={proposal.advanced.notas} />
