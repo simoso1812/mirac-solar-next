@@ -10,7 +10,7 @@ import { Fragment } from 'react'
 import {
   Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
-import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData } from '@/lib/types'
+import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData, ProposalImage } from '@/lib/types'
 import { PROMEDIOS_COSTO } from '@/lib/constants'
 
 // Register fonts
@@ -627,6 +627,56 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
         </Page>
         )
+      })()}
+
+      {/* PROJECT IMAGES (conditional, 4 per page) */}
+      {advanced.imagenes?.length > 0 && (() => {
+        const chunks: ProposalImage[][] = []
+        for (let i = 0; i < advanced.imagenes.length; i += 4) {
+          chunks.push(advanced.imagenes.slice(i, i + 4))
+        }
+        return chunks.map((chunk, pageIdx) => (
+          <Page key={`img-${pageIdx}`} size="A4" style={styles.page}>
+            <View style={{
+              position: 'absolute', top: 0, left: 0,
+              width: mm(210), height: mm(297),
+              backgroundColor: '#FFFFFF',
+            }} />
+            <Pos x={20} y={25} fontSize={28} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED}>
+              Imágenes del Proyecto
+            </Pos>
+            <View style={{
+              position: 'absolute', left: mm(20), top: mm(38),
+              width: mm(170), height: 1, backgroundColor: BRAND_YELLOW,
+            }} />
+            {chunk.map((img, i) => {
+              const col = i % 2
+              const row = Math.floor(i / 2)
+              const x = 20 + col * 88
+              const y = 48 + row * 100
+              return (
+                <Fragment key={img.id}>
+                  <Image
+                    src={img.data}
+                    style={{
+                      position: 'absolute',
+                      left: mm(x),
+                      top: mm(y),
+                      width: mm(82),
+                      height: mm(75),
+                      objectFit: 'cover',
+                    }}
+                  />
+                  {img.caption.trim() ? (
+                    <Pos x={x} y={y + 77} fontSize={9} fontFamily="Roboto" color="#444444" width={82}>
+                      {img.caption}
+                    </Pos>
+                  ) : null}
+                </Fragment>
+              )
+            })}
+          </Page>
+        ))
       })()}
 
       {/* 6. ALCANCE */}

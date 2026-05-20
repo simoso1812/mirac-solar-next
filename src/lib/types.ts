@@ -44,6 +44,12 @@ export interface PpaOption {
   duracion_anios: number // contract duration in years
 }
 
+export interface ProposalImage {
+  id: string
+  data: string // compressed JPEG as base64 data URL
+  caption: string
+}
+
 export interface AdvancedData {
   marca_inversor: string
   marca_inversor_custom: string
@@ -70,6 +76,7 @@ export interface AdvancedData {
     habilitada: boolean
     opciones: PpaOption[] // one or more PPA offers to present side by side
   }
+  imagenes: ProposalImage[] // attached project images (compressed, shown in web + PDF)
   beneficios_tributarios: boolean
   incluir_deduccion_renta: boolean
   incluir_depreciacion_acelerada: boolean

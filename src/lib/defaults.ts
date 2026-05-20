@@ -59,6 +59,7 @@ export const initialAdvancedData: AdvancedData = {
       { precio_kwh: 550, duracion_anios: 15 },
     ],
   },
+  imagenes: [],
   beneficios_tributarios: true,
   incluir_deduccion_renta: true,
   incluir_depreciacion_acelerada: true,

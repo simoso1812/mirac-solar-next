@@ -62,6 +62,11 @@ export const advancedSchema = z.object({
       duracion_anios: z.number().min(1).max(40),
     })).min(1),
   }),
+  imagenes: z.array(z.object({
+    id: z.string(),
+    data: z.string(),
+    caption: z.string(),
+  })),
   beneficios_tributarios: z.boolean(),
   incluir_deduccion_renta: z.boolean(),
   incluir_depreciacion_acelerada: z.boolean(),

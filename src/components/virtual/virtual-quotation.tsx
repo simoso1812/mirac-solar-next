@@ -12,6 +12,7 @@ import { BillSimulationSection } from './bill-simulation-section'
 import { FinancialSection } from './financial-section'
 import { CostComparisonSection } from './cost-comparison-section'
 import { PpaSection } from './ppa-section'
+import { ImageGallerySection } from './image-gallery-section'
 import { ProjectDetailsSection } from './project-details-section'
 import { CallToAction } from './call-to-action'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
@@ -110,6 +111,9 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
             costoKwh={overrides.costoKwh}
             opciones={proposal.advanced.ppa.opciones}
           />
+        )}
+        {proposal.advanced.imagenes?.length > 0 && (
+          <ImageGallerySection imagenes={proposal.advanced.imagenes} />
         )}
         <ProjectDetailsSection proposal={proposal} results={whatIfResults} />
         {proposal.advanced.notas?.trim() && (

@@ -8,7 +8,8 @@ import { useQuotationStore, initialAdvancedData } from '@/stores/quotation-store
 import { INVERTER_DATABASE } from '@/lib/constants'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { formatCOP } from '@/lib/formatting'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -17,8 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
   SlidersHorizontal, ArrowLeft, ArrowRight, ChevronDown, ChevronUp,
-  Plug, DollarSign, Settings2, Plus, Trash2,
+  Plug, DollarSign, Settings2, Plus, Trash2, ImagePlus, Loader2,
 } from 'lucide-react'
+import { compressImage, dataUrlByteSize } from '@/lib/images'
+import type { ProposalImage } from '@/lib/types'
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
@@ -43,6 +46,7 @@ export function StepAdvanced() {
           ? advancedData.ppa.opciones
           : initialAdvancedData.ppa.opciones,
       },
+      imagenes: advancedData.imagenes ?? initialAdvancedData.imagenes,
     },
   })
 
@@ -50,6 +54,9 @@ export function StepAdvanced() {
   const bateriaHabilitada = watch('bateria.habilitada')
   const ppaHabilitada = watch('ppa.habilitada')
   const ppaOpciones = watch('ppa.opciones')
+  const imagenes = watch('imagenes')
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
   const modoConexion = watch('modo_conexion')
   const marcaInversor = watch('marca_inversor')
   const overrideInversores = watch('override_inversores')
@@ -80,6 +87,42 @@ export function StepAdvanced() {
       : incluirDeduccionRenta
     setValue(field, enabled)
     setValue('beneficios_tributarios', enabled || otherEnabled)
+  }
+
+  const handleAddImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setImageError(null)
+    setImageLoading(true)
+    try {
+      const newImages: ProposalImage[] = []
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue
+        const data = await compressImage(file)
+        newImages.push({ id: crypto.randomUUID(), data, caption: '' })
+      }
+      const combined = [...(imagenes ?? []), ...newImages]
+      const totalBytes = combined.reduce((s, img) => s + dataUrlByteSize(img.data), 0)
+      if (totalBytes > 4_000_000) {
+        setImageError('Las imágenes ocupan mucho espacio; considera quitar algunas para evitar errores al guardar.')
+      }
+      setValue('imagenes', combined, { shouldDirty: true })
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : 'Error al procesar las imágenes')
+    } finally {
+      setImageLoading(false)
+    }
+  }
+
+  const removeImage = (id: string) => {
+    setValue('imagenes', (imagenes ?? []).filter((img) => img.id !== id), { shouldDirty: true })
+  }
+
+  const updateImageCaption = (id: string, caption: string) => {
+    setValue(
+      'imagenes',
+      (imagenes ?? []).map((img) => (img.id === id ? { ...img, caption } : img)),
+      { shouldDirty: true },
+    )
   }
 
   const brandInfo = INVERTER_DATABASE[marcaInversor]
@@ -757,6 +800,87 @@ export function StepAdvanced() {
               </div>
             )}
           </div>
+
+          <Separator />
+
+          {/* ─── Project Images ─── */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-base font-semibold">Imágenes del Proyecto</Label>
+              <p className="text-sm text-muted-foreground">
+                Adjunta fotos o renders. Se comprimen automáticamente y aparecen en la cotización virtual y el PDF.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'cursor-pointer',
+                  imageLoading && 'pointer-events-none opacity-50',
+                )}
+              >
+                {imageLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                )}
+                {imageLoading ? 'Procesando...' : 'Agregar imágenes'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={imageLoading}
+                  onChange={(e) => {
+                    handleAddImages(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {(imagenes?.length ?? 0) > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {imagenes.length} {imagenes.length === 1 ? 'imagen' : 'imágenes'}
+                </span>
+              )}
+            </div>
+
+            {imageError && <p className="text-xs text-destructive">{imageError}</p>}
+
+            {(imagenes?.length ?? 0) > 0 && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {imagenes.map((img) => (
+                  <div key={img.id} className="space-y-2 rounded-lg border p-2">
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.data}
+                        alt={img.caption || 'Imagen del proyecto'}
+                        className="h-32 w-full rounded object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute right-1 top-1 h-6 w-6"
+                        onClick={() => removeImage(img.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Descripción (opcional)"
+                      value={img.caption}
+                      onChange={(e) => updateImageCaption(img.id, e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
 
           {/* ─── Notes ─── */}
           <div className="space-y-2">
