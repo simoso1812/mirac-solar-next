@@ -1,27 +1,77 @@
 'use client'
 
 import { formatCOP } from '@/lib/formatting'
-import type { CalculationResults } from '@/lib/types'
+import type { CalculationResults, PpaOption } from '@/lib/types'
 
 interface PpaSectionProps {
   results: CalculationResults
   costoKwh: number
-  precioKwhPpa: number
-  duracionAnios: number
+  opciones: PpaOption[]
 }
 
-export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: PpaSectionProps) {
-  const ahorroPorKwh = Math.max(0, costoKwh - precioKwhPpa)
-  const porcentajeAhorro = costoKwh > 0 ? Math.round((ahorroPorKwh / costoKwh) * 100) : 0
-  const ahorroAnual = Math.round(results.generacion_anual_kwh * ahorroPorKwh)
-  const ahorroTotal = ahorroAnual * duracionAnios
-  const pagoMiracAnual = Math.round(results.generacion_anual_kwh * precioKwhPpa)
-  const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
+const GRAY = '#9CA3AF'
+const YELLOW = '#FAC107'
+const RED = '#FA323F'
 
-  // Bar heights normalized to the higher value (utility)
-  const maxPrice = Math.max(costoKwh, precioKwhPpa, 1)
-  const utilityBarPct = (costoKwh / maxPrice) * 100
-  const miracBarPct = (precioKwhPpa / maxPrice) * 100
+function BarColumn({
+  label,
+  value,
+  pct,
+  color,
+  valueColor,
+  badge,
+}: {
+  label: string
+  value: number
+  pct: number
+  color: string
+  valueColor: string
+  badge?: string
+}) {
+  return (
+    <div className="flex h-full w-24 flex-col items-center">
+      <div className="relative flex h-full w-full flex-col justify-end">
+        {/* Value label above the bar */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-sm font-bold tabular-nums"
+          style={{ bottom: `calc(${pct}% + 8px)`, color: valueColor }}
+        >
+          ${value.toLocaleString('es-CO')}
+        </div>
+        {/* Savings badge near the top of the bar */}
+        {badge && (
+          <div
+            className="absolute left-1/2 z-10 -translate-x-1/2 rounded-md bg-[#FA323F] px-2 py-0.5 text-xs font-bold text-white shadow-lg"
+            style={{ bottom: `calc(${pct}% - 16px)` }}
+          >
+            {badge}
+          </div>
+        )}
+        {/* Bar */}
+        <div
+          className="w-full rounded-t-sm"
+          style={{ height: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+      <p className="mt-2 text-center text-xs text-[#9CA3AF]">{label}</p>
+    </div>
+  )
+}
+
+export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
+  const generacionAnual = results.generacion_anual_kwh
+
+  const computed = opciones.map((opt) => {
+    const ahorroPorKwh = Math.max(0, costoKwh - opt.precio_kwh)
+    const porcentajeAhorro = costoKwh > 0 ? Math.round((ahorroPorKwh / costoKwh) * 100) : 0
+    const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
+    const ahorroTotal = ahorroAnual * opt.duracion_anios
+    const pagoMiracAnual = Math.round(generacionAnual * opt.precio_kwh)
+    const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
+    return { ...opt, ahorroPorKwh, porcentajeAhorro, ahorroAnual, ahorroTotal, pagoMiracAnual, pagoMiracMensual }
+  })
+
+  const maxPrice = Math.max(costoKwh, ...opciones.map((o) => o.precio_kwh), 1)
 
   return (
     <section>
@@ -32,113 +82,84 @@ export function PpaSection({ results, costoKwh, precioKwhPpa, duracionAnios }: P
 
       <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[#D1D5DB]">
         Con nuestro PPA Cero Inversión, accedes al sistema solar sin costo inicial. Pagas solo por la energía
-        generada a <span className="font-semibold text-[#F9FAFB]">${precioKwhPpa.toLocaleString('es-CO')}/kWh</span>{' '}
-        (vs. ${costoKwh.toLocaleString('es-CO')}/kWh de la red), con O&amp;M incluido, y ahorras{' '}
-        <span className="font-semibold text-[#BFFF00]">{porcentajeAhorro}%</span> anual ={' '}
-        <span className="font-semibold text-[#F9FAFB]">{formatCOP(ahorroTotal)}</span> en {duracionAnios} años.
+        generada a una tarifa fija menor a la de la red (${costoKwh.toLocaleString('es-CO')}/kWh), con O&amp;M
+        incluido. Elige el plazo que mejor se ajuste a tu negocio.
       </p>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Bar chart — matches PDF design: gray utility / yellow PPA / red -X% badge in gap */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 lg:col-span-3">
-          <p className="mb-6 text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
-            Precio de la energía (COP/kWh)
-          </p>
-          <div className="relative flex h-72 items-end justify-center gap-12 pt-8">
-            {/* Utility bar */}
-            <div className="flex h-full w-32 flex-col items-center">
-              <div className="relative flex h-full w-full flex-col justify-end">
-                {/* Value label above bar */}
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 font-mono text-base font-bold tabular-nums text-[#F9FAFB]"
-                  style={{ bottom: `calc(${utilityBarPct}% + 8px)` }}
-                >
-                  ${costoKwh.toLocaleString('es-CO')}
-                </div>
-                {/* Bar */}
-                <div
-                  className="w-full bg-[#9CA3AF]"
-                  style={{ height: `${utilityBarPct}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-[#9CA3AF]">Red eléctrica</p>
-            </div>
-
-            {/* Mirac PPA bar */}
-            <div className="flex h-full w-32 flex-col items-center">
-              <div className="relative flex h-full w-full flex-col justify-end">
-                {/* Value label above bar */}
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 font-mono text-base font-bold tabular-nums text-[#FA323F]"
-                  style={{ bottom: `calc(${miracBarPct}% + 8px)` }}
-                >
-                  ${precioKwhPpa.toLocaleString('es-CO')}
-                </div>
-                {/* Bar */}
-                <div
-                  className="w-full bg-[#FAC107]"
-                  style={{ height: `${miracBarPct}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-[#9CA3AF]">PPA Mirac</p>
-            </div>
-
-            {/* Savings badge — centered in the gap between the two bar tops */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 rounded-md bg-[#FA323F] px-3 py-1 text-sm font-bold text-white shadow-lg"
-              style={{
-                bottom: `calc(${(utilityBarPct + miracBarPct) / 2}% + 28px)`,
-              }}
-            >
-              -{porcentajeAhorro}%
-            </div>
-
-            {/* Axis baseline */}
-            <div className="absolute bottom-6 left-0 right-0 h-px bg-white/20" />
-          </div>
+      {/* Bar chart — utility vs each PPA option */}
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <p className="mb-6 text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
+          Precio de la energía (COP/kWh)
+        </p>
+        <div className="relative flex h-72 items-end justify-center gap-8 pt-10">
+          <BarColumn
+            label="Red eléctrica"
+            value={costoKwh}
+            pct={(costoKwh / maxPrice) * 100}
+            color={GRAY}
+            valueColor="#F9FAFB"
+          />
+          {computed.map((opt, i) => (
+            <BarColumn
+              key={i}
+              label={`PPA ${opt.duracion_anios} años`}
+              value={opt.precio_kwh}
+              pct={(opt.precio_kwh / maxPrice) * 100}
+              color={YELLOW}
+              valueColor={RED}
+              badge={`-${opt.porcentajeAhorro}%`}
+            />
+          ))}
+          {/* Axis baseline */}
+          <div className="absolute bottom-7 left-0 right-0 h-px bg-white/20" />
         </div>
+      </div>
 
-        {/* Stat cards */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl border border-[#BFFF00]/20 bg-[#BFFF00]/5 p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#BFFF00]">Ahorro Anual</p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-[#BFFF00]">
-              {formatCOP(ahorroAnual)}
-            </p>
-            <p className="mt-2 text-xs text-[#9CA3AF]">
-              {results.generacion_anual_kwh.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kWh × $
-              {ahorroPorKwh.toLocaleString('es-CO')}/kWh
-            </p>
+      {/* Per-option detail cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {computed.map((opt, i) => (
+          <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-baseline justify-between border-b border-white/10 pb-3">
+              <span className="text-lg font-semibold text-[#F9FAFB]">{opt.duracion_anios} años</span>
+              <span className="font-mono text-sm font-bold tabular-nums text-[#FAC107]">
+                ${opt.precio_kwh.toLocaleString('es-CO')}/kWh
+              </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9CA3AF]">Ahorro vs red</span>
+                <span className="rounded bg-[#FA323F] px-2 py-0.5 text-xs font-bold text-white">
+                  -{opt.porcentajeAhorro}%
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9CA3AF]">Pago mensual a Mirac</span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-[#F9FAFB]">
+                  {formatCOP(opt.pagoMiracMensual)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9CA3AF]">Pago anual a Mirac</span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-[#F9FAFB]">
+                  {formatCOP(opt.pagoMiracAnual)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9CA3AF]">Ahorro anual</span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-[#BFFF00]">
+                  {formatCOP(opt.ahorroAnual)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                <span className="text-xs text-[#9CA3AF]">Ahorro total ({opt.duracion_anios} años)</span>
+                <span className="font-mono text-base font-bold tabular-nums text-[#BFFF00]">
+                  {formatCOP(opt.ahorroTotal)}
+                </span>
+              </div>
+            </div>
+            <p className="mt-4 text-[10px] text-[#6B7280]">O&amp;M incluido durante todo el contrato.</p>
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
-              Pago Mensual a Mirac
-            </p>
-            <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-[#F9FAFB]">
-              {formatCOP(pagoMiracMensual)}
-            </p>
-            <p className="mt-1 text-xs text-[#9CA3AF]">O&amp;M incluido</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
-              Pago Anual a Mirac
-            </p>
-            <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-[#F9FAFB]">
-              {formatCOP(pagoMiracAnual)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
-              Ahorro Total ({duracionAnios} años)
-            </p>
-            <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-[#F9FAFB]">
-              {formatCOP(ahorroTotal)}
-            </p>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   )

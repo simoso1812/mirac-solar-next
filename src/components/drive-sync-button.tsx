@@ -5,7 +5,6 @@ import { pdf } from '@react-pdf/renderer'
 import { ProposalPdf } from '@/lib/pdf/proposal-pdf'
 import { getStaticMapUrlForPdf } from '@/lib/pdf/get-map-url'
 import { renderGenerationChart } from '@/lib/pdf/render-chart'
-import { renderPpaChart } from '@/lib/pdf/render-ppa-chart'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
@@ -94,10 +93,6 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         proposal.advanced.bateria.habilitada
       )
 
-      const ppaChartImageUrl = proposal.advanced.ppa?.habilitada
-        ? renderPpaChart(proposal.advanced.costo_kwh, proposal.advanced.ppa.precio_kwh)
-        : null
-
       const blob = await pdf(
         <ProposalPdf
           client={proposal.client}
@@ -107,7 +102,6 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           results={liveResults}
           mapImageUrl={mapImageUrl}
           chartImageUrl={chartImageUrl}
-          ppaChartImageUrl={ppaChartImageUrl}
         />
       ).toBlob()
 

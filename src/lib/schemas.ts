@@ -57,8 +57,10 @@ export const advancedSchema = z.object({
   }),
   ppa: z.object({
     habilitada: z.boolean(),
-    precio_kwh: z.number().min(1).max(10000),
-    duracion_anios: z.number().min(1).max(40),
+    opciones: z.array(z.object({
+      precio_kwh: z.number().min(1).max(10000),
+      duracion_anios: z.number().min(1).max(40),
+    })).min(1),
   }),
   beneficios_tributarios: z.boolean(),
   incluir_deduccion_renta: z.boolean(),

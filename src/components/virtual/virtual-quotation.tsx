@@ -104,12 +104,11 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           indexRate={baseInput.indexRate}
           horizonteAnios={overrides.horizonteAnios}
         />
-        {proposal.advanced.ppa?.habilitada && (
+        {proposal.advanced.ppa?.habilitada && proposal.advanced.ppa.opciones?.length > 0 && (
           <PpaSection
             results={whatIfResults}
             costoKwh={overrides.costoKwh}
-            precioKwhPpa={proposal.advanced.ppa.precio_kwh}
-            duracionAnios={proposal.advanced.ppa.duracion_anios}
+            opciones={proposal.advanced.ppa.opciones}
           />
         )}
         <ProjectDetailsSection proposal={proposal} results={whatIfResults} />

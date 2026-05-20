@@ -5,7 +5,6 @@ import { pdf } from '@react-pdf/renderer'
 import { ProposalPdf } from '@/lib/pdf/proposal-pdf'
 import { getStaticMapUrlForPdf } from '@/lib/pdf/get-map-url'
 import { renderGenerationChart } from '@/lib/pdf/render-chart'
-import { renderPpaChart } from '@/lib/pdf/render-ppa-chart'
 import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-react'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
@@ -41,10 +40,6 @@ export function PdfDownloadButton({ proposal, className }: PdfDownloadButtonProp
         proposal.advanced.bateria.habilitada
       )
 
-      const ppaChartImageUrl = proposal.advanced.ppa?.habilitada
-        ? renderPpaChart(proposal.advanced.costo_kwh, proposal.advanced.ppa.precio_kwh)
-        : null
-
       const blob = await pdf(
         <ProposalPdf
           client={proposal.client}
@@ -54,7 +49,6 @@ export function PdfDownloadButton({ proposal, className }: PdfDownloadButtonProp
           results={liveResults}
           mapImageUrl={mapImageUrl}
           chartImageUrl={chartImageUrl}
-          ppaChartImageUrl={ppaChartImageUrl}
         />
       ).toBlob()
 

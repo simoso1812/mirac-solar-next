@@ -6,6 +6,7 @@
  * Python FPDF uses mm. A4 = 210 × 297 mm
  * Conversion: 1mm = 2.8346pt
  */
+import { Fragment } from 'react'
 import {
   Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
@@ -140,10 +141,9 @@ export interface ProposalPdfProps {
   results: CalculationResults
   mapImageUrl?: string | null
   chartImageUrl?: string | null
-  ppaChartImageUrl?: string | null
 }
 
-export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl, ppaChartImageUrl }: ProposalPdfProps) {
+export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl }: ProposalPdfProps) {
   const r = results
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
@@ -389,32 +389,47 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
       })()}
 
       {/* PPA — Opción Cero Inversión (conditional) */}
-      {advanced.ppa?.habilitada && (() => {
-        const precioPpa = advanced.ppa.precio_kwh
+      {advanced.ppa?.habilitada && advanced.ppa.opciones?.length > 0 && (() => {
         const precioRed = advanced.costo_kwh
-        const ahorroPorKwh = Math.max(0, precioRed - precioPpa)
-        const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
         const generacionAnual = r.generacion_anual_kwh
-        const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
-        const duracion = advanced.ppa.duracion_anios
-        const ahorroTotal = ahorroAnual * duracion
-        const pagoMiracAnual = Math.round(generacionAnual * precioPpa)
-        const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
 
-        // Chart geometry (mm)
+        const opciones = advanced.ppa.opciones.map((opt) => {
+          const ahorroPorKwh = Math.max(0, precioRed - opt.precio_kwh)
+          const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
+          const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
+          const ahorroTotal = ahorroAnual * opt.duracion_anios
+          const pagoMiracAnual = Math.round(generacionAnual * opt.precio_kwh)
+          const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
+          return { ...opt, porcentajeAhorro, ahorroAnual, ahorroTotal, pagoMiracAnual, pagoMiracMensual }
+        })
+
+        // Chart geometry (mm) — utility bar + one bar per option
         const chartLeft = 20
-        const chartTop = 115
-        const chartWidth = 90
-        const chartHeight = 80
-        const barWidth = 22
-        const barGap = 16
-        const barsStartX = chartLeft + 12
-        const utilityBarX = barsStartX
-        const ppaBarX = barsStartX + barWidth + barGap
+        const chartTop = 92
+        const chartWidth = 170
+        const chartHeight = 62
         const axisBottomY = chartTop + chartHeight
-        const maxPrice = Math.max(precioRed, precioPpa, 1)
-        const utilityBarH = (precioRed / maxPrice) * (chartHeight - 14)
-        const ppaBarH = (precioPpa / maxPrice) * (chartHeight - 14)
+        const numBars = 1 + opciones.length
+        const slotW = chartWidth / numBars
+        const barWidth = Math.min(26, slotW * 0.5)
+        const maxPrice = Math.max(precioRed, ...opciones.map((o) => o.precio_kwh), 1)
+        const scaleH = chartHeight - 14
+        const barX = (i: number) => chartLeft + slotW * i + (slotW - barWidth) / 2
+
+        // Table geometry
+        const tableLeft = 20
+        const tableTop = 168
+        const tableWidth = 170
+        const rowH = 11
+        const cols = [
+          { label: 'Plazo', w: 22 },
+          { label: 'Precio kWh', w: 26 },
+          { label: 'Ahorro', w: 20 },
+          { label: 'Pago mensual', w: 34 },
+          { label: 'Pago anual', w: 34 },
+          { label: 'Ahorro total', w: 34 },
+        ]
+        const colX = (idx: number) => tableLeft + cols.slice(0, idx).reduce((s, c) => s + c.w, 0)
 
         return (
         <Page size="A4" style={styles.page}>
@@ -435,25 +450,15 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           {/* Description */}
           <Pos x={20} y={50} fontSize={11} fontFamily="Roboto" color="#444444" width={170}>
             Con nuestro PPA Cero Inversión, accedes al sistema solar sin costo inicial. Pagas solo por la
-            energía generada a ${precioPpa.toLocaleString('en-US')}/kWh (vs. ${precioRed.toLocaleString('en-US')}/kWh
-            de la red), con O&amp;M incluido, y ahorras {porcentajeAhorro}% anual = {fmtCurrency(ahorroTotal)} en {duracion} años.
+            energía generada a una tarifa fija menor a la de la red (${precioRed.toLocaleString('en-US')}/kWh),
+            con O&amp;M incluido. Elige el plazo que mejor se ajuste a tu negocio.
           </Pos>
 
-          {/* Price lines */}
-          <Pos x={20} y={88} fontSize={12} fontFamily="Roboto" color="#444444">
-            Precio energía red:
-          </Pos>
-          <Pos x={75} y={88} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={TEXT_BLACK}>
-            ${precioRed.toLocaleString('en-US')} / kWh
-          </Pos>
-          <Pos x={20} y={97} fontSize={12} fontFamily="Roboto" color="#444444">
-            Precio energía Mirac:
-          </Pos>
-          <Pos x={75} y={97} fontSize={12} fontFamily="Roboto" fontWeight="bold" color={BRAND_RED}>
-            ${precioPpa.toLocaleString('en-US')} / kWh
+          {/* Chart label */}
+          <Pos x={20} y={82} fontSize={9} fontFamily="Roboto" color="#888888">
+            Precio de la energía (COP/kWh)
           </Pos>
 
-          {/* Bar chart — native @react-pdf View bars (force-rendered with Text children) */}
           {/* Chart container background */}
           <View style={{
             position: 'absolute',
@@ -482,99 +487,137 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </View>
 
           {/* Utility bar */}
+          {(() => {
+            const h = (precioRed / maxPrice) * scaleH
+            return (
+              <>
+                <View style={{
+                  position: 'absolute',
+                  left: mm(barX(0)),
+                  top: mm(axisBottomY - h),
+                  width: mm(barWidth),
+                  height: mm(h),
+                  backgroundColor: '#9CA3AF',
+                }}>
+                  <Text> </Text>
+                </View>
+                <Pos x={barX(0) - 6} y={axisBottomY - h - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth + 12} align="center">
+                  ${precioRed.toLocaleString('en-US')}
+                </Pos>
+                <Pos x={barX(0) - 6} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 12} align="center">
+                  Red eléctrica
+                </Pos>
+              </>
+            )
+          })()}
+
+          {/* PPA bars */}
+          {opciones.map((opt, i) => {
+            const h = (opt.precio_kwh / maxPrice) * scaleH
+            const x = barX(i + 1)
+            return (
+              <Fragment key={i}>
+                <View style={{
+                  position: 'absolute',
+                  left: mm(x),
+                  top: mm(axisBottomY - h),
+                  width: mm(barWidth),
+                  height: mm(h),
+                  backgroundColor: BRAND_YELLOW,
+                }}>
+                  <Text> </Text>
+                </View>
+                {/* Value label above bar */}
+                <Pos x={x - 6} y={axisBottomY - h - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth + 12} align="center">
+                  ${opt.precio_kwh.toLocaleString('en-US')}
+                </Pos>
+                {/* Category label below */}
+                <Pos x={x - 6} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 12} align="center">
+                  PPA {opt.duracion_anios} años
+                </Pos>
+                {/* Savings badge near the top of the bar */}
+                <View style={{
+                  position: 'absolute',
+                  left: mm(x + barWidth / 2 - 9),
+                  top: mm(axisBottomY - h + 3),
+                  width: mm(18),
+                  height: mm(7),
+                  backgroundColor: BRAND_RED,
+                  borderRadius: 3,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 9, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
+                    -{opt.porcentajeAhorro}%
+                  </Text>
+                </View>
+              </Fragment>
+            )
+          })}
+
+          {/* Comparison table — header */}
           <View style={{
             position: 'absolute',
-            left: mm(utilityBarX),
-            top: mm(axisBottomY - utilityBarH),
-            width: mm(barWidth),
-            height: mm(utilityBarH),
-            backgroundColor: '#9CA3AF',
-          }}>
-            <Text> </Text>
-          </View>
-
-          {/* PPA bar */}
-          <View style={{
-            position: 'absolute',
-            left: mm(ppaBarX),
-            top: mm(axisBottomY - ppaBarH),
-            width: mm(barWidth),
-            height: mm(ppaBarH),
-            backgroundColor: BRAND_YELLOW,
-          }}>
-            <Text> </Text>
-          </View>
-
-          {/* Value labels above each bar */}
-          <Pos x={utilityBarX - 4} y={axisBottomY - utilityBarH - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" width={barWidth + 8} align="center">
-            ${precioRed.toLocaleString('en-US')}
-          </Pos>
-          <Pos x={ppaBarX - 4} y={axisBottomY - ppaBarH - 6} fontSize={10} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED} width={barWidth + 8} align="center">
-            ${precioPpa.toLocaleString('en-US')}
-          </Pos>
-
-          {/* Category labels below the axis */}
-          <Pos x={utilityBarX - 4} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 8} align="center">
-            Red eléctrica
-          </Pos>
-          <Pos x={ppaBarX - 4} y={axisBottomY + 3} fontSize={9} fontFamily="Roboto" color="#444444" width={barWidth + 8} align="center">
-            PPA Mirac
-          </Pos>
-
-          {/* Savings badge — sits in the gap between the two bar tops */}
-          <View style={{
-            position: 'absolute',
-            left: mm(utilityBarX + barWidth + barGap / 2 - 11),
-            top: mm(axisBottomY - utilityBarH + (utilityBarH - ppaBarH) / 2 - 4),
-            width: mm(22),
-            height: mm(8),
+            left: mm(tableLeft),
+            top: mm(tableTop),
+            width: mm(tableWidth),
+            height: mm(rowH),
             backgroundColor: BRAND_RED,
-            borderRadius: 3,
-            justifyContent: 'center',
+            flexDirection: 'row',
             alignItems: 'center',
           }}>
-            <Text style={{ fontSize: 10, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
-              -{porcentajeAhorro}%
-            </Text>
+            {cols.map((c) => (
+              <View key={c.label} style={{ width: mm(c.w), paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 8, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF' }}>
+                  {c.label}
+                </Text>
+              </View>
+            ))}
           </View>
 
-          {/* Stat cards — right side */}
-          {[
-            { label: 'Ahorro Anual', value: fmtCurrency(ahorroAnual), accent: true },
-            { label: 'Pago Mensual a Mirac', value: fmtCurrency(pagoMiracMensual), accent: false, hint: 'O&M incluido' },
-            { label: 'Pago Anual a Mirac', value: fmtCurrency(pagoMiracAnual), accent: false },
-            { label: `Ahorro Total (${duracion} años)`, value: fmtCurrency(ahorroTotal), accent: false },
-          ].map((card, i) => (
-            <View
-              key={card.label}
-              style={{
-                position: 'absolute',
-                left: mm(115),
-                top: mm(115 + i * 24),
-                width: mm(80),
-                height: mm(20),
-                borderWidth: 0.6,
-                borderColor: card.accent ? BRAND_YELLOW : '#E5E5E5',
-                borderStyle: 'solid',
-                backgroundColor: card.accent ? '#FFFBEB' : '#FAFAFA',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 4,
-              }}
-            >
-              <Text style={{ fontSize: 8, fontFamily: 'Roboto', color: '#666666', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                {card.label}
-              </Text>
-              <Text style={{ fontSize: 13, fontFamily: 'DMSans', fontWeight: 'bold', color: card.accent ? BRAND_RED : TEXT_BLACK, marginTop: 2 }}>
-                {card.value}
-              </Text>
-              {card.hint && (
-                <Text style={{ fontSize: 7, fontFamily: 'Roboto', color: '#888888', marginTop: 1 }}>
-                  {card.hint}
-                </Text>
-              )}
-            </View>
-          ))}
+          {/* Comparison table — rows */}
+          {opciones.map((opt, i) => {
+            const rowTop = tableTop + rowH * (i + 1)
+            const cells = [
+              `${opt.duracion_anios} años`,
+              `$${opt.precio_kwh.toLocaleString('en-US')}`,
+              `-${opt.porcentajeAhorro}%`,
+              fmtCurrency(opt.pagoMiracMensual),
+              fmtCurrency(opt.pagoMiracAnual),
+              fmtCurrency(opt.ahorroTotal),
+            ]
+            return (
+              <View
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: mm(tableLeft),
+                  top: mm(rowTop),
+                  width: mm(tableWidth),
+                  height: mm(rowH),
+                  backgroundColor: i % 2 === 0 ? '#FAFAFA' : '#FFFFFF',
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: '#E5E5E5',
+                  borderBottomStyle: 'solid',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                {cells.map((cell, ci) => (
+                  <View key={ci} style={{ width: mm(cols[ci].w), paddingHorizontal: 4 }}>
+                    <Text style={{
+                      fontSize: 9,
+                      fontFamily: ci === 0 ? 'DMSans' : 'Roboto',
+                      fontWeight: ci === 0 || ci === 5 ? 'bold' : 'normal',
+                      color: ci === 2 ? BRAND_RED : ci === 5 ? TEXT_BLACK : '#444444',
+                    }}>
+                      {cell}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )
+          })}
 
           {/* Footer note */}
           <Pos x={20} y={245} fontSize={9} fontFamily="Roboto" color="#888888" width={170}>

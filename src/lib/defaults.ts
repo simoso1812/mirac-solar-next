@@ -54,8 +54,10 @@ export const initialAdvancedData: AdvancedData = {
   },
   ppa: {
     habilitada: false,
-    precio_kwh: 600,
-    duracion_anios: 20,
+    opciones: [
+      { precio_kwh: 600, duracion_anios: 12 },
+      { precio_kwh: 550, duracion_anios: 15 },
+    ],
   },
   beneficios_tributarios: true,
   incluir_deduccion_renta: true,

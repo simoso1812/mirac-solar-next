@@ -37,13 +37,19 @@ export function StepAdvanced() {
       ...advancedData,
       financiamiento: { ...initialAdvancedData.financiamiento, ...advancedData.financiamiento },
       bateria: { ...initialAdvancedData.bateria, ...advancedData.bateria },
-      ppa: { ...initialAdvancedData.ppa, ...advancedData.ppa },
+      ppa: {
+        habilitada: advancedData.ppa?.habilitada ?? initialAdvancedData.ppa.habilitada,
+        opciones: advancedData.ppa?.opciones?.length
+          ? advancedData.ppa.opciones
+          : initialAdvancedData.ppa.opciones,
+      },
     },
   })
 
   const financiamientoHabilitado = watch('financiamiento.habilitado')
   const bateriaHabilitada = watch('bateria.habilitada')
   const ppaHabilitada = watch('ppa.habilitada')
+  const ppaOpciones = watch('ppa.opciones')
   const modoConexion = watch('modo_conexion')
   const marcaInversor = watch('marca_inversor')
   const overrideInversores = watch('override_inversores')
@@ -535,30 +541,62 @@ export function StepAdvanced() {
             </div>
 
             {ppaHabilitada && (
-              <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Precio energía Mirac (COP/kWh)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10000}
-                    step="any"
-                    {...register('ppa.precio_kwh', { valueAsNumber: true })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Debe ser menor al precio de la utility ({formValues.costo_kwh} COP/kWh).
-                  </p>
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">
+                  Define una o más ofertas PPA para presentar al cliente. El precio debe ser menor al de la
+                  red ({formValues.costo_kwh} COP/kWh).
+                </p>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-3 text-xs font-medium text-muted-foreground">
+                  <span>Precio energía Mirac (COP/kWh)</span>
+                  <span>Duración del contrato (años)</span>
+                  <span />
                 </div>
-                <div className="space-y-2">
-                  <Label>Duración del contrato (años)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={40}
-                    step={1}
-                    {...register('ppa.duracion_anios', { valueAsNumber: true })}
-                  />
-                </div>
+                {(ppaOpciones ?? []).map((_, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10000}
+                      step="any"
+                      {...register(`ppa.opciones.${idx}.precio_kwh`, { valueAsNumber: true })}
+                    />
+                    <Input
+                      type="number"
+                      min={1}
+                      max={40}
+                      step={1}
+                      {...register(`ppa.opciones.${idx}.duracion_anios`, { valueAsNumber: true })}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={(ppaOpciones?.length ?? 0) <= 1}
+                      onClick={() =>
+                        setValue(
+                          'ppa.opciones',
+                          (ppaOpciones ?? []).filter((_, i) => i !== idx),
+                        )
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setValue('ppa.opciones', [
+                      ...(ppaOpciones ?? []),
+                      { precio_kwh: 600, duracion_anios: 15 },
+                    ])
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar opción PPA
+                </Button>
               </div>
             )}
           </div>

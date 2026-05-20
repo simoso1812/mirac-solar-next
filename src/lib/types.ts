@@ -39,6 +39,11 @@ export interface InverterOverride {
   cantidad: number
 }
 
+export interface PpaOption {
+  precio_kwh: number // COP/kWh — Mirac sells solar generation at this price
+  duracion_anios: number // contract duration in years
+}
+
 export interface AdvancedData {
   marca_inversor: string
   marca_inversor_custom: string
@@ -63,8 +68,7 @@ export interface AdvancedData {
   }
   ppa: {
     habilitada: boolean
-    precio_kwh: number // COP/kWh — Mirac sells solar generation at this price
-    duracion_anios: number // contract duration in years
+    opciones: PpaOption[] // one or more PPA offers to present side by side
   }
   beneficios_tributarios: boolean
   incluir_deduccion_renta: boolean
