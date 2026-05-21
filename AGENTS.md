@@ -59,6 +59,8 @@ src/
 │   │   ├── bill-simulation-section.tsx
 │   │   ├── financial-section.tsx      # sliders mutate `overrides` → live re-cotizacion
 │   │   ├── cost-comparison-section.tsx
+│   │   ├── ppa-section.tsx            # PPA "Opción Cero Inversión" — bar chart + per-option cards
+│   │   ├── image-gallery-section.tsx  # attached project images grid
 │   │   ├── project-details-section.tsx
 │   │   ├── call-to-action.tsx
 │   │   ├── esign-dialog.tsx
@@ -91,8 +93,9 @@ src/
 │   ├── docuseal.ts                    # DocuSeal API client (submissions, signatures)
 │   ├── integrations/drive.ts          # googleapis Drive client (server-side upload helper)
 │   ├── defaults.ts                    # initial form/store defaults + deepMerge backfill helper
+│   ├── images.ts                      # client-side image compression (resize → JPEG base64)
 │   ├── schemas.ts                     # zod schemas for all wizard steps
-│   ├── types.ts                       # ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData, SignatureData
+│   ├── types.ts                       # ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData, SignatureData, PpaOption, ProposalImage
 │   ├── constants.ts                   # HSP, PROMEDIOS_COSTO (iva 7%), inverter DB, defaults
 │   ├── formatting.ts                  # formatCOP, number helpers
 │   └── utils.ts                       # cn() (clsx + tw-merge)
@@ -146,6 +149,24 @@ Autonomy is in **hours** (was days — migrated). Schema: `horas_autonomia: z.nu
 
 All battery display sites have defensive guards (`typeof horas === 'number'`) so old proposals saved before the rename don't crash.
 
+## PPA — "Opción Cero Inversión"
+
+`advanced.ppa` is `{ habilitada: boolean, opciones: PpaOption[] }` where `PpaOption` is `{ precio_kwh, duracion_anios }`. Multiple options are presented side by side (e.g. 600 COP/kWh for 12 yrs, 550 for 15).
+
+- Not part of the calculator — PPA metrics are derived in the display layer from `costoKwh` (utility tariff) and `results.generacion_anual_kwh`. Per option: `ahorroPorKwh = costoKwh − precio_kwh`, `ahorroAnual = generacion_anual × ahorroPorKwh`, `ahorroTotal = ahorroAnual × duracion_anios`, `pagoMiracAnual = generacion_anual × precio_kwh`, monthly = annual ÷ 12.
+- Virtual: `ppa-section.tsx` — bar chart (one gray utility bar + one yellow bar per option, each with a red `-X%` badge) + one detail card per option.
+- PDF: page in `proposal-pdf.tsx` — same bar chart (dynamic widths) + a comparison table, one row per option.
+- The form (`step-advanced.tsx`) manages the `opciones` array with add/remove rows; minimum one option.
+
+## Image attachments
+
+`advanced.imagenes` is `ProposalImage[]` (`{ id, data, caption }`). `data` is a compressed JPEG base64 data URL stored **inline** in the proposal.
+
+- Compression: `src/lib/images.ts` `compressImage()` resizes to max 1280px and re-encodes JPEG q0.7 (~150-300KB each). `dataUrlByteSize()` estimates payload size.
+- Form: "Imágenes del Proyecto" section in `step-advanced.tsx` — multi-file upload, thumbnail grid with caption inputs, soft warning if total > 4MB.
+- Virtual: `image-gallery-section.tsx`. PDF: "Imágenes del Proyecto" page(s), 4 per page (2×2), paginated.
+- Inline storage means images travel with the proposal everywhere (localStorage, `/s/` share links, PDF). Tradeoff: localStorage ~5MB and Upstash share-size limits cap practical count at ~6-10 photos.
+
 ## Zustand persist gotcha (already fixed — keep in mind for future schema additions)
 
 When you add new fields to `AdvancedData` (or other persisted shapes):
@@ -176,8 +197,8 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 - Uses `mm()` helper to keep coordinates matching the original FPDF Python layout
 - BRAND_RED + brand styles defined inline
 - Always wrap optional pages with defensive guards (e.g., `r.bateria?.habilitada && (() => { ... })()`)
-- Charts: pre-render PNG via `renderGenerationChart` and pass as `chartImageUrl`
 - Maps: `getStaticMapUrlForPdf(lat, lon)` returns a Google Static Maps URL
+- **Drawing shapes/bars in the PDF**: `@react-pdf` SVG (`<Svg>/<Rect>`) and canvas-PNG-via-`<Image>` both rendered blank/unreliably in this build. The working pattern is native `<View>` rectangles with **a `<Text> </Text>` child inside each** — the text child forces the renderer to commit the layout. The PPA bar chart uses this. The monthly generation chart still uses a canvas PNG (`renderGenerationChart` → `chartImageUrl`) and that one works — but prefer View+Text bars for new shape work.
 
 ### Sharing a proposal
 - `src/lib/share.ts` writes to Upstash Redis with a short id
@@ -271,3 +292,6 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 17. For notifications, the user prefers DocuSeal's built-in owner notification (Settings → Email & Notifications) over a custom Resend integration — the Resend code was added then removed in the same session.
 18. Pre-sign data collection on the shared link: clients filling the proposal via WhatsApp typically have nombre + dirección only. The `<DocusealSignDialog>` now shows a `Confirma tus datos` form (email + cédula required, teléfono optional) before creating the DocuSeal submission whenever those fields are blank. The form persists via `PATCH /api/share` (shared link) or Zustand `updateProposal` (local), and `onClientUpdate` is threaded through `VirtualQuotation → CallToAction → DocusealSignDialog`.
 19. Notion CRM integration was already removed in commit `07817cf` (history shows no remaining references in `src/`, `package.json`, or env files).
+20. PPA "Opción Cero Inversión" added — `advanced.ppa` with a list of `opciones` ({ precio_kwh, duracion_anios }). Bar chart + per-option cards in the virtual quotation; bar chart + comparison table in the PDF. Started as a single PPA, then generalized to multiple options.
+21. PDF shape-rendering: SVG and canvas-PNG approaches both rendered blank in this `@react-pdf` build. Settled on native `<View>` bars with `<Text> </Text>` children. Unused `render-ppa-chart.ts` and the `ppaChartImageUrl` prop were removed.
+22. Image attachments added — `advanced.imagenes` (`ProposalImage[]`), compressed inline via `src/lib/images.ts`. Upload UI in `step-advanced.tsx`, gallery in `image-gallery-section.tsx`, paginated image pages in the PDF.
