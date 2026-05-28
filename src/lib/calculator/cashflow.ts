@@ -101,8 +101,17 @@ export function generarFlujoCajaDetallado(params: CashFlowParams): CashFlowRow[]
     let coberturaConsumo = 0
 
     if (incluirBaterias) {
-      ahorroAnualTotal = consumoAnual * costkWh
-      coberturaConsumo = 100
+      // A battery enables near-full self-consumption of what the system
+      // generates (it shifts daytime surplus to night), but it can never
+      // create energy — savings are capped by actual annual generation.
+      const autoConsumo = Math.min(generacionAnual, consumoAnual)
+      ahorroAnualTotal = autoConsumo * costkWh
+      const excedentes = Math.max(0, generacionAnual - consumoAnual)
+      excedentesTotales = excedentes
+      ingresosExcedentes = excedentes * precioExcedentes
+      coberturaConsumo = consumoAnual > 0
+        ? Math.min(100, (generacionAnual / consumoAnual) * 100)
+        : 0
     } else {
       for (const genMes of currentMonthly) {
         const consumoMes = load

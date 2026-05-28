@@ -224,9 +224,18 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
       (gen) => gen * Math.pow(1 - tasaDegradacion, i)
     )
 
+    const generacionAnual = currentMonthly.reduce((a, b) => a + b, 0)
+    const consumoAnual = consumoMensualKwh * 12
+
     let ahorroAnualTotal = 0
     if (incluirBaterias) {
-      ahorroAnualTotal = consumoMensualKwh * 12 * costoKwh
+      // A battery shifts surplus generation to cover night-time load, so the
+      // system can self-consume nearly all it generates — but savings can
+      // never exceed actual generation. Cap at min(generación, consumo);
+      // any true surplus is sold at the export price.
+      const autoConsumo = Math.min(generacionAnual, consumoAnual)
+      const excedentes = Math.max(0, generacionAnual - consumoAnual)
+      ahorroAnualTotal = autoConsumo * costoKwh + excedentes * precioExcedentes
     } else {
       for (const genMes of currentMonthly) {
         if (genMes >= consumoMensualKwh) {
