@@ -95,14 +95,22 @@ export function FinancialSection({
     ? Math.round(r.costo_total_cop * financiamiento.porcentaje_financiado)
     : 0
   const plazoAnios = debtEnabled ? Math.round(financiamiento.plazo_meses / 12) : 0
+  const tasaMensualEquiv = debtEnabled
+    ? Math.pow(1 + financiamiento.tasa_interes, 1 / 12) - 1
+    : 0
   const debtMetrics = debtEnabled
     ? [
         { label: '% CAPEX Financiado', value: `${Math.round(financiamiento.porcentaje_financiado * 100)}%` },
-        { label: 'APR (Tasa anual)', value: `${(financiamiento.tasa_interes * 100).toFixed(1)}%` },
+        { label: 'Tasa EA', value: `${(financiamiento.tasa_interes * 100).toFixed(2)}%` },
+        { label: 'Tasa Mensual Equiv.', value: `${(tasaMensualEquiv * 100).toFixed(4)}%` },
         { label: 'Plazo', value: `${financiamiento.plazo_meses} meses (${plazoAnios} años)` },
         { label: 'Monto Financiado', value: formatCOP(montoFinanciado) },
         { label: 'Cuota Mensual', value: formatCOP(Math.round(cuotaMensual)) },
         { label: 'Total Cuotas', value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses)) },
+        {
+          label: 'Total Intereses',
+          value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses - montoFinanciado)),
+        },
       ]
     : []
 
@@ -291,12 +299,17 @@ export function FinancialSection({
           {debtEnabled && (
             <div className="mt-5 rounded-2xl border border-[#BFFF00]/20 bg-[#BFFF00]/[0.04] p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-[#BFFF00]">
-                  <span className="h-4 w-1 rounded-full bg-[#BFFF00]" />
-                  Financiamiento (Deuda Tradicional)
-                </h3>
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-[#BFFF00]">
+                    <span className="h-4 w-1 rounded-full bg-[#BFFF00]" />
+                    Financiamiento (Deuda Tradicional)
+                  </h3>
+                  <p className="mt-1 pl-3 text-[11px] text-[#9CA3AF]">
+                    Amortización por método francés — cuota mensual fija.
+                  </p>
+                </div>
                 <span className="rounded-full border border-[#BFFF00]/30 bg-[#BFFF00]/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#BFFF00]">
-                  Activo
+                  Método Francés
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 md:grid-cols-3">

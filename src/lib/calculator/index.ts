@@ -196,7 +196,9 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const montoAFinanciar = Math.ceil(valorProyectoTotal * (percFinanciamiento / 100))
   let cuotaMensualCredito = 0
   if (montoAFinanciar > 0 && plazoCreditoAnios > 0 && tasaInteresCredito > 0) {
-    const tasaMensual = tasaInteresCredito / 12
+    // tasa_interes is Tasa Efectiva Anual (EA, Colombian convention).
+    // Convert to equivalent monthly rate geometrically: (1+EA)^(1/12) - 1.
+    const tasaMensual = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
     const numPagos = plazoCreditoAnios * 12
     cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensual, numPagos, -montoAFinanciar)))
   }

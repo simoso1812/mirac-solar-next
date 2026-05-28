@@ -467,7 +467,7 @@ export function StepAdvanced() {
             {financiamientoHabilitado && (
               <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Tasa Interés Anual (%)</Label>
+                  <Label>Tasa EA — Efectiva Anual (%)</Label>
                   <Input
                     type="number"
                     min={0}
