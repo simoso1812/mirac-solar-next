@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip,
 } from 'recharts'
-import type { CalculationResults } from '@/lib/types'
+import type { AdvancedData, CalculationResults } from '@/lib/types'
 
 interface WhatIfOverrides {
   costoKwh: number
@@ -18,6 +18,7 @@ interface FinancialSectionProps {
   whatIfResults: CalculationResults
   overrides: WhatIfOverrides
   onOverridesChange: (overrides: WhatIfOverrides) => void
+  financiamiento: AdvancedData['financiamiento']
 }
 
 function RangeSlider({
@@ -80,8 +81,30 @@ export function FinancialSection({
   whatIfResults,
   overrides,
   onOverridesChange,
+  financiamiento,
 }: FinancialSectionProps) {
   const r = whatIfResults
+
+  const debtEnabled = financiamiento?.habilitado
+  // Year 1 row carries the annualized cuota; /12 gives monthly cuota.
+  const cuotaAnualY1 = debtEnabled
+    ? r.flujo_caja.find((row) => row.anio === 1)?.cuota_financiamiento_cop ?? 0
+    : 0
+  const cuotaMensual = cuotaAnualY1 / 12
+  const montoFinanciado = debtEnabled
+    ? Math.round(r.costo_total_cop * financiamiento.porcentaje_financiado)
+    : 0
+  const plazoAnios = debtEnabled ? Math.round(financiamiento.plazo_meses / 12) : 0
+  const debtMetrics = debtEnabled
+    ? [
+        { label: '% CAPEX Financiado', value: `${Math.round(financiamiento.porcentaje_financiado * 100)}%` },
+        { label: 'APR (Tasa anual)', value: `${(financiamiento.tasa_interes * 100).toFixed(1)}%` },
+        { label: 'Plazo', value: `${financiamiento.plazo_meses} meses (${plazoAnios} años)` },
+        { label: 'Monto Financiado', value: formatCOP(montoFinanciado) },
+        { label: 'Cuota Mensual', value: formatCOP(Math.round(cuotaMensual)) },
+        { label: 'Total Cuotas', value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses)) },
+      ]
+    : []
 
   const cashFlowData = r.flujo_caja
     .filter((row) => row.anio > 0 && row.anio <= overrides.horizonteAnios)
@@ -264,6 +287,32 @@ export function FinancialSection({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+
+          {debtEnabled && (
+            <div className="mt-5 rounded-2xl border border-[#BFFF00]/20 bg-[#BFFF00]/[0.04] p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-[#BFFF00]">
+                  <span className="h-4 w-1 rounded-full bg-[#BFFF00]" />
+                  Financiamiento (Deuda Tradicional)
+                </h3>
+                <span className="rounded-full border border-[#BFFF00]/30 bg-[#BFFF00]/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#BFFF00]">
+                  Activo
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 md:grid-cols-3">
+                {debtMetrics.map((m) => (
+                  <div key={m.label} className="flex flex-col">
+                    <span className="text-[11px] uppercase tracking-wider text-[#9CA3AF]">
+                      {m.label}
+                    </span>
+                    <span className="mt-0.5 text-sm font-bold tabular-nums text-[#F9FAFB]">
+                      {m.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

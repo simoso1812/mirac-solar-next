@@ -97,6 +97,7 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           whatIfResults={whatIfResults}
           overrides={overrides}
           onOverridesChange={setOverrides}
+          financiamiento={proposal.advanced.financiamiento}
         />
         <CostComparisonSection
           results={whatIfResults}
