@@ -94,6 +94,10 @@ export function FinancialSection({
   const montoFinanciado = debtEnabled
     ? Math.round(r.costo_total_cop * financiamiento.porcentaje_financiado)
     : 0
+  const anticipo = debtEnabled
+    ? Math.round(r.costo_total_cop * (1 - financiamiento.porcentaje_financiado))
+    : 0
+  const anticipoPct = debtEnabled ? Math.round((1 - financiamiento.porcentaje_financiado) * 100) : 0
   const plazoAnios = debtEnabled ? Math.round(financiamiento.plazo_meses / 12) : 0
   const tasaMensualEquiv = debtEnabled
     ? Math.pow(1 + financiamiento.tasa_interes, 1 / 12) - 1
@@ -104,6 +108,7 @@ export function FinancialSection({
         { label: 'Tasa EA', value: `${(financiamiento.tasa_interes * 100).toFixed(2)}%` },
         { label: 'Tasa Mensual Equiv.', value: `${(tasaMensualEquiv * 100).toFixed(4)}%` },
         { label: 'Plazo', value: `${financiamiento.plazo_meses} meses (${plazoAnios} años)` },
+        { label: `Anticipo (${anticipoPct}%)`, value: formatCOP(anticipo) },
         { label: 'Monto Financiado', value: formatCOP(montoFinanciado) },
         { label: 'Cuota Mensual', value: formatCOP(Math.round(cuotaMensual)) },
         { label: 'Total Cuotas', value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses)) },
