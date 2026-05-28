@@ -46,6 +46,7 @@ async function fetchPVGIS(lat: number, lon: number): Promise<number[] | null> {
           Accept: 'application/json',
         },
         signal: AbortSignal.timeout(15000),
+        next: { revalidate: 86400 },
       })
 
       if (!res.ok) continue

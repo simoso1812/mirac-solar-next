@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DocuSeal did not return a signed document' }, { status: 502 })
   }
 
-  const pdfRes = await fetch(docUrl)
+  const pdfRes = await fetch(docUrl, { cache: 'no-store' })
   if (!pdfRes.ok) {
     return NextResponse.json({ error: `Could not download signed PDF (${pdfRes.status})` }, { status: 502 })
   }

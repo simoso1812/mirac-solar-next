@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -45,6 +46,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
+    "react-doctor": "^0.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

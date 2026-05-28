@@ -57,7 +57,7 @@ src/
 │   │   ├── battery-section.tsx
 │   │   ├── pricing-table.tsx
 │   │   ├── bill-simulation-section.tsx
-│   │   ├── financial-section.tsx      # sliders mutate `overrides` → live re-cotizacion
+│   │   ├── financial-section.tsx      # sliders mutate `overrides`; shows financing (deuda) metrics card when enabled
 │   │   ├── cost-comparison-section.tsx
 │   │   ├── ppa-section.tsx            # PPA "Opción Cero Inversión" — bar chart + per-option cards
 │   │   ├── image-gallery-section.tsx  # attached project images grid
@@ -148,6 +148,24 @@ User-entered `bateria.capacidad_kwh` is **authoritative** when > 0:
 Autonomy is in **hours** (was days — migrated). Schema: `horas_autonomia: z.number().min(1).max(168)`.
 
 All battery display sites have defensive guards (`typeof horas === 'number'`) so old proposals saved before the rename don't crash.
+
+## Savings model (energy offset — CRITICAL, recently fixed)
+
+Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the system actually generates** — never by total consumption. The savings loop lives in **two places** that must stay in sync: `src/lib/calculator/index.ts` (the `cashflowFree` loop feeding TIR/VPN/ROI/payback/`ahorro_anual_cop`) and `src/lib/calculator/cashflow.ts` (the detailed year-by-year table).
+
+- **No battery**: month-by-month. If `genMes ≥ consumoMes`, save the full month bill plus surplus sold at `precioExcedentes`; otherwise save only `genMes × costoKwh`.
+- **With battery**: a battery shifts daytime surplus to night, so the system self-consumes nearly all it generates — but savings still cannot exceed generation. `autoConsumo = min(generaciónAnual, consumoAnual)`, savings `= autoConsumo × costoKwh + max(0, generación − consumo) × precioExcedentes`.
+
+**Past bug (do not reintroduce)**: the battery branch used to set `ahorroAnualTotal = consumoAnual × costoKwh` and `cobertura = 100%`, assuming a battery covers the whole bill. That produced absurd metrics (e.g. TIR 310%, ROI 19277%, payback 0.3 años) whenever the array only covered part of the load. A battery stores energy, it cannot create it.
+
+## Financing (deuda tradicional — método francés)
+
+`advanced.financiamiento` is `{ habilitado, tasa_interes, plazo_meses, porcentaje_financiado }`.
+
+- **`tasa_interes` is Tasa Efectiva Anual (EA)** — Colombian bank convention, NOT nominal APR. Convert to the monthly rate **geometrically**: `tasaMensual = (1 + EA)^(1/12) − 1` (e.g. 15% EA → 1.1715%/mes). Do **not** divide by 12. Set in `src/lib/calculator/index.ts`.
+- Amortization is **método francés** (fixed monthly cuota) via `pmt(tasaMensual, plazoMeses, -montoFinanciado)`.
+- `desembolsoInicial = valorProyectoTotal × (1 − porcentaje_financiado)` is the **anticipo** (down payment) and the year-0 equity outlay; IRR/ROI are computed on this levered equity, not the full CAPEX.
+- `financial-section.tsx` renders a financing card (gated on `habilitado`) with: % CAPEX financiado, Tasa EA, Tasa mensual equiv., plazo, anticipo (money + %), monto financiado, cuota mensual, total cuotas, total intereses. The form labels the input "Tasa EA — Efectiva Anual".
 
 ## PPA — "Opción Cero Inversión"
 
@@ -295,3 +313,6 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 20. PPA "Opción Cero Inversión" added — `advanced.ppa` with a list of `opciones` ({ precio_kwh, duracion_anios }). Bar chart + per-option cards in the virtual quotation; bar chart + comparison table in the PDF. Started as a single PPA, then generalized to multiple options.
 21. PDF shape-rendering: SVG and canvas-PNG approaches both rendered blank in this `@react-pdf` build. Settled on native `<View>` bars with `<Text> </Text>` children. Unused `render-ppa-chart.ts` and the `ppaChartImageUrl` prop were removed.
 22. Image attachments added — `advanced.imagenes` (`ProposalImage[]`), compressed inline via `src/lib/images.ts`. Upload UI in `step-advanced.tsx`, gallery in `image-gallery-section.tsx`, paginated image pages in the PDF.
+23. Financing metrics card added to `financial-section.tsx` (shown when `financiamiento.habilitado`): % CAPEX financiado, anticipo (money + %), monto financiado, cuota mensual, total cuotas, total intereses, plazo.
+24. Financing rate is **Tasa EA** (Colombian convention), converted to monthly geometrically `(1+EA)^(1/12)−1` — was wrongly divided by 12. Verified against Simon's Excel (76.8M @ 15% EA, 60 mo → cuota $1.789.308). Amortization is método francés. Form label changed to "Tasa EA — Efectiva Anual". Card surfaces the equivalent monthly rate.
+25. Battery savings bug fixed (see "Savings model"): savings were capped at full consumption when a battery was on, inflating TIR/ROI/payback. Now capped at actual generation in both `index.ts` and `cashflow.ts`. Battery proposals quoted before this fix should be regenerated.
