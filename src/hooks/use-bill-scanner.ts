@@ -52,13 +52,15 @@ export function useBillScanner(): UseBillScannerReturn {
     setError(null)
     setProgress({ current: 0, total: files.length })
 
-    const results: BillScanResult[] = []
-
-    for (let i = 0; i < files.length; i++) {
-      setProgress({ current: i + 1, total: files.length })
-      const result = await scanBill(files[i])
-      results.push(result)
-    }
+    let completed = 0
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const result = await scanBill(file)
+        completed += 1
+        setProgress({ current: completed, total: files.length })
+        return result
+      })
+    )
 
     setProgress(null)
     setIsScanning(false)

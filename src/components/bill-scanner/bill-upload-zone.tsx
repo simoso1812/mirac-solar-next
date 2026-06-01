@@ -9,6 +9,13 @@ interface BillUploadZoneProps {
   maxFiles?: number
 }
 
+function getFileIcon(type: string) {
+  if (type === 'application/pdf') return <FileText className="size-4 text-red-500" />
+  if (type.includes('wordprocessingml')) return <FileText className="size-4 text-blue-600" />
+  if (type.includes('spreadsheetml')) return <FileSpreadsheet className="size-4 text-green-600" />
+  return <ImageIcon className="size-4 text-blue-500" />
+}
+
 export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZoneProps) {
   const [dragOver, setDragOver] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -49,37 +56,30 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
     }
   }, [selectedFiles, onFilesSelected])
 
-  const getFileIcon = (type: string) => {
-    if (type === 'application/pdf') return <FileText className="h-4 w-4 text-red-500" />
-    if (type.includes('wordprocessingml')) return <FileText className="h-4 w-4 text-blue-600" />
-    if (type.includes('spreadsheetml')) return <FileSpreadsheet className="h-4 w-4 text-green-600" />
-    return <ImageIcon className="h-4 w-4 text-blue-500" />
-  }
-
   return (
     <div className="space-y-4">
       {/* Drop zone */}
-      <div
+      <label
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors ${
           dragOver
             ? 'border-mirac-red bg-mirac-red/5'
             : 'border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-accent/50'
         }`}
       >
-        <Upload className={`mb-3 h-10 w-10 ${dragOver ? 'text-mirac-red' : 'text-muted-foreground'}`} />
+        <Upload className={`mb-3 size-10 ${dragOver ? 'text-mirac-red' : 'text-muted-foreground'}`} />
         <p className="mb-1 text-sm font-medium">
           Arrastra tu factura de energía aquí
         </p>
         <p className="text-xs text-muted-foreground">
-          JPG, PNG, WebP, PDF, Word o Excel — máximo 10MB
+          JPG, PNG, WebP, PDF, Word o Excel, máximo 10MB
         </p>
         <input
           ref={inputRef}
           type="file"
+          aria-label="Seleccionar archivo de factura"
           accept="image/jpeg,image/png,image/webp,application/pdf,.docx,.xlsx"
           multiple
           capture="environment"
@@ -89,7 +89,7 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
             e.target.value = ''
           }}
         />
-      </div>
+      </label>
 
       {/* Camera button for mobile */}
       <div className="flex gap-2 sm:hidden">
@@ -108,7 +108,7 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
             input.click()
           }}
         >
-          <Camera className="mr-2 h-4 w-4" />
+          <Camera className="mr-2 size-4" />
           Tomar Foto
         </Button>
       </div>
@@ -132,7 +132,7 @@ export function BillUploadZone({ onFilesSelected, maxFiles = 10 }: BillUploadZon
                   onClick={(e) => { e.stopPropagation(); removeFile(i) }}
                   className="rounded p-0.5 hover:bg-destructive/10"
                 >
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  <X className="size-3.5 text-muted-foreground" />
                 </button>
               </div>
             ))}

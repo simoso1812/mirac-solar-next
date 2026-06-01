@@ -169,9 +169,9 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           rel="noopener noreferrer"
           className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
         >
-          <CheckCircle className="h-3 w-3 text-emerald-600" />
+          <CheckCircle className="size-3 text-emerald-600" />
           {proposal.drive_project_name ?? 'Drive'}
-          <ExternalLink className="ml-1 h-3 w-3" />
+          <ExternalLink className="ml-1 size-3" />
         </a>
         <Button
           variant="ghost"
@@ -181,9 +181,9 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           title="Re-sincronizar (sobreescribe PDF)"
         >
           {syncing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <HardDrive className="h-3.5 w-3.5" />
+            <HardDrive className="size-3.5" />
           )}
         </Button>
       </div>
@@ -200,9 +200,9 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         className={className}
       >
         {syncing ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
-          <HardDrive className="mr-2 h-4 w-4" />
+          <HardDrive className="mr-2 size-4" />
         )}
         {syncing ? 'Sincronizando...' : 'Guardar en Drive'}
       </Button>

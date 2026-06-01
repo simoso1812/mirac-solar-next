@@ -10,6 +10,10 @@ import {
 } from '@/lib/docuseal'
 import type { QuotationData } from '@/lib/types'
 
+// Read the static contract template once at module load, not per request.
+const templatePath = path.join(process.cwd(), 'public', 'assets', 'contrato_plantilla.docx')
+const templateBufferPromise = readFile(templatePath)
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as {
@@ -34,8 +38,7 @@ export async function POST(request: NextRequest) {
     const liveResults = cotizacion(
       buildInputFromStore(proposal.technical, proposal.project, proposal.advanced)
     )
-    const templatePath = path.join(process.cwd(), 'public', 'assets', 'contrato_plantilla.docx')
-    const templateBuffer = await readFile(templatePath)
+    const templateBuffer = await templateBufferPromise
     const inversorLabel = liveResults.inversores.length > 0
       ? liveResults.inversores.map((i) => `${i.cantidad}x ${i.modelo}`).join(', ')
       : ''

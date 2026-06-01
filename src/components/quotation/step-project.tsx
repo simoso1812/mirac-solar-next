@@ -73,7 +73,7 @@ export function StepProject() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-mirac-red" />
+          <MapPin className="size-5 text-mirac-red" />
           Parámetros del Proyecto
         </CardTitle>
       </CardHeader>
@@ -132,7 +132,7 @@ export function StepProject() {
           {/* Interactive Map */}
           <div className="space-y-3 rounded-lg border p-4">
             <Label className="text-base font-medium">
-              <MapPin className="mr-1 inline h-4 w-4" />
+              <MapPin className="mr-1 inline size-4" />
               Ubicación del Proyecto
             </Label>
             <p className="text-xs text-muted-foreground">
@@ -149,7 +149,7 @@ export function StepProject() {
           {/* PVGIS HSP Data */}
           {isFetchingHSP && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               Obteniendo datos de irradiancia solar (PVGIS)...
             </div>
           )}
@@ -157,7 +157,7 @@ export function StepProject() {
           {hspData && !isFetchingHSP && (
             <div className="space-y-2 rounded-lg border p-4">
               <div className="flex items-center gap-2">
-                <Sun className="h-4 w-4 text-mirac-yellow" />
+                <Sun className="size-4 text-mirac-yellow" />
                 <Label className="text-base font-medium">
                   Irradiancia Solar (HSP)
                 </Label>
@@ -176,20 +176,20 @@ export function StepProject() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Promedio: {(hspData.reduce((a, b) => a + b, 0) / 12).toFixed(2)} kWh/m²/día
-                — Estos datos reemplazarán los valores por defecto de la ciudad en el cálculo.
+                Promedio: {(hspData.reduce((a, b) => a + b, 0) / 12).toFixed(2)} kWh/m²/día.
+                Estos datos reemplazarán los valores por defecto de la ciudad en el cálculo.
               </p>
             </div>
           )}
 
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(0)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Anterior
             </Button>
             <Button type="submit" className="bg-mirac-red hover:bg-mirac-red-dark">
               Siguiente
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </form>

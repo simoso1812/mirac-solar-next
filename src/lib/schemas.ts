@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const clientSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
   nit_cc: z.string(),
-  email: z.string().refine((v) => v === '' || z.string().email().safeParse(v).success, {
+  email: z.string().refine((v) => v === '' || z.email().safeParse(v).success, {
     message: 'Email inválido',
   }),
   telefono: z.string(),

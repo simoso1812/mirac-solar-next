@@ -30,6 +30,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
+async function attemptPVGIS(url: string, lat: number, lon: number): Promise<number[] | null> {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; MiracSolarCalculator/1.0)',
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 86400 },
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return processPVGISData(data, lat, lon)
+}
+
 async function fetchPVGIS(lat: number, lon: number): Promise<number[] | null> {
   const url = new URL('https://re.jrc.ec.europa.eu/api/MRcalc')
   url.searchParams.set('lat', lat.toString())
@@ -37,26 +51,23 @@ async function fetchPVGIS(lat: number, lon: number): Promise<number[] | null> {
   url.searchParams.set('horirrad', '1')
   url.searchParams.set('outputformat', 'json')
   url.searchParams.set('components', '1')
+  const urlStr = url.toString()
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetch(url.toString(), {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; MiracSolarCalculator/1.0)',
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(15000),
-        next: { revalidate: 86400 },
-      })
+  // One retry after a short delay; kept as two explicit attempts.
+  try {
+    const first = await attemptPVGIS(urlStr, lat, lon)
+    if (first) return first
+  } catch {
+    // fall through to the retry
+  }
 
-      if (!res.ok) continue
+  await new Promise((r) => setTimeout(r, 1000))
 
-      const data = await res.json()
-      return processPVGISData(data, lat, lon)
-    } catch {
-      if (attempt === 1) break
-      await new Promise((r) => setTimeout(r, 1000))
-    }
+  try {
+    const second = await attemptPVGIS(urlStr, lat, lon)
+    if (second) return second
+  } catch {
+    // fall through to the city-based estimate
   }
 
   return getHSPEstimado(lat, lon)

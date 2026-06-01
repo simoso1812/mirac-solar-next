@@ -27,7 +27,7 @@ export function BatterySection({ results }: BatterySectionProps) {
         {/* Headline capacity */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 lg:col-span-2">
           <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
-            <Battery className="h-4 w-4 text-[#BFFF00]" />
+            <Battery className="size-4 text-[#BFFF00]" />
             Capacidad Nominal
           </div>
           <h3 className="mt-3 text-5xl font-bold tabular-nums text-white">
@@ -49,7 +49,7 @@ export function BatterySection({ results }: BatterySectionProps) {
         {/* DoD */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col justify-center">
           <div className="mb-2 flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-[#BFFF00]" />
+            <Gauge className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Profundidad de Descarga</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">
@@ -63,7 +63,7 @@ export function BatterySection({ results }: BatterySectionProps) {
         {/* Efficiency */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col justify-center">
           <div className="mb-2 flex items-center gap-2">
-            <BatteryCharging className="h-4 w-4 text-[#BFFF00]" />
+            <BatteryCharging className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Eficiencia</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">
@@ -77,7 +77,7 @@ export function BatterySection({ results }: BatterySectionProps) {
         {/* Autonomy */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col justify-center">
           <div className="mb-2 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#BFFF00]" />
+            <Clock className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Autonomía</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">

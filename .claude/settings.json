@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && (test -f tsconfig.json && npx --no-install tsc --noEmit 2>&1 | tail -n 40) || true"
+          }
+        ]
+      }
+    ]
+  }
+}

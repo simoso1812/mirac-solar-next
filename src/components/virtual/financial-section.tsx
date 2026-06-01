@@ -22,15 +22,16 @@ interface FinancialSectionProps {
 }
 
 function RangeSlider({
-  min, max, step, value, onChange, id,
+  min, max, step, value, onChange, id, label,
 }: {
   min: number; max: number; step: number; value: number
-  onChange: (v: number) => void; id: string
+  onChange: (v: number) => void; id: string; label: string
 }) {
   const pct = ((value - min) / (max - min)) * 100
   return (
     <input
       id={id}
+      aria-label={label}
       type="range"
       min={min}
       max={max}
@@ -119,13 +120,15 @@ export function FinancialSection({
       ]
     : []
 
-  const cashFlowData = r.flujo_caja
-    .filter((row) => row.anio > 0 && row.anio <= overrides.horizonteAnios)
-    .map((row) => ({
-      anio: row.anio,
-      acumulado: Math.round(row.flujo_acumulado_cop),
-      flujo: Math.round(row.flujo_neto_cop),
-    }))
+  const cashFlowData = r.flujo_caja.flatMap((row) =>
+    row.anio > 0 && row.anio <= overrides.horizonteAnios
+      ? [{
+          anio: row.anio,
+          acumulado: Math.round(row.flujo_acumulado_cop),
+          flujo: Math.round(row.flujo_neto_cop),
+        }]
+      : []
+  )
 
   const financialMetrics = [
     { label: 'Inversión Total', value: formatCOP(r.costo_total_cop) },
@@ -183,6 +186,7 @@ export function FinancialSection({
               </div>
               <RangeSlider
                 id="slider-tarifa"
+                label="Tarifa energía"
                 min={400}
                 max={1500}
                 step={50}
@@ -205,6 +209,7 @@ export function FinancialSection({
               </div>
               <RangeSlider
                 id="slider-horizonte"
+                label="Horizonte de evaluación"
                 min={10}
                 max={40}
                 step={5}
@@ -310,7 +315,7 @@ export function FinancialSection({
                     Financiamiento (Deuda Tradicional)
                   </h3>
                   <p className="mt-1 pl-3 text-[11px] text-[#9CA3AF]">
-                    Amortización por método francés — cuota mensual fija.
+                    Amortización por método francés: cuota mensual fija.
                   </p>
                 </div>
                 <span className="rounded-full border border-[#BFFF00]/30 bg-[#BFFF00]/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#BFFF00]">

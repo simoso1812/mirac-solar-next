@@ -77,7 +77,7 @@ export function ScanBillDialog({ open, onOpenChange, onDataAccepted }: ScanBillD
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ScanLine className="h-5 w-5 text-mirac-red" />
+            <ScanLine className="size-5 text-mirac-red" />
             Escanear Factura de Energía
           </DialogTitle>
           <DialogDescription>
@@ -96,8 +96,8 @@ export function ScanBillDialog({ open, onOpenChange, onDataAccepted }: ScanBillD
         {/* Processing state */}
         {state === 'processing' && (
           <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="mb-4 h-10 w-10 animate-spin text-mirac-red" />
-            <p className="text-sm font-medium">Analizando factura...</p>
+            <Loader2 className="mb-4 size-10 animate-spin text-mirac-red" />
+            <p className="text-sm font-medium">Analizando factura…</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Esto puede tomar unos segundos
             </p>
@@ -117,7 +117,7 @@ export function ScanBillDialog({ open, onOpenChange, onDataAccepted }: ScanBillD
         {/* Error state */}
         {state === 'error' && (
           <div className="flex flex-col items-center justify-center py-8">
-            <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
+            <AlertCircle className="mb-3 size-10 text-destructive" />
             <p className="mb-1 text-sm font-medium">Error al procesar</p>
             <p className="mb-4 text-center text-xs text-muted-foreground">
               {errorMessage}

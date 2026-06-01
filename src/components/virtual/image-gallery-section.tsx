@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import type { ProposalImage } from '@/lib/types'
 
 interface ImageGallerySectionProps {
@@ -22,12 +23,16 @@ export function ImageGallerySection({ imagenes }: ImageGallerySectionProps) {
             key={img.id}
             className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img.data}
-              alt={img.caption || 'Imagen del proyecto'}
-              className="h-56 w-full object-cover"
-            />
+            <div className="relative h-56 w-full">
+              <Image
+                src={img.data}
+                alt={img.caption || 'Imagen del proyecto'}
+                fill
+                unoptimized
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover"
+              />
+            </div>
             {img.caption.trim() && (
               <figcaption className="px-4 py-3 text-sm text-[#D1D5DB]">
                 {img.caption}

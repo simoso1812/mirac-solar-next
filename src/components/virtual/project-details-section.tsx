@@ -90,24 +90,24 @@ function TechTab({ proposal, results }: { proposal: QuotationData; results: Calc
   )
 }
 
-function TimelineTab() {
-  const steps = [
-    { phase: 'Propuesta y Contratación', duration: 'Semana 1-2', description: 'Revisión técnica, firma de contrato y anticipo' },
-    { phase: 'Ingeniería y Diseño', duration: 'Semana 2-3', description: 'Diseño detallado, memorias de cálculo, planos' },
-    { phase: 'Adquisiciones', duration: 'Semana 3-5', description: 'Compra de equipos, logística y transporte' },
-    { phase: 'Instalación', duration: 'Semana 5-7', description: 'Montaje de estructura, paneles, inversores y cableado' },
-    { phase: 'Puesta en Marcha', duration: 'Semana 7-8', description: 'Pruebas, configuración del inversor y entrega' },
-  ]
+const TIMELINE_STEPS = [
+  { phase: 'Propuesta y Contratación', duration: 'Semana 1-2', description: 'Revisión técnica, firma de contrato y anticipo' },
+  { phase: 'Ingeniería y Diseño', duration: 'Semana 2-3', description: 'Diseño detallado, memorias de cálculo, planos' },
+  { phase: 'Adquisiciones', duration: 'Semana 3-5', description: 'Compra de equipos, logística y transporte' },
+  { phase: 'Instalación', duration: 'Semana 5-7', description: 'Montaje de estructura, paneles, inversores y cableado' },
+  { phase: 'Puesta en Marcha', duration: 'Semana 7-8', description: 'Pruebas, configuración del inversor y entrega' },
+]
 
+function TimelineTab() {
   return (
     <div className="space-y-4">
-      {steps.map((s, i) => (
-        <div key={i} className="flex gap-4">
+      {TIMELINE_STEPS.map((s, i) => (
+        <div key={s.phase} className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#BFFF00]/20 text-sm font-bold text-[#BFFF00]">
+            <div className="flex size-8 items-center justify-center rounded-full bg-[#BFFF00]/20 text-sm font-bold text-[#BFFF00]">
               {i + 1}
             </div>
-            {i < steps.length - 1 && <div className="mt-1 h-full w-px bg-white/10" />}
+            {i < TIMELINE_STEPS.length - 1 && <div className="mt-1 h-full w-px bg-white/10" />}
           </div>
           <div className="pb-4">
             <p className="text-sm font-medium text-[#F9FAFB]">{s.phase}</p>
@@ -179,7 +179,7 @@ function LocationMap({ lat, lon }: { lat: number; lon: number }) {
   if (!isLoaded) {
     return (
       <div className="flex h-64 items-center justify-center rounded-lg bg-white/5">
-        <p className="text-sm text-[#9CA3AF]">Cargando mapa...</p>
+        <p className="text-sm text-[#9CA3AF]">Cargando mapa…</p>
       </div>
     )
   }

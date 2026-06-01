@@ -24,20 +24,20 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   if (level === 'high') {
     return (
       <Badge variant="secondary" className="gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-        <CheckCircle className="h-3 w-3" /> {pct}%
+        <CheckCircle className="size-3" /> {pct}%
       </Badge>
     )
   }
   if (level === 'medium') {
     return (
       <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-        <AlertTriangle className="h-3 w-3" /> {pct}%
+        <AlertTriangle className="size-3" /> {pct}%
       </Badge>
     )
   }
   return (
     <Badge variant="destructive" className="gap-1">
-      <HelpCircle className="h-3 w-3" /> {pct}%
+      <HelpCircle className="size-3" /> {pct}%
     </Badge>
   )
 }
@@ -71,7 +71,7 @@ function EditableField({
               onClick={() => setEditing(true)}
               className="rounded p-0.5 hover:bg-accent"
             >
-              <Edit3 className="h-3 w-3 text-muted-foreground" />
+              <Edit3 className="size-3 text-muted-foreground" />
             </button>
           )}
         </div>
@@ -107,7 +107,9 @@ function EditableField({
 }
 
 export function BillReview({ data, processingTime, onAccept, onDiscard }: BillReviewProps) {
-  const [editedData, setEditedData] = useState<ExtractedBillData>(data)
+  // Uncontrolled editable copy: capture the scanned data once, then let the
+  // user edit it before accepting. Intentionally does not re-sync with `data`.
+  const [editedData, setEditedData] = useState<ExtractedBillData>(() => data)
 
   const updateField = <K extends keyof ExtractedBillData>(
     key: K,
@@ -209,12 +211,15 @@ export function BillReview({ data, processingTime, onAccept, onDiscard }: BillRe
           <div className="flex items-center gap-2">
             <button
               type="button"
+              role="switch"
+              aria-checked={editedData.contribucion_20.value}
+              aria-label="Contribución 20%"
               onClick={() => updateField('contribucion_20', !editedData.contribucion_20.value)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 editedData.contribucion_20.value ? 'bg-mirac-red' : 'bg-gray-300'
               }`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              <span className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
                 editedData.contribucion_20.value ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
@@ -259,11 +264,9 @@ export function BillReview({ data, processingTime, onAccept, onDiscard }: BillRe
             Campos a revisar:
           </p>
           <ul className="space-y-0.5 text-xs text-yellow-600 dark:text-yellow-400/80">
-            {validationResults
-              .filter((r) => !r.valid)
-              .map((r) => (
-                <li key={r.field}>• {r.message}</li>
-              ))}
+            {validationResults.flatMap((r) =>
+              r.valid ? [] : [<li key={r.field}>• {r.message}</li>]
+            )}
           </ul>
         </div>
       )}
@@ -271,13 +274,13 @@ export function BillReview({ data, processingTime, onAccept, onDiscard }: BillRe
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <CheckCircle className="h-3 w-3 text-emerald-600" /> Alta confianza (&gt;85%)
+          <CheckCircle className="size-3 text-emerald-600" /> Alta confianza (&gt;85%)
         </span>
         <span className="flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3 text-yellow-600" /> Revisar (60-85%)
+          <AlertTriangle className="size-3 text-yellow-600" /> Revisar (60-85%)
         </span>
         <span className="flex items-center gap-1">
-          <HelpCircle className="h-3 w-3 text-destructive" /> Ingreso manual (&lt;60%)
+          <HelpCircle className="size-3 text-destructive" /> Ingreso manual (&lt;60%)
         </span>
       </div>
 
@@ -290,7 +293,7 @@ export function BillReview({ data, processingTime, onAccept, onDiscard }: BillRe
           onClick={() => onAccept(editedData)}
           className="flex-1 bg-mirac-red hover:bg-mirac-red-dark"
         >
-          <CheckCircle className="mr-2 h-4 w-4" />
+          <CheckCircle className="mr-2 size-4" />
           Usar Datos
         </Button>
       </div>

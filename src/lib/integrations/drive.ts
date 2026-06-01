@@ -72,23 +72,26 @@ async function crearSubcarpetas(
   parentId: string,
   estructura: Record<string, unknown>
 ): Promise<void> {
-  for (const [name, sub] of Object.entries(estructura)) {
-    const folder = await drive.files.create({
-      requestBody: {
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId],
-      },
-      fields: 'id',
-      supportsAllDrives: true,
-    })
+  // Sibling folders are independent, so create them concurrently and recurse.
+  await Promise.all(
+    Object.entries(estructura).map(async ([name, sub]) => {
+      const folder = await drive.files.create({
+        requestBody: {
+          name,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentId],
+        },
+        fields: 'id',
+        supportsAllDrives: true,
+      })
 
-    const folderId = folder.data.id
-    const subObj = sub as Record<string, unknown>
-    if (folderId && subObj && Object.keys(subObj).length > 0) {
-      await crearSubcarpetas(drive, folderId, subObj)
-    }
-  }
+      const folderId = folder.data.id
+      const subObj = sub as Record<string, unknown>
+      if (folderId && subObj && Object.keys(subObj).length > 0) {
+        await crearSubcarpetas(drive, folderId, subObj)
+      }
+    })
+  )
 }
 
 // ---------------------------------------------------------------------------

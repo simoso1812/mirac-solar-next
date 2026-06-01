@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -33,27 +33,26 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
 
   const getProposalsByClient = useProposalsStore((s) => s.getProposalsByClient)
 
-  useEffect(() => {
-    if (!open) return
-    setUrl('')
-
-    // Find other proposals for this client
-    const clientProposals = getProposalsByClient(proposal.client.nombre)
-      .filter((p) => p.results != null)
-
-    if (clientProposals.length > 1) {
-      setVersions(
-        clientProposals.map((p, i) => ({
-          id: p.id,
-          proposal: p,
-          label: `Opción ${i + 1}`,
-          selected: p.id === proposal.id, // pre-select current
-        }))
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      // Snapshot the client's other proposals when the dialog opens.
+      const clientProposals = getProposalsByClient(proposal.client.nombre).filter(
+        (p) => p.results != null
       )
-    } else {
-      setVersions([])
+      setVersions(
+        clientProposals.length > 1
+          ? clientProposals.map((p, i) => ({
+              id: p.id,
+              proposal: p,
+              label: `Opción ${i + 1}`,
+              selected: p.id === proposal.id, // pre-select current
+            }))
+          : []
+      )
+      setUrl('')
     }
-  }, [open, proposal, getProposalsByClient])
+    setOpen(next)
+  }
 
   const handleGenerate = async () => {
     setGenerating(true)
@@ -109,11 +108,11 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
   const selectedCount = versions.filter((v) => v.selected).length
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <Button variant="outline" className="border-white/20 bg-white/5 text-[#F9FAFB] hover:bg-white/10">
-            <Share2 className="mr-2 h-4 w-4" />
+            <Share2 className="mr-2 size-4" />
             Compartir
           </Button>
         }
@@ -142,13 +141,15 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
                   type="checkbox"
                   checked={v.selected}
                   onChange={() => toggleVersion(v.id)}
-                  className="h-4 w-4 accent-[#BFFF00]"
+                  aria-label={`Incluir ${v.label}`}
+                  className="size-4 accent-[#BFFF00]"
                 />
                 <div className="flex-1 min-w-0">
                   <input
                     type="text"
                     value={v.label}
                     onChange={(e) => updateLabel(v.id, e.target.value)}
+                    aria-label="Nombre de la versión"
                     className="w-full bg-transparent text-sm font-medium text-[#F9FAFB] outline-none placeholder:text-[#9CA3AF]"
                   />
                   {v.proposal.results && (
@@ -171,8 +172,8 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
           >
             {generating ? (
               <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[#111827] border-t-transparent" />
-                Generando...
+                <div className="mr-2 size-4 animate-spin rounded-full border-2 border-[#111827] border-t-transparent" />
+                Generando…
               </>
             ) : (
               <>
@@ -194,7 +195,7 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
                 onClick={handleCopy}
                 className="shrink-0 bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80"
               >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
               </Button>
             </div>
             <Button
@@ -202,7 +203,7 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
               className="w-full border-white/20 bg-white/5 text-[#F9FAFB] hover:bg-white/10"
               onClick={handleWhatsApp}
             >
-              <MessageCircle className="mr-2 h-4 w-4 text-green-400" />
+              <MessageCircle className="mr-2 size-4 text-green-400" />
               Compartir por WhatsApp
             </Button>
           </div>

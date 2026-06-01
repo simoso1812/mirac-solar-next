@@ -48,6 +48,7 @@ async function convertWithMarkItDown(file: File): Promise<MarkItDownResult | nul
       method: 'POST',
       headers: apiKey ? { 'X-API-Key': apiKey } : {},
       body: formData,
+      cache: 'no-store',
       signal: AbortSignal.timeout(MARKITDOWN_TIMEOUT),
     })
 

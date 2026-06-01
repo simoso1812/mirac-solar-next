@@ -31,7 +31,7 @@ export function VirtualHeader({ proposal }: VirtualHeaderProps) {
           </h1>
           <div className="flex items-center justify-end gap-2 text-sm text-[#9CA3AF]">
             <Badge className="bg-white/10 text-[#9CA3AF] border-white/10 hover:bg-white/15">
-              <MapPin className="mr-1 h-3 w-3" />
+              <MapPin className="mr-1 size-3" />
               {ciudadLabel}
             </Badge>
             <span>

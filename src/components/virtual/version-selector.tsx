@@ -25,7 +25,8 @@ export function VersionSelector({ versions, activeIndex, onSelect }: VersionSele
           const r = v.results
           return (
             <button
-              key={i}
+              key={v.label}
+              type="button"
               onClick={() => onSelect(i)}
               className={`shrink-0 rounded-xl border px-5 py-3 text-left transition-all ${
                 isActive

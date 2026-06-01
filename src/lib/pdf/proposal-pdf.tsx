@@ -54,6 +54,41 @@ const styles = StyleSheet.create({
   },
 })
 
+// Static style groups spread into otherwise-dynamic inline styles so the
+// per-render objects keep only their computed (position/size) properties.
+const pdfStatic = StyleSheet.create({
+  noMapBox: {
+    border: '1pt solid #ccc',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chartBg: {
+    backgroundColor: '#FAFAFA',
+    borderWidth: 0.5,
+    borderColor: '#E5E5E5',
+    borderStyle: 'solid',
+  },
+  savingsBadge: {
+    backgroundColor: BRAND_RED,
+    borderRadius: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tableHeaderRow: {
+    backgroundColor: BRAND_RED,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tableBodyRow: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
+    borderBottomStyle: 'solid',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+})
+
 function ceilTo100(v: number): number {
   return Math.ceil(v / 100) * 100
 }
@@ -87,18 +122,15 @@ function Pos({
   fontSize?: number; fontFamily?: string; fontWeight?: 'normal' | 'bold'
   color?: string; align?: 'left' | 'right' | 'center'; width?: number
 }) {
+  const font = { fontSize, fontFamily, fontWeight, color, textAlign: align }
   return (
     <Text
       style={{
         position: 'absolute',
         left: mm(x),
         top: mm(y),
-        fontSize,
-        fontFamily,
-        fontWeight,
-        color,
-        textAlign: align,
         width: width ? mm(width) : undefined,
+        ...font,
       }}
     >
       {children}
@@ -273,8 +305,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           <View style={{
             position: 'absolute', left: mm(15), top: mm(120),
             width: mm(180), height: mm(120),
-            border: '1pt solid #ccc', borderRadius: 4,
-            justifyContent: 'center', alignItems: 'center',
+            ...pdfStatic.noMapBox,
           }}>
             <Text style={{ fontSize: 12, fontFamily: 'Roboto', color: '#999' }}>
               No se pudo generar el mapa
@@ -466,10 +497,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             top: mm(chartTop),
             width: mm(chartWidth),
             height: mm(chartHeight),
-            backgroundColor: '#FAFAFA',
-            borderWidth: 0.5,
-            borderColor: '#E5E5E5',
-            borderStyle: 'solid',
+            ...pdfStatic.chartBg,
           }}>
             <Text> </Text>
           </View>
@@ -542,10 +570,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
                   top: mm(axisBottomY - h + 3),
                   width: mm(18),
                   height: mm(7),
-                  backgroundColor: BRAND_RED,
-                  borderRadius: 3,
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  ...pdfStatic.savingsBadge,
                 }}>
                   <Text style={{ fontSize: 9, fontFamily: 'DMSans', fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' }}>
                     -{opt.porcentajeAhorro}%
@@ -562,9 +587,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             top: mm(tableTop),
             width: mm(tableWidth),
             height: mm(rowH),
-            backgroundColor: BRAND_RED,
-            flexDirection: 'row',
-            alignItems: 'center',
+            ...pdfStatic.tableHeaderRow,
           }}>
             {cols.map((c) => (
               <View key={c.label} style={{ width: mm(c.w), paddingHorizontal: 4 }}>
@@ -588,7 +611,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             ]
             return (
               <View
-                key={i}
+                key={`${opt.duracion_anios}-${opt.precio_kwh}`}
                 style={{
                   position: 'absolute',
                   left: mm(tableLeft),
@@ -596,15 +619,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
                   width: mm(tableWidth),
                   height: mm(rowH),
                   backgroundColor: i % 2 === 0 ? '#FAFAFA' : '#FFFFFF',
-                  borderBottomWidth: 0.5,
-                  borderBottomColor: '#E5E5E5',
-                  borderBottomStyle: 'solid',
-                  flexDirection: 'row',
-                  alignItems: 'center',
+                  ...pdfStatic.tableBodyRow,
                 }}
               >
                 {cells.map((cell, ci) => (
-                  <View key={ci} style={{ width: mm(cols[ci].w), paddingHorizontal: 4 }}>
+                  <View key={cols[ci].label} style={{ width: mm(cols[ci].w), paddingHorizontal: 4 }}>
                     <Text style={{
                       fontSize: 9,
                       fontFamily: ci === 0 ? 'DMSans' : 'Roboto',
@@ -635,8 +654,8 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         for (let i = 0; i < advanced.imagenes.length; i += 4) {
           chunks.push(advanced.imagenes.slice(i, i + 4))
         }
-        return chunks.map((chunk, pageIdx) => (
-          <Page key={`img-${pageIdx}`} size="A4" style={styles.page}>
+        return chunks.map((chunk) => (
+          <Page key={`img-${chunk[0].id}`} size="A4" style={styles.page}>
             <View style={{
               position: 'absolute', top: 0, left: 0,
               width: mm(210), height: mm(297),

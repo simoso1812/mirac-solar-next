@@ -42,7 +42,7 @@ export function MobileNav() {
                   : 'text-muted-foreground'
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="size-5" />
               {item.label}
             </Link>
           )

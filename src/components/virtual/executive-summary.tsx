@@ -21,7 +21,7 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
         {/* Primary: System Power */}
         <div className="col-span-2 rounded-2xl border border-white/5 bg-white/5 p-6">
           <p className="text-sm text-[#9CA3AF] flex items-center gap-2">
-            <Zap className="h-4 w-4 text-[#BFFF00]" />
+            <Zap className="size-4 text-[#BFFF00]" />
             Potencia Instalada
           </p>
           <h3 className="mt-3 text-5xl font-bold tabular-nums text-white">
@@ -39,7 +39,7 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
         {/* Monthly Generation */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-2">
-            <Sun className="h-4 w-4 text-[#BFFF00]" />
+            <Sun className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Generación Mensual</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">
@@ -55,7 +55,7 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
         {/* Annual Savings */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-4 w-4 text-[#BFFF00]" />
+            <DollarSign className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Ahorro Anual</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">
@@ -69,7 +69,7 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
         {/* Payback */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-[#BFFF00]" />
+            <Clock className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">Retorno de Inversión</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">
@@ -83,7 +83,7 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
         {/* CO2 */}
         <div className="rounded-2xl border border-white/5 bg-white/5 p-5 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-2">
-            <TreePine className="h-4 w-4 text-[#BFFF00]" />
+            <TreePine className="size-4 text-[#BFFF00]" />
             <p className="text-xs text-[#9CA3AF]">CO₂ Evitado</p>
           </div>
           <p className="text-2xl font-semibold tabular-nums text-white">

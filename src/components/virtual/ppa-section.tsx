@@ -99,9 +99,9 @@ export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
             color={GRAY}
             valueColor="#F9FAFB"
           />
-          {computed.map((opt, i) => (
+          {computed.map((opt) => (
             <BarColumn
-              key={i}
+              key={`${opt.duracion_anios}-${opt.precio_kwh}`}
               label={`PPA ${opt.duracion_anios} años`}
               value={opt.precio_kwh}
               pct={(opt.precio_kwh / maxPrice) * 100}
@@ -117,8 +117,8 @@ export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
 
       {/* Per-option detail cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {computed.map((opt, i) => (
-          <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        {computed.map((opt) => (
+          <div key={`${opt.duracion_anios}-${opt.precio_kwh}`} className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="flex items-baseline justify-between border-b border-white/10 pb-3">
               <span className="text-lg font-semibold text-[#F9FAFB]">{opt.duracion_anios} años</span>
               <span className="font-mono text-sm font-bold tabular-nums text-[#FAC107]">

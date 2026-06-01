@@ -53,7 +53,7 @@ export function StepTechnical() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-mirac-red" />
+          <Settings className="size-5 text-mirac-red" />
           Especificaciones Técnicas
         </CardTitle>
       </CardHeader>
@@ -118,6 +118,7 @@ export function StepTechnical() {
               <Label>Factor de Seguridad: {factorSeg?.toFixed(2) ?? '1.10'}</Label>
               <input
                 type="range"
+                aria-label="Factor de seguridad"
                 min={1.0}
                 max={1.5}
                 step={0.05}
@@ -204,21 +205,21 @@ export function StepTechnical() {
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-mirac-yellow" />
+                  <Zap className="size-4 text-mirac-yellow" />
                   <div>
                     <p className="text-xs text-muted-foreground">Potencia</p>
                     <p className="text-sm font-bold">{formatKWp(kwp)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Hash className="h-4 w-4 text-mirac-yellow" />
+                  <Hash className="size-4 text-mirac-yellow" />
                   <div>
                     <p className="text-xs text-muted-foreground">Paneles</p>
                     <p className="text-sm font-bold">{formatNumber(paneles)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Sun className="h-4 w-4 text-mirac-yellow" />
+                  <Sun className="size-4 text-mirac-yellow" />
                   <div>
                     <p className="text-xs text-muted-foreground">Generación Est.</p>
                     <p className="text-sm font-bold">{formatKWh(Math.round(generacionEstimada))}/mes</p>
@@ -239,12 +240,12 @@ export function StepTechnical() {
 
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Anterior
             </Button>
             <Button type="submit" className="bg-mirac-red hover:bg-mirac-red-dark">
               Siguiente
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </form>

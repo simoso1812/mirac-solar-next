@@ -78,7 +78,7 @@ export function StepReview() {
             No se pudo calcular. Verifica que el consumo mensual sea mayor a 0.
           </p>
           <Button variant="outline" onClick={() => setStep(2)} className="mt-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 size-4" />
             Volver a Especificaciones
           </Button>
         </CardContent>
@@ -93,13 +93,15 @@ export function StepReview() {
     consumo: technicalData.consumo_mensual_kwh,
   }))
 
-  const cashFlowData = results.flujo_caja
-    .filter((row) => row.anio > 0 && row.anio <= 25)
-    .map((row) => ({
-      anio: `Año ${row.anio}`,
-      flujo: Math.round(row.flujo_neto_cop),
-      acumulado: Math.round(row.flujo_acumulado_cop),
-    }))
+  const cashFlowData = results.flujo_caja.flatMap((row) =>
+    row.anio > 0 && row.anio <= 25
+      ? [{
+          anio: `Año ${row.anio}`,
+          flujo: Math.round(row.flujo_neto_cop),
+          acumulado: Math.round(row.flujo_acumulado_cop),
+        }]
+      : []
+  )
 
   return (
     <div className="space-y-6">
@@ -107,11 +109,11 @@ export function StepReview() {
       <Card className="border-mirac-red/20 bg-mirac-red/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-mirac-red" />
+            <CheckCircle className="size-5 text-mirac-red" />
             Resumen de Cotización
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {clientData.nombre} — {ciudadLabel} — {projectData.fecha}
+            {clientData.nombre} · {ciudadLabel} · {projectData.fecha}
           </p>
         </CardHeader>
       </Card>
@@ -119,27 +121,27 @@ export function StepReview() {
       {/* Key metrics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          icon={<DollarSign className="h-5 w-5" />}
+          icon={<DollarSign className="size-5" />}
           label="Inversión Total"
           value={formatCOP(results.costo_total_cop)}
           color="red"
         />
         <MetricCard
-          icon={<Zap className="h-5 w-5" />}
+          icon={<Zap className="size-5" />}
           label="Potencia del Sistema"
           value={formatKWp(results.kwp)}
           sub={`${results.numero_paneles} paneles`}
           color="yellow"
         />
         <MetricCard
-          icon={<TrendingUp className="h-5 w-5" />}
+          icon={<TrendingUp className="size-5" />}
           label="TIR"
           value={formatPercent(results.tir / 100)}
           sub={`VPN: ${formatCOP(results.vpn, false)}`}
           color="green"
         />
         <MetricCard
-          icon={<Clock className="h-5 w-5" />}
+          icon={<Clock className="size-5" />}
           label="Payback"
           value={`${results.payback_anios.toFixed(1)} años`}
           sub={`ROI: ${results.roi_porcentaje.toFixed(0)}%`}
@@ -150,21 +152,21 @@ export function StepReview() {
       {/* Generation & savings */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
-          icon={<Sun className="h-5 w-5" />}
+          icon={<Sun className="size-5" />}
           label="Generación Anual"
           value={formatKWh(Math.round(results.generacion_anual_kwh))}
           sub={`Ahorro: ${formatCOP(results.ahorro_anual_cop)}/año`}
           color="yellow"
         />
         <MetricCard
-          icon={<BarChart3 className="h-5 w-5" />}
+          icon={<BarChart3 className="size-5" />}
           label="Costo por kWp"
           value={formatCOP(results.costo_por_kwp_cop)}
           sub={`PR: ${formatPercent(results.performance_ratio)}`}
           color="gray"
         />
         <MetricCard
-          icon={<TreePine className="h-5 w-5" />}
+          icon={<TreePine className="size-5" />}
           label="CO₂ Evitado/año"
           value={`${results.carbon.annual_co2_avoided_tons.toFixed(1)} ton`}
           sub={`≈ ${Math.round(results.carbon.trees_saved_per_year)} árboles`}
@@ -179,8 +181,8 @@ export function StepReview() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {results.inversores.map((inv, i) => (
-              <Badge key={i} variant="outline" className="text-sm">
+            {results.inversores.map((inv) => (
+              <Badge key={`${inv.marca}-${inv.modelo}-${inv.potencia_kw}`} variant="outline" className="text-sm">
                 {inv.cantidad}x {inv.marca} {inv.modelo} ({inv.potencia_kw}kW)
               </Badge>
             ))}
@@ -241,16 +243,24 @@ export function StepReview() {
       {/* Actions */}
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => setStep(3)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="mr-2 size-4" />
           Anterior
         </Button>
         <Button onClick={handleSave} disabled={isSaving} className="bg-mirac-red hover:bg-mirac-red-dark">
-          <Save className="mr-2 h-4 w-4" />
+          <Save className="mr-2 size-4" />
           {isSaving ? 'Guardando...' : editingId ? 'Actualizar Propuesta' : 'Guardar Propuesta'}
         </Button>
       </div>
     </div>
   )
+}
+
+const METRIC_COLOR_MAP: Record<string, string> = {
+  red: 'text-mirac-red',
+  yellow: 'text-mirac-yellow',
+  green: 'text-emerald-600',
+  blue: 'text-blue-600',
+  gray: 'text-muted-foreground',
 }
 
 function MetricCard({
@@ -262,19 +272,11 @@ function MetricCard({
   sub?: string
   color: string
 }) {
-  const colorMap: Record<string, string> = {
-    red: 'text-mirac-red',
-    yellow: 'text-mirac-yellow',
-    green: 'text-emerald-600',
-    blue: 'text-blue-600',
-    gray: 'text-muted-foreground',
-  }
-
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className={colorMap[color] ?? 'text-muted-foreground'}>{icon}</div>
+          <div className={METRIC_COLOR_MAP[color] ?? 'text-muted-foreground'}>{icon}</div>
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className="text-lg font-bold leading-tight">{value}</p>

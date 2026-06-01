@@ -23,13 +23,13 @@ export function Header() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          <button className="relative flex h-9 w-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-            <Bell className="h-[18px] w-[18px]" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-mirac-red ring-2 ring-mirac-dark" />
+          <button type="button" aria-label="Notificaciones" className="relative flex size-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+            <Bell className="size-[18px]" />
+            <span className="absolute right-2 top-2 size-2 rounded-full bg-mirac-red ring-2 ring-mirac-dark" />
           </button>
           <Link href="/cotizacion">
             <Button size="sm" className="bg-mirac-red hover:bg-mirac-red-dark text-white shadow-[0_4px_12px_rgba(250,50,63,0.25)] hover:shadow-[0_6px_16px_rgba(250,50,63,0.35)] transition-all hover:-translate-y-0.5">
-              <Plus className="mr-1.5 h-4 w-4" />
+              <Plus className="mr-1.5 size-4" />
               Nueva Cotización
             </Button>
           </Link>

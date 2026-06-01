@@ -61,22 +61,22 @@ export function InteractiveMap({
       ? { lat: initialLat, lng: initialLng }
       : null
   )
-  const [map, setMap] = useState<google.maps.Map | null>(null)
+  const mapRef = useRef<google.maps.Map | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const [coordInput, setCoordInput] = useState('')
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
-    setMap(mapInstance)
+    mapRef.current = mapInstance
   }, [])
 
   const placeMarker = useCallback(
     (lat: number, lng: number, address?: string) => {
       setMarker({ lat, lng })
-      map?.panTo({ lat, lng })
-      map?.setZoom(17)
+      mapRef.current?.panTo({ lat, lng })
+      mapRef.current?.setZoom(17)
       onLocationChange(lat, lng, address)
     },
-    [map, onLocationChange]
+    [onLocationChange]
   )
 
   const onMapClick = useCallback(
@@ -142,8 +142,8 @@ export function InteractiveMap({
   if (!isLoaded) {
     return (
       <div className="flex h-48 items-center justify-center rounded-lg border bg-muted">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Cargando mapa...</span>
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Cargando mapa…</span>
       </div>
     )
   }
@@ -190,7 +190,7 @@ export function InteractiveMap({
           onClick={handleCoordSearch}
           disabled={!parseCoordinates(coordInput)}
         >
-          <Navigation className="mr-1 h-3.5 w-3.5" />
+          <Navigation className="mr-1 size-3.5" />
           Ir
         </Button>
       </div>
@@ -222,8 +222,8 @@ export function InteractiveMap({
 
       {marker && (
         <p className="text-xs text-muted-foreground">
-          Coordenadas: {marker.lat.toFixed(6)}, {marker.lng.toFixed(6)}
-          — Arrastra el pin o haz clic en el mapa para ajustar
+          Coordenadas: {marker.lat.toFixed(6)}, {marker.lng.toFixed(6)}.
+          Arrastra el pin o haz clic en el mapa para ajustar
         </p>
       )}
     </div>

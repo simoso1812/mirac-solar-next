@@ -31,7 +31,7 @@ export function StepClient() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5 text-mirac-red" />
+          <User className="size-5 text-mirac-red" />
           Información del Cliente
         </CardTitle>
       </CardHeader>
@@ -82,7 +82,7 @@ export function StepClient() {
           <div className="flex justify-end pt-4">
             <Button type="submit" className="bg-mirac-red hover:bg-mirac-red-dark">
               Siguiente
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </form>

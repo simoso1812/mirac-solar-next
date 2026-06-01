@@ -9,21 +9,14 @@ import {
 } from '@/lib/bill-scanner/prompts'
 import { normalizeExtractedData } from '@/lib/bill-scanner/validator'
 import type { ExtractedBillData, BillScanResult } from '@/lib/bill-scanner/types'
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const MIN_USEFUL_CHARS = 200
-const MARKITDOWN_TIMEOUT = 45_000
-
-const ALLOWED_TYPES = [
-  'image/jpeg', 'image/png', 'image/webp',
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-]
-
-const VISION_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-
-const BILL_KEYWORDS = ['kwh', 'consumo', 'factura', 'tarifa', 'cop', 'energía', 'energia', 'medidor', 'periodo']
+import {
+  MAX_FILE_SIZE,
+  MIN_USEFUL_CHARS,
+  MARKITDOWN_TIMEOUT,
+  ALLOWED_TYPES,
+  VISION_TYPES,
+  BILL_KEYWORDS,
+} from '@/lib/bill-scanner/constants'
 
 // ---------------------------------------------------------------------------
 // MarkItDown conversion via Render microservice

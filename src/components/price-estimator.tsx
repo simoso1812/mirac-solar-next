@@ -9,6 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Calculator, TrendingUp, AlertTriangle } from 'lucide-react'
 
+const SEGMENT_COLORS = {
+  small: 'bg-blue-50 text-blue-600 border-blue-200',
+  medium: 'bg-amber-50 text-amber-600 border-amber-200',
+  large: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+}
+
 export function PriceEstimator() {
   const [kwpInput, setKwpInput] = useState('')
   const kwp = parseFloat(kwpInput) || 0
@@ -24,17 +30,11 @@ export function PriceEstimator() {
 
   const outOfRange = kwp > 300
 
-  const segmentColors = {
-    small: 'bg-blue-50 text-blue-600 border-blue-200',
-    medium: 'bg-amber-50 text-amber-600 border-amber-200',
-    large: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  }
-
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Calculator className="h-4 w-4 text-mirac-red" />
+          <Calculator className="size-4 text-mirac-red" />
           Estimador de Precio
         </CardTitle>
       </CardHeader>
@@ -56,7 +56,7 @@ export function PriceEstimator() {
           <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
             {/* Segment badge */}
             <div className="flex items-center justify-between">
-              <Badge variant="outline" className={segmentColors[estimate.segment]}>
+              <Badge variant="outline" className={SEGMENT_COLORS[estimate.segment]}>
                 {estimate.segmentLabel}
               </Badge>
               <span className="text-[10px] font-mono text-muted-foreground">
@@ -82,11 +82,11 @@ export function PriceEstimator() {
 
             {/* Range ±15% */}
             <div className="flex items-start gap-2 rounded-md border bg-background p-3">
-              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <TrendingUp className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <div className="text-xs text-muted-foreground">
                 <p className="font-medium">Rango estimado (±15%)</p>
                 <p className="mt-1 font-mono tabular-nums">
-                  {formatCOP(Math.ceil(estimate.price * 0.85))} — {formatCOP(Math.ceil(estimate.price * 1.15))}
+                  {formatCOP(Math.ceil(estimate.price * 0.85))} a {formatCOP(Math.ceil(estimate.price * 1.15))}
                 </p>
                 <p className="mt-1.5 text-[10px] leading-relaxed opacity-70">
                   Modelo calibrado con 80 proyectos solares en Colombia (2025–2026).
@@ -96,7 +96,7 @@ export function PriceEstimator() {
 
             {outOfRange && (
               <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
                 <p className="text-xs text-amber-700">
                   Sistema de {kwp} kWp está fuera del rango del modelo (&gt;300 kWp). La estimación puede ser menos precisa.
                 </p>

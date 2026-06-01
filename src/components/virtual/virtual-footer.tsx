@@ -12,7 +12,7 @@ export function VirtualFooter() {
           className="h-6 w-auto opacity-60"
         />
         <p className="text-xs text-[#9CA3AF]">
-          Mirac Energy S.A.S. — Soluciones de energía solar fotovoltaica para Colombia
+          Mirac Energy S.A.S. · Soluciones de energía solar fotovoltaica para Colombia
         </p>
         <p className="text-xs text-[#9CA3AF]/60">
           Esta cotización es informativa y está sujeta a verificación técnica en sitio.

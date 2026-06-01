@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
@@ -8,7 +9,8 @@ import { useQuotationStore, initialAdvancedData } from '@/stores/quotation-store
 import { INVERTER_DATABASE } from '@/lib/constants'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { formatCOP } from '@/lib/formatting'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +24,11 @@ import {
 } from 'lucide-react'
 import { compressImage, dataUrlByteSize } from '@/lib/images'
 import type { ProposalImage } from '@/lib/types'
+
+// Positional keys for the controlled, append/remove-only editor rows (inverter
+// overrides, PPA options). These lists are fully form-controlled and never
+// reordered, so a position-based key is correct here.
+const ROW_KEYS = Array.from({ length: 64 }, (_, i) => `row-${i}`)
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
@@ -94,12 +101,14 @@ export function StepAdvanced() {
     setImageError(null)
     setImageLoading(true)
     try {
-      const newImages: ProposalImage[] = []
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue
-        const data = await compressImage(file)
-        newImages.push({ id: crypto.randomUUID(), data, caption: '' })
-      }
+      const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'))
+      const newImages: ProposalImage[] = await Promise.all(
+        imageFiles.map(async (file) => ({
+          id: crypto.randomUUID(),
+          data: await compressImage(file),
+          caption: '',
+        }))
+      )
       const combined = [...(imagenes ?? []), ...newImages]
       const totalBytes = combined.reduce((s, img) => s + dataUrlByteSize(img.data), 0)
       if (totalBytes > 4_000_000) {
@@ -143,7 +152,7 @@ export function StepAdvanced() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5 text-mirac-red" />
+          <SlidersHorizontal className="size-5 text-mirac-red" />
           Opciones Avanzadas
         </CardTitle>
       </CardHeader>
@@ -152,7 +161,7 @@ export function StepAdvanced() {
           {/* ─── Connection Mode ─── */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2 text-base font-semibold">
-              <Plug className="h-4 w-4" />
+              <Plug className="size-4" />
               Modo de Conexión
             </Label>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -183,7 +192,7 @@ export function StepAdvanced() {
           {/* ─── Financial Parameters ─── */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2 text-base font-semibold">
-              <DollarSign className="h-4 w-4" />
+              <DollarSign className="size-4" />
               Parámetros Financieros
             </Label>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -333,7 +342,7 @@ export function StepAdvanced() {
                     {isCustomBrand ? 'Potencia y cantidad de inversores' : 'Configuración de inversores'}
                   </p>
                   {overrides.map((inv, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={ROW_KEYS[idx]} className="flex items-center gap-2">
                         {isCustomBrand ? (
                           <div className="flex flex-1 items-center gap-2">
                             <Input
@@ -389,12 +398,12 @@ export function StepAdvanced() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-9 w-9 p-0"
+                            className="size-9 p-0"
                             onClick={() => {
                               setValue('override_inversores', overrides.filter((_, i) => i !== idx))
                             }}
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Trash2 className="size-3.5 text-muted-foreground" />
                           </Button>
                         )}
                       </div>
@@ -408,7 +417,7 @@ export function StepAdvanced() {
                         setValue('override_inversores', [...overrides, { potencia_kw: availableKw[0], cantidad: 1 }])
                       }}
                     >
-                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      <Plus className="mr-1 size-3.5" />
                       Agregar Inversor
                     </Button>
                     <span className="text-xs font-medium text-muted-foreground">
@@ -467,7 +476,7 @@ export function StepAdvanced() {
             {financiamientoHabilitado && (
               <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Tasa EA — Efectiva Anual (%)</Label>
+                  <Label>Tasa EA (Efectiva Anual) (%)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -572,7 +581,7 @@ export function StepAdvanced() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-semibold">PPA — Opción Cero Inversión</Label>
+                <Label className="text-base font-semibold">PPA: Opción Cero Inversión</Label>
                 <p className="text-sm text-muted-foreground">
                   Mostrar al cliente la opción de pagar solo por la energía generada, sin inversión inicial.
                 </p>
@@ -595,7 +604,7 @@ export function StepAdvanced() {
                   <span />
                 </div>
                 {(ppaOpciones ?? []).map((_, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
+                  <div key={ROW_KEYS[idx]} className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
                     <Input
                       type="number"
                       min={1}
@@ -622,7 +631,7 @@ export function StepAdvanced() {
                         )
                       }
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 ))}
@@ -637,7 +646,7 @@ export function StepAdvanced() {
                     ])
                   }
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-2 size-4" />
                   Agregar opción PPA
                 </Button>
               </div>
@@ -748,10 +757,10 @@ export function StepAdvanced() {
               className="flex w-full items-center justify-between rounded-lg border p-3 text-sm font-medium transition-colors hover:bg-accent"
             >
               <span className="flex items-center gap-2">
-                <Settings2 className="h-4 w-4" />
+                <Settings2 className="size-4" />
                 Parámetros Técnicos Avanzados
               </span>
-              {showAdvancedParams ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showAdvancedParams ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
             </button>
             {showAdvancedParams && (
               <div className="mt-3 grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
@@ -821,9 +830,9 @@ export function StepAdvanced() {
                 )}
               >
                 {imageLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <ImagePlus className="mr-2 h-4 w-4" />
+                  <ImagePlus className="mr-2 size-4" />
                 )}
                 {imageLoading ? 'Procesando...' : 'Agregar imágenes'}
                 <input
@@ -851,21 +860,23 @@ export function StepAdvanced() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {imagenes.map((img) => (
                   <div key={img.id} className="space-y-2 rounded-lg border p-2">
-                    <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                    <div className="relative h-32 w-full">
+                      <Image
                         src={img.data}
                         alt={img.caption || 'Imagen del proyecto'}
-                        className="h-32 w-full rounded object-cover"
+                        fill
+                        unoptimized
+                        sizes="(max-width: 640px) 50vw, 33vw"
+                        className="rounded object-cover"
                       />
                       <Button
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="absolute right-1 top-1 h-6 w-6"
+                        className="absolute right-1 top-1 size-6"
                         onClick={() => removeImage(img.id)}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="size-3" />
                       </Button>
                     </div>
                     <Input
@@ -906,12 +917,12 @@ export function StepAdvanced() {
           )}
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={() => setStep(2)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Anterior
             </Button>
             <Button type="submit" className="bg-mirac-red hover:bg-mirac-red-dark">
               Revisar y Generar
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </form>

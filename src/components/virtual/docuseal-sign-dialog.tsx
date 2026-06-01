@@ -74,55 +74,12 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
   const [telefonoInput, setTelefonoInput] = useState(proposal.client.telefono ?? '')
   const [formError, setFormError] = useState<string | null>(null)
   const formHostRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setDocuseal(proposal.docuseal ?? null)
-  }, [proposal.docuseal])
-
-  useEffect(() => {
-    setEmailInput(proposal.client.email ?? '')
-    setCedulaInput(proposal.client.nit_cc ?? '')
-    setTelefonoInput(proposal.client.telefono ?? '')
-  }, [proposal.client.email, proposal.client.nit_cc, proposal.client.telefono])
-
-  useEffect(() => {
-    if (!open || stage !== 'embed' || !docuseal?.embed_src || !formHostRef.current) return
-
-    let formEl: HTMLElement | null = null
-    let cancelled = false
-
-    loadDocusealScript()
-      .then(() => {
-        if (cancelled || !formHostRef.current) return
-        formHostRef.current.innerHTML = ''
-        formEl = document.createElement('docuseal-form')
-        formEl.setAttribute('data-src', docuseal.embed_src)
-        formEl.setAttribute('data-email', proposal.client.email)
-        formEl.setAttribute('data-name', proposal.client.nombre)
-        formEl.setAttribute('data-language', 'es')
-        formEl.setAttribute('data-external-id', proposal.id)
-        formEl.setAttribute('data-send-copy-email', 'true')
-        formEl.setAttribute('data-with-decline', 'true')
-        formEl.setAttribute('data-completed-message-title', 'Contrato firmado')
-        formEl.setAttribute('data-completed-message-body', 'Gracias. Mirac Energy recibió tu contrato firmado.')
-        formHostRef.current.appendChild(formEl)
-
-        formEl.addEventListener('completed', handleCompleted)
-        formEl.addEventListener('declined', handleDeclined)
-      })
-      .catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'No se pudo cargar DocuSeal')
-      })
-
-    return () => {
-      cancelled = true
-      if (formEl) {
-        formEl.removeEventListener('completed', handleCompleted)
-        formEl.removeEventListener('declined', handleDeclined)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, stage, docuseal?.embed_src, proposal.id, proposal.client.email, proposal.client.nombre])
+  // Latest signing-result handlers, read inside DocuSeal event listeners so the
+  // embed effect never needs to re-run (and tear down the form) when they change.
+  const handlersRef = useRef<{ completed: () => void; declined: () => void }>({
+    completed: () => {},
+    declined: () => {},
+  })
 
   const createSubmission = async (effectiveProposal: QuotationData) => {
     setLoading(true)
@@ -148,6 +105,10 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
     }
 
     if (hasMissingClientData(proposal.client)) {
+      // Prefill the form from the latest client data when entering this stage.
+      setEmailInput(proposal.client.email ?? '')
+      setCedulaInput(proposal.client.nit_cc ?? '')
+      setTelefonoInput(proposal.client.telefono ?? '')
       setStage('collect-data')
       return
     }
@@ -227,6 +188,50 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
     void refreshSubmission(false)
   }
 
+  useEffect(() => {
+    handlersRef.current = { completed: handleCompleted, declined: handleDeclined }
+  })
+
+  useEffect(() => {
+    if (!open || stage !== 'embed' || !docuseal?.embed_src || !formHostRef.current) return
+
+    let formEl: HTMLElement | null = null
+    let cancelled = false
+    const onCompleted = () => handlersRef.current.completed()
+    const onDeclined = () => handlersRef.current.declined()
+
+    loadDocusealScript()
+      .then(() => {
+        if (cancelled || !formHostRef.current) return
+        formHostRef.current.innerHTML = ''
+        formEl = document.createElement('docuseal-form')
+        formEl.setAttribute('data-src', docuseal.embed_src)
+        formEl.setAttribute('data-email', proposal.client.email)
+        formEl.setAttribute('data-name', proposal.client.nombre)
+        formEl.setAttribute('data-language', 'es')
+        formEl.setAttribute('data-external-id', proposal.id)
+        formEl.setAttribute('data-send-copy-email', 'true')
+        formEl.setAttribute('data-with-decline', 'true')
+        formEl.setAttribute('data-completed-message-title', 'Contrato firmado')
+        formEl.setAttribute('data-completed-message-body', 'Gracias. Mirac Energy recibió tu contrato firmado.')
+        formHostRef.current.appendChild(formEl)
+
+        formEl.addEventListener('completed', onCompleted)
+        formEl.addEventListener('declined', onDeclined)
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'No se pudo cargar DocuSeal')
+      })
+
+    return () => {
+      cancelled = true
+      if (formEl) {
+        formEl.removeEventListener('completed', onCompleted)
+        formEl.removeEventListener('declined', onDeclined)
+      }
+    }
+  }, [open, stage, docuseal?.embed_src, proposal.id, proposal.client.email, proposal.client.nombre])
+
   const isCompleted = proposal.docuseal?.status === 'completed'
 
   return (
@@ -239,11 +244,11 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
             className="bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80 font-bold"
           >
             {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <FileSignature className="mr-2 h-4 w-4" />
+              <FileSignature className="mr-2 size-4" />
             )}
-            {loading ? 'Preparando...' : 'Firmar Contrato'}
+            {loading ? 'Preparando…' : 'Firmar Contrato'}
           </Button>
         }
       />
@@ -305,7 +310,7 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
               disabled={loading}
               className="w-full bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80 font-bold"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Continuar a la firma
             </Button>
           </form>
@@ -313,8 +318,8 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
 
         {loading && (
           <div className="flex items-center justify-center py-16 text-[#9CA3AF]">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Preparando contrato...
+            <Loader2 className="mr-2 size-5 animate-spin" />
+            Preparando contrato…
           </div>
         )}
         {!loading && stage === 'embed' && docuseal?.embed_src && (

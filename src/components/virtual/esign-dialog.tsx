@@ -21,8 +21,8 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [hasDrawn, setHasDrawn] = useState(false)
+  const isDrawing = useRef(false)
+  const hasDrawn = useRef(false)
   const canvasInitialized = useRef(false)
 
   const initCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
@@ -64,24 +64,24 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
     e.preventDefault()
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return
-    setIsDrawing(true)
+    isDrawing.current = true
     const { x, y } = getPos(e)
     ctx.beginPath()
     ctx.moveTo(x, y)
   }
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return
+    if (!isDrawing.current) return
     e.preventDefault()
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return
     const { x, y } = getPos(e)
     ctx.lineTo(x, y)
     ctx.stroke()
-    setHasDrawn(true)
+    hasDrawn.current = true
   }
 
-  const endDraw = () => setIsDrawing(false)
+  const endDraw = () => { isDrawing.current = false }
 
   const clearCanvas = () => {
     const canvas = canvasRef.current
@@ -89,7 +89,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    setHasDrawn(false)
+    hasDrawn.current = false
   }
 
   const handleSubmit = () => {
@@ -101,7 +101,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
       toast.error('Ingresa tu correo electrónico')
       return
     }
-    if (!hasDrawn) {
+    if (!hasDrawn.current) {
       toast.error('Dibuja tu firma en el recuadro')
       return
     }
@@ -118,7 +118,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
     setOpen(false)
     setName('')
     setEmail('')
-    setHasDrawn(false)
+    hasDrawn.current = false
     toast.success('Propuesta firmada exitosamente')
   }
 
@@ -130,7 +130,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
             disabled={disabled}
             className="bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80 font-bold"
           >
-            <PenLine className="mr-2 h-4 w-4" />
+            <PenLine className="mr-2 size-4" />
             Firmar Propuesta
           </Button>
         }
@@ -172,7 +172,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
                 onClick={clearCanvas}
                 className="text-[#9CA3AF] hover:text-[#F9FAFB] h-7"
               >
-                <RotateCcw className="mr-1 h-3 w-3" /> Limpiar
+                <RotateCcw className="mr-1 size-3" /> Limpiar
               </Button>
             </div>
             <canvas
@@ -194,7 +194,7 @@ export function ESignDialog({ onSign, disabled }: ESignDialogProps) {
             onClick={handleSubmit}
             className="bg-[#BFFF00] text-[#111827] hover:bg-[#BFFF00]/80 font-bold"
           >
-            <Check className="mr-2 h-4 w-4" />
+            <Check className="mr-2 size-4" />
             Confirmar Firma
           </Button>
         </DialogFooter>
