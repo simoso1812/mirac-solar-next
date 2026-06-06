@@ -44,6 +44,7 @@ src/
 │   │   ├── drive.ts                   # server actions: prepare Drive folders + access token, register/upload signed contract mapping
 │   │   └── scan-bill.ts               # server action: Anthropic-powered utility bill OCR
 │   └── api/
+│       ├── [transport]/route.ts       # remote MCP server (Streamable HTTP) — solar quoting tools, served at /api/mcp
 │       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash)
 │       └── docuseal/
 │           ├── submission/route.ts    # create / refresh DocuSeal submission
@@ -74,6 +75,8 @@ src/
 │   ├── pdf-download-button.tsx        # generates client-side PDF via @react-pdf
 │   └── drive-sync-button.tsx          # PDF + contract → Drive folder structure
 ├── lib/
+│   ├── mcp/
+│   │   └── quote.ts                   # MCP tool schemas + runQuote/runEstimatePrice (wrap cotizacion + estimatePrice)
 │   ├── calculator/                    # PORT OF Python streamlit calculator
 │   │   ├── index.ts                   # cotizacion() entrypoint, buildInputFromStore()
 │   │   ├── cost.ts                    # cost coefficients (small <20kW poly, large ≥20kW poly3)
@@ -254,6 +257,23 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 - Only the client signs via DocuSeal — Samuel's signature is pre-filled on every contract.
 - If you re-version the template, keep the client `{{signature}}` placeholder intact for DocuSeal.
 
+### MCP quoting server (remote, for AI agents)
+
+Exposes the calculator as MCP tools so agents in Claude Code, Codex, and Claude.ai/cowork can run real quotations.
+
+- **Transport**: Streamable HTTP via `mcp-handler` (`createMcpHandler`). Route: `src/app/api/[transport]/route.ts` with `basePath: '/api'`; the dynamic `[transport]` segment only catches `/api/mcp` (and `/api/sse`) — existing static routes (`/api/share`, `/api/docuseal/*`) take precedence. **Endpoint: `/api/mcp`.**
+- **Tools** (both `readOnlyHint`, defined in `src/lib/mcp/quote.ts`):
+  - `quote_solar_system` — friendly small input (`consumo_mensual_kwh` + `ciudad` minimum; optional tarifa, clima, cubierta, modo_conexion, baterias, financiamiento EA, beneficios tributarios). `toCotizacionInput()` fills the other ~35 `CotizacionInput` fields from the same defaults the web app uses, then runs `cotizacion()`. Returns a Spanish markdown summary + `structuredContent`.
+  - `estimate_price` — quick CAPEX from `kwp` via `estimatePrice()`.
+- **Units gotcha**: `r.tir` and `r.roi_porcentaje` are **already ×100 (percentages)** — print directly with `%`, do NOT scale again. `performance_ratio` is a fraction. The structured field is `tir_porcentaje`.
+- **Auth**: optional shared secret. When `MCP_AUTH_TOKEN` is set, requests must send `Authorization: Bearer <token>`; when unset, the server is open (local dev). Enforced by a `guarded()` wrapper around the handler (exported as GET/POST/DELETE).
+- **Connecting clients** (after deploy to `https://<app>`):
+  - Claude Code: `claude mcp add --transport http mirac https://<app>/api/mcp --header "Authorization: Bearer <token>"`
+  - Codex (`config.toml`): `[mcp_servers.mirac]` with `url = "https://<app>/api/mcp"` + auth header.
+  - Claude.ai/cowork: add a custom connector pointing at the same URL.
+  - stdio-only clients: bridge via `npx -y mcp-remote https://<app>/api/mcp`.
+- **Test locally**: `npm run dev`, then POST JSON-RPC (`tools/list`, `tools/call`) to `/api/mcp` with `Accept: application/json, text/event-stream` (responses are SSE-framed: parse the `data:` line).
+
 ## Constraints / preferences
 
 - **No emojis** in source files or commit messages (unless explicitly asked).
@@ -288,6 +308,7 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 - `ANTHROPIC_API_KEY` — bill scanner
 - `DOCUSEAL_API_KEY`, `DOCUSEAL_API_URL` — DocuSeal Cloud
 - `DOCUSEAL_WEBHOOK_SECRET` — optional. When set, `/api/docuseal/webhook` validates the `X-Docuseal-Signature` header.
+- `MCP_AUTH_TOKEN` — optional. When set, the remote MCP server (`/api/mcp`) requires `Authorization: Bearer <token>`. Leave unset for an open server (e.g. local dev).
 
 ## Recent context (chronological)
 
@@ -325,3 +346,4 @@ npx tsc --noEmit # typecheck (always run before declaring done)
     - `share-dialog`/`s/[id]` no longer adjust state in effects (init in handlers / consolidated fetch state); `docuseal-sign-dialog` dropped its prop-sync effects and reads signing-result handlers via a `handlersRef` so the embed effect never tears down the form.
     - `useState`→`useRef` for non-render values (esign canvas `isDrawing`/`hasDrawn`, interactive-map `map`).
     - **Known remaining React Doctor findings (intentional / deferred):** `server-auth-actions` on the 4 server actions (no auth system in this internal tool — a product decision, not a lint fix), plus a few false-positive-ish warnings (`no-tiny-text` on intentional PDF fine print, `prefer-dynamic-import` on `proposal-pdf.tsx` which *is* the `@react-pdf` document, `label-has-associated-control` on the shadcn `Label` primitive, `no-event-handler` on the react-day-picker focus effect). Do not "fix" these by faking auth or degrading the PDF.
+27. **Remote MCP quoting server added** (`mcp-handler` + `@modelcontextprotocol/sdk`). Endpoint `/api/mcp` (route `src/app/api/[transport]/route.ts`); tools `quote_solar_system` and `estimate_price` wrap `cotizacion()`/`estimatePrice()` in `src/lib/mcp/quote.ts`. Lets agents in Claude Code / Codex / cowork run real quotations. Optional bearer auth via `MCP_AUTH_TOKEN`. Caught a display bug while wiring it: `r.tir`/`r.roi_porcentaje` are already ×100, so the MCP summary prints them directly (don't double-scale). Verified locally: `tools/list` + `tools/call` (base, battery+financing, estimate_price) all return correct numbers; `tsc`, `build`, `lint` clean. See "MCP quoting server" workflow.
