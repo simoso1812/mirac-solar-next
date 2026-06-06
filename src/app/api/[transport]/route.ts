@@ -18,6 +18,7 @@ import {
   priceInputShape,
   runEstimatePrice,
 } from '@/lib/mcp/quote'
+import { linkInputShape, runCreateQuotationLink } from '@/lib/mcp/create-link'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -67,6 +68,31 @@ const handler = createMcpHandler(
       },
       async (args) => {
         const { summary, structured } = runEstimatePrice(args)
+        return {
+          content: [{ type: 'text', text: summary }],
+          structuredContent: structured,
+        }
+      },
+    )
+
+    server.registerTool(
+      'create_quotation_link',
+      {
+        title: 'Crear link de cotizacion virtual',
+        description:
+          'Genera una propuesta solar y devuelve un LINK publico a la cotizacion virtual (pagina /s/<id>) que el cliente puede abrir, ver, descargar en PDF y firmar. ' +
+          'Recibe el nombre del cliente y los mismos parametros que quote_solar_system. ' +
+          'La propuesta se guarda 90 dias. Usa esta herramienta cuando el usuario pida un link, una propuesta para enviar al cliente, o una cotizacion compartible.',
+        inputSchema: linkInputShape,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      async (args) => {
+        const { summary, structured } = await runCreateQuotationLink(args)
         return {
           content: [{ type: 'text', text: summary }],
           structuredContent: structured,

@@ -1,20 +1,26 @@
 /**
  * MCP quoting tools — friendly, agent-facing wrappers around the Mirac
- * solar calculator. Exposes a small input surface and fills the ~35
- * remaining CotizacionInput fields from the same defaults the web app uses.
+ * solar calculator. Exposes a small input surface and builds the same
+ * store shapes (technical/project/advanced) the web app uses, so results
+ * computed here match what the shared `/s/[id]` page recomputes live.
  */
 import { z } from 'zod'
-import { cotizacion, type CotizacionInput, type ConnectionMode } from '@/lib/calculator'
+import { cotizacion, buildInputFromStore } from '@/lib/calculator'
 import { estimatePrice, estimatePricePerKwp } from '@/lib/calculator/cost'
 import { formatCOP } from '@/lib/formatting'
+import {
+  deepMerge,
+  initialAdvancedData,
+  initialClientData,
+  initialProjectData,
+  initialTechnicalData,
+} from '@/lib/defaults'
+import type { ClientData, ProjectData, TechnicalData, AdvancedData } from '@/lib/types'
 
 // Cities present in HSP_MENSUAL_POR_CIUDAD (others fall back to MEDELLIN).
 const CIUDADES = ['MEDELLIN', 'BOGOTA', 'CALI', 'BARRANQUILLA', 'BUCARAMANGA', 'CARTAGENA', 'PEREIRA'] as const
 
-// Calculator expects upper-case clima codes; this maps the friendly enum.
-const CLIMA_MAP: Record<string, string> = { templado: 'TEMPLADO', calido: 'SOL', frio: 'NUBE' }
-
-/** Input shape (ZodRawShape) for the `quote_solar_system` tool. */
+/** Input shape (ZodRawShape) for the quoting tools. */
 export const quoteInputShape = {
   consumo_mensual_kwh: z
     .number()
@@ -97,75 +103,92 @@ export const quoteInputShape = {
     .describe('Potencia de cada panel en W. Default 615.'),
 }
 
-const quoteInputSchema = z.object(quoteInputShape)
+export const quoteInputSchema = z.object(quoteInputShape)
 export type QuoteArgs = z.infer<typeof quoteInputSchema>
 
-/** Map the friendly args to a full CotizacionInput, defaulting the rest. */
-function toCotizacionInput(a: QuoteArgs): CotizacionInput {
-  return {
-    consumoMensualKwh: a.consumo_mensual_kwh,
-    potenciaPanelW: a.potencia_panel_w,
-    factorSeguridad: a.factor_seguridad,
+/** Optional client fields, used when creating a shareable proposal. */
+export interface ClientArgs {
+  cliente_nombre?: string
+  cliente_direccion?: string
+  cliente_email?: string
+  cliente_telefono?: string
+  cliente_cedula?: string
+}
+
+export interface QuotationStores {
+  client: ClientData
+  project: ProjectData
+  technical: TechnicalData
+  advanced: AdvancedData
+}
+
+/**
+ * Map friendly args to the web app's store shapes. Going through these
+ * (and then buildInputFromStore) keeps the calculator result identical to
+ * what the shared `/s/[id]` page recomputes from the stored payload.
+ */
+export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
+  const technical = deepMerge(initialTechnicalData, {
+    consumo_mensual_kwh: a.consumo_mensual_kwh,
+    potencia_panel_w: a.potencia_panel_w,
+    factor_seguridad: a.factor_seguridad,
+    tipo_cubierta: a.cubierta,
+    clima: a.clima,
+  }) as TechnicalData
+
+  const project = deepMerge(initialProjectData, {
     ciudad: a.ciudad,
-    cubierta: a.cubierta.toUpperCase(),
-    clima: CLIMA_MAP[a.clima] ?? 'TEMPLADO',
-    costoKwh: a.costo_kwh,
-    indexRate: 0.06,
-    discountRate: 0.1,
-    percFinanciamiento: a.financiamiento_porcentaje,
-    tasaInteresCredito: a.financiamiento_tasa_ea,
-    plazoCreditoAnios: a.financiamiento_plazo_anios,
-    incluirBaterias: a.incluir_baterias,
-    costoKwhBateria: 400000,
-    capacidadBateriaKwh: a.bateria_capacidad_kwh,
-    profundidadDescarga: 0.9,
-    eficienciaBateria: 0.95,
-    horasAutonomia: a.bateria_horas_autonomia,
-    horizonteTiempo: 25,
-    incluirBeneficiosTributarios: a.beneficio_deduccion_renta || a.beneficio_depreciacion_acelerada,
-    incluirDeduccionRenta: a.beneficio_deduccion_renta,
-    incluirDepreciacionAcelerada: a.beneficio_depreciacion_acelerada,
-    precioManual: null,
-    demora6Meses: false,
-    hspMensualPVGIS: null,
-    modoConexion: a.modo_conexion as ConnectionMode,
-    precioExcedentes: a.precio_excedentes,
-    tasaDegradacion: 0.001,
-    porcentajeMantenimiento: 0.05,
-    performanceRatioBase: 0.75,
-    marcaInversor: 'Automatico',
-    marcaInversorCustom: '',
-    modeloInversor: '',
-    marcaPanel: '',
-    modeloPanel: '',
-    overridePaneles: null,
-    overrideInversores: null,
-    medidorBidireccional: false,
-  }
+    fecha: new Date().toISOString().split('T')[0],
+  }) as ProjectData
+
+  const advanced = deepMerge(initialAdvancedData, {
+    costo_kwh: a.costo_kwh,
+    modo_conexion: a.modo_conexion,
+    precio_excedentes: a.precio_excedentes,
+    bateria: {
+      habilitada: a.incluir_baterias,
+      capacidad_kwh: a.bateria_capacidad_kwh,
+      horas_autonomia: a.bateria_horas_autonomia,
+    },
+    financiamiento: {
+      habilitado: a.financiamiento_porcentaje > 0,
+      tasa_interes: a.financiamiento_tasa_ea,
+      plazo_meses: Math.round(a.financiamiento_plazo_anios * 12),
+      porcentaje_financiado: a.financiamiento_porcentaje / 100,
+    },
+    beneficios_tributarios: a.beneficio_deduccion_renta || a.beneficio_depreciacion_acelerada,
+    incluir_deduccion_renta: a.beneficio_deduccion_renta,
+    incluir_depreciacion_acelerada: a.beneficio_depreciacion_acelerada,
+  }) as AdvancedData
+
+  const client = deepMerge(initialClientData, {
+    nombre: c.cliente_nombre ?? '',
+    direccion: c.cliente_direccion ?? '',
+    email: c.cliente_email ?? '',
+    telefono: c.cliente_telefono ?? '',
+    nit_cc: c.cliente_cedula ?? '',
+  }) as ClientData
+
+  return { client, project, technical, advanced }
 }
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 const yrs = (n: number) => `${n.toFixed(1)} años`
 
-/** Run a full quote and return both a markdown summary and structured data. */
-export function runQuote(args: QuoteArgs) {
-  const input = toCotizacionInput(args)
-  const r = cotizacion(input)
+/** Build the Spanish markdown summary + structured data from a result. */
+export function summarize(stores: QuotationStores) {
+  const r = cotizacion(buildInputFromStore(stores.technical, stores.project, stores.advanced))
 
   const summary = [
-    `## Cotizacion solar — ${args.ciudad}`,
-    '',
     `**Sistema:** ${r.kwp.toFixed(2)} kWp · ${r.numero_paneles} paneles de ${r.potencia_panel_w}W`,
     `**Inversores:** ${r.inversores.map((i) => `${i.cantidad}x ${i.potencia_kw}kW`).join(' + ') || 'n/d'}`,
     `**Generacion anual:** ${Math.round(r.generacion_anual_kwh).toLocaleString('es-CO')} kWh (PR ${pct(r.performance_ratio)})`,
     r.bateria?.habilitada
-      ? `**Bateria:** ${r.bateria.capacidad_nominal_kwh.toFixed(1)} kWh nominal · ${r.bateria.horas_autonomia}h autonomia`
+      ? `**Bateria:** ${r.bateria.capacidad_nominal_kwh.toFixed(1)} kWh nominal · ${r.bateria.horas_autonomia.toFixed(1)}h autonomia`
       : '**Bateria:** no incluida',
-    '',
     `**Inversion total:** ${formatCOP(r.costo_total_cop)} (${formatCOP(r.costo_por_kwp_cop)}/kWp)`,
     `**Ahorro anual:** ${formatCOP(r.ahorro_anual_cop)} · **mensual:** ${formatCOP(r.ahorro_mensual_cop)}`,
-    // Note: r.tir and r.roi_porcentaje are already percentages (calculator
-    // multiplies by 100), so print directly — do NOT scale again.
+    // r.tir and r.roi_porcentaje are already x100 (percentages) — print directly.
     `**Payback:** ${yrs(r.payback_anios)} · **TIR:** ${r.tir.toFixed(1)}% · **VPN:** ${formatCOP(r.vpn)} · **ROI:** ${r.roi_porcentaje.toFixed(1)}%`,
     `**CO2 evitado (vida util):** ${Math.round(r.carbon.lifetime_co2_avoided_tons ?? 0)} t`,
   ].join('\n')
@@ -189,6 +212,16 @@ export function runQuote(args: QuoteArgs) {
   return { summary, structured }
 }
 
+/** Run a full quote and return both a markdown summary and structured data. */
+export function runQuote(args: QuoteArgs) {
+  const stores = buildStores(args)
+  const { summary, structured } = summarize(stores)
+  return {
+    summary: `## Cotizacion solar — ${args.ciudad}\n\n${summary}`,
+    structured,
+  }
+}
+
 /** Input shape for the `estimate_price` tool. */
 export const priceInputShape = {
   kwp: z
@@ -196,7 +229,7 @@ export const priceInputShape = {
     .positive()
     .describe('Tamano del sistema en kWp. Devuelve el precio estimado (sin ajuste por cubierta).'),
 }
-const priceInputSchema = z.object(priceInputShape)
+export const priceInputSchema = z.object(priceInputShape)
 export type PriceArgs = z.infer<typeof priceInputSchema>
 
 /** Quick CAPEX estimate from system size, using the empirical cost curve. */
