@@ -4,9 +4,12 @@
  * Exposes the solar calculator as MCP tools so agents in Claude Code, Codex,
  * and Claude.ai/cowork can run real quotations. Served at /api/mcp.
  *
- * Auth: when MCP_AUTH_TOKEN is set, requests must send
- *   Authorization: Bearer <MCP_AUTH_TOKEN>
- * When unset (e.g. local dev), the server is open.
+ * Auth: when MCP_AUTH_TOKEN is set, requests must present the secret either
+ * as a `?key=<MCP_AUTH_TOKEN>` query param (works with the Claude Cowork
+ * connector UI, which only accepts a URL) OR as an `Authorization: Bearer
+ * <MCP_AUTH_TOKEN>` header (Claude Code / Codex can send headers). Otherwise
+ * the request gets a 404 so the secret URL stays unguessable. When the env
+ * var is unset (e.g. local dev), the server is open.
  */
 import { createMcpHandler } from 'mcp-handler'
 import {
@@ -77,18 +80,18 @@ const handler = createMcpHandler(
 
 // Optional shared-secret auth in front of the MCP handler.
 function authorized(req: Request): boolean {
-  const token = process.env.MCP_AUTH_TOKEN
-  if (!token) return true // open when no token configured (local dev)
-  const header = req.headers.get('authorization') ?? ''
-  return header === `Bearer ${token}`
+  const secret = process.env.MCP_AUTH_TOKEN
+  if (!secret) return true // open when no secret configured (local dev)
+  // Accept the secret as ?key= (for the Cowork connector, URL-only) or as a
+  // Bearer header (for Claude Code / Codex, which can send headers).
+  if (new URL(req.url).searchParams.get('key') === secret) return true
+  return (req.headers.get('authorization') ?? '') === `Bearer ${secret}`
 }
 
 async function guarded(req: Request): Promise<Response> {
   if (!authorized(req)) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: { 'content-type': 'application/json' },
-    })
+    // 404 (not 401) so the secret URL stays unguessable / hidden.
+    return new Response('Not found', { status: 404 })
   }
   return handler(req)
 }
