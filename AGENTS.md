@@ -266,12 +266,12 @@ Exposes the calculator as MCP tools so agents in Claude Code, Codex, and Claude.
   - `quote_solar_system` — friendly small input (`consumo_mensual_kwh` + `ciudad` minimum; optional tarifa, clima, cubierta, modo_conexion, baterias, financiamiento EA, beneficios tributarios). `toCotizacionInput()` fills the other ~35 `CotizacionInput` fields from the same defaults the web app uses, then runs `cotizacion()`. Returns a Spanish markdown summary + `structuredContent`.
   - `estimate_price` — quick CAPEX from `kwp` via `estimatePrice()`.
 - **Units gotcha**: `r.tir` and `r.roi_porcentaje` are **already ×100 (percentages)** — print directly with `%`, do NOT scale again. `performance_ratio` is a fraction. The structured field is `tir_porcentaje`.
-- **Auth**: optional shared secret. When `MCP_AUTH_TOKEN` is set, requests must send `Authorization: Bearer <token>`; when unset, the server is open (local dev). Enforced by a `guarded()` wrapper around the handler (exported as GET/POST/DELETE).
-- **Connecting clients** (after deploy to `https://<app>`):
-  - Claude Code: `claude mcp add --transport http mirac https://<app>/api/mcp --header "Authorization: Bearer <token>"`
-  - Codex (`config.toml`): `[mcp_servers.mirac]` with `url = "https://<app>/api/mcp"` + auth header.
-  - Claude.ai/cowork: add a custom connector pointing at the same URL.
-  - stdio-only clients: bridge via `npx -y mcp-remote https://<app>/api/mcp`.
+- **Auth**: optional shared secret in `MCP_AUTH_TOKEN`. When set, requests must present it either as a `?key=<token>` query param **or** an `Authorization: Bearer <token>` header; otherwise they get a **404** (stealth — keeps the secret URL unguessable). When unset, the server is open (local dev). Enforced by a `guarded()` wrapper around the handler (exported as GET/POST/DELETE). The `?key=` form exists because the Claude Cowork connector UI only accepts a URL (no header field).
+- **Connecting clients** (after deploy to `https://<app>`, with `MCP_AUTH_TOKEN` set):
+  - Claude Code: `claude mcp add --transport http mirac "https://<app>/api/mcp?key=<token>"` (or use `--header "Authorization: Bearer <token>"`).
+  - Codex (`config.toml`): `[mcp_servers.mirac]` with `url = "https://<app>/api/mcp?key=<token>"`.
+  - Claude.ai/cowork: add a custom connector with URL `https://<app>/api/mcp?key=<token>`.
+  - stdio-only clients: bridge via `npx -y mcp-remote "https://<app>/api/mcp?key=<token>"`.
 - **Test locally**: `npm run dev`, then POST JSON-RPC (`tools/list`, `tools/call`) to `/api/mcp` with `Accept: application/json, text/event-stream` (responses are SSE-framed: parse the `data:` line).
 
 ## Constraints / preferences
