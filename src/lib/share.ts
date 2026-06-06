@@ -13,7 +13,7 @@ import {
 } from '@/lib/defaults'
 
 /** Minimal payload — just the inputs needed to recalculate */
-interface SharePayload {
+export interface SharePayload {
   c: { n: string; d: string; e: string; t: string; a: string }
   p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null }
   t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null; mp?: string; mo?: string }
@@ -37,7 +37,7 @@ type StoredData =
   | SharePayload                            // single (legacy)
   | { versions: StoredVersionEntry[] }      // multi
 
-function toPayload(proposal: QuotationData): SharePayload {
+export function toPayload(proposal: QuotationData): SharePayload {
   const { client: c, project: p, technical: t, advanced: a } = proposal
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
