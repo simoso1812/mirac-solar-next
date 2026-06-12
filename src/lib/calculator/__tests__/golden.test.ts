@@ -24,7 +24,7 @@ function baseInput(overrides: Partial<CotizacionInput> = {}): CotizacionInput {
     discountRate: 0.1,
     percFinanciamiento: 0,
     tasaInteresCredito: 0.12,
-    plazoCreditoAnios: 5,
+    plazoCreditoMeses: 60,
     incluirBaterias: false,
     costoKwhBateria: 400000,
     capacidadBateriaKwh: 0,
@@ -118,7 +118,7 @@ describe('golden masters: connection mode x battery x financing', () => {
               capacidadBateriaKwh: bateria ? 10 : 0,
               percFinanciamiento: financiado ? 70 : 0,
               tasaInteresCredito: 0.15,
-              plazoCreditoAnios: 5,
+              plazoCreditoMeses: 60,
             })
           )
           expect(headline(r)).toMatchSnapshot('headline')
@@ -166,7 +166,7 @@ describe('financing: Excel-verified fixture (AGENTS.md item 24)', () => {
     precioManual: 96_000_000,
     percFinanciamiento: 80,
     tasaInteresCredito: 0.15,
-    plazoCreditoAnios: 5,
+    plazoCreditoMeses: 60,
   })
 
   it('engine cuota matches the Excel value', () => {
@@ -243,28 +243,24 @@ describe('headline vs year-by-year table consistency (audit X2)', () => {
     return { headlineTotal, tableTotal, r }
   }
 
-  // KNOWN BUG (audit X2): the table omits surplus income and the demora
-  // haircut that the headline metrics include. it.fails documents the bug;
-  // flip to it() when the savings loop is consolidated.
-  it.fails('net metering with surplus: table flow total equals headline flow total', () => {
+  it('net metering with surplus: table flow total equals headline flow total', () => {
     const { headlineTotal, tableTotal } = sumsFor(baseInput({ factorSeguridad: 1.3 }))
     expect(tableTotal / headlineTotal).toBeCloseTo(1, 3)
   })
 
-  it.fails('net billing with surplus: table flow total equals headline flow total', () => {
+  it('net billing with surplus: table flow total equals headline flow total', () => {
     const { headlineTotal, tableTotal } = sumsFor(
       baseInput({ modoConexion: 'net_billing', factorSeguridad: 1.3 })
     )
     expect(tableTotal / headlineTotal).toBeCloseTo(1, 3)
   })
 
-  it.fails('demora6Meses: table reflects the first-year haircut the headline applies', () => {
+  it('demora6Meses: table reflects the first-year haircut the headline applies', () => {
     const { headlineTotal, tableTotal } = sumsFor(baseInput({ demora6Meses: true }))
     expect(tableTotal / headlineTotal).toBeCloseTo(1, 3)
   })
 
-  // KNOWN BUG (audit X2): currently diverges by ~1.5 years on this fixture.
-  it.fails('table break-even year matches payback_anios within a year', () => {
+  it('table break-even year matches payback_anios within a year', () => {
     const { r } = sumsFor(baseInput({ factorSeguridad: 1.3 }))
     const breakEven = r.flujo_caja.find((row) => row.flujo_acumulado_cop >= 0)?.anio ?? Infinity
     expect(Math.abs(breakEven - r.payback_anios)).toBeLessThanOrEqual(1)
@@ -272,9 +268,7 @@ describe('headline vs year-by-year table consistency (audit X2)', () => {
 })
 
 describe('loan term in months (audit X3)', () => {
-  // KNOWN BUG (audit X3): buildInputFromStore rounds plazo_meses to whole
-  // years, so 18 months becomes 24 payments. Flip to it() when fixed.
-  it.fails('an 18-month plazo amortizes over exactly 18 payments', () => {
+  it('an 18-month plazo amortizes over exactly 18 payments', () => {
     const advanced = deepMerge(initialAdvancedData, {
       financiamiento: {
         habilitado: true,
