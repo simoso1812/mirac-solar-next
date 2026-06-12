@@ -36,7 +36,14 @@ async function uploadFileToDrive(
 ): Promise<string | null> {
   const mimeType = blob.type || 'application/pdf'
 
-  const session = await createDriveUploadSession(folderId, fileName, mimeType)
+  // Google binds the session's CORS allowance to the Origin of the initiate
+  // request, so the server must mint the session on behalf of THIS origin.
+  const session = await createDriveUploadSession(
+    folderId,
+    fileName,
+    mimeType,
+    window.location.origin,
+  )
   if (!session.success || !session.uploadUrl) {
     throw new Error(session.error ?? 'No se pudo crear la sesión de subida a Drive')
   }

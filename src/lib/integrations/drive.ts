@@ -158,11 +158,16 @@ async function buscarSubcarpeta(
  * session URI. The browser can PUT the file bytes directly to that URI
  * without any Authorization header, so the OAuth access token never leaves
  * the server.
+ *
+ * `browserOrigin` must be the page origin that will perform the PUT: Google
+ * binds the session's CORS allowance to the Origin of THIS initiate request,
+ * so without it the browser's (preflighted) PUT would be blocked.
  */
 export async function createResumableUploadSession(
   folderId: string,
   fileName: string,
   mimeType: string,
+  browserOrigin?: string,
 ): Promise<string | null> {
   try {
     const drive = getDriveService()
@@ -172,6 +177,11 @@ export async function createResumableUploadSession(
     const { token } = await oauth2.getAccessToken()
     if (!token) throw new Error('Failed to obtain access token')
 
+    // Only forward a sane-looking origin; header values reject CR/LF anyway.
+    const origin = browserOrigin && /^https?:\/\/[^\s]+$/.test(browserOrigin)
+      ? browserOrigin
+      : undefined
+
     const res = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,webViewLink',
       {
@@ -180,6 +190,7 @@ export async function createResumableUploadSession(
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json; charset=UTF-8',
           'X-Upload-Content-Type': mimeType,
+          ...(origin ? { Origin: origin } : {}),
         },
         body: JSON.stringify({ name: fileName, parents: [folderId] }),
       },

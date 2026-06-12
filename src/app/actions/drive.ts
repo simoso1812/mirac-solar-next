@@ -47,13 +47,14 @@ export async function createDriveUploadSession(
   folderId: string,
   fileName: string,
   mimeType: string,
+  browserOrigin?: string,
 ): Promise<{ success: boolean; uploadUrl: string | null; error?: string }> {
   try {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN) {
       return { success: false, uploadUrl: null, error: 'Google Drive credentials not configured' }
     }
 
-    const uploadUrl = await createResumableUploadSession(folderId, fileName, mimeType)
+    const uploadUrl = await createResumableUploadSession(folderId, fileName, mimeType, browserOrigin)
     if (!uploadUrl) {
       return { success: false, uploadUrl: null, error: 'No se pudo crear la sesión de subida a Drive' }
     }

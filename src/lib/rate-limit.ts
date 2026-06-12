@@ -24,12 +24,21 @@ export async function rateLimit(
   }
 }
 
-/** Best-effort client IP from the first x-forwarded-for entry (Vercel sets it). */
+/**
+ * Best-effort client IP. Assumes deployment behind Vercel's trusted edge:
+ * prefer x-real-ip (set by Vercel, not client-settable through the edge) and
+ * fall back to the RIGHTMOST x-forwarded-for entry — the one appended by the
+ * trusted proxy. The leftmost entries are client-supplied and trivially
+ * spoofable, which would let an attacker rotate rate-limit buckets at will.
+ */
 export function getClientIp(request: Request): string {
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
-    const first = forwarded.split(',')[0]?.trim()
-    if (first) return first
+    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
+    const last = parts[parts.length - 1]
+    if (last) return last
   }
   return 'unknown'
 }

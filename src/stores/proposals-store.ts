@@ -3,6 +3,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { toast } from 'sonner'
+import {
+  deepMerge,
+  initialClientData,
+  initialProjectData,
+  initialTechnicalData,
+  initialAdvancedData,
+} from '@/lib/defaults'
 import type { QuotationData, ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults } from '@/lib/types'
 
 interface ProposalsState {
@@ -25,6 +32,33 @@ interface ProposalsState {
 
 function generateId(): string {
   return `prop_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+const VALID_STATUSES: QuotationData['status'][] = ['draft', 'sent', 'accepted', 'rejected']
+
+/**
+ * Backfill an imported proposal against the initial defaults so partial or
+ * hand-edited JSON can never persist a shape that crashes the list views
+ * (e.g. a missing project.ciudad). Same defense layer loadProposal uses.
+ */
+function backfillImportedProposal(proposal: QuotationData): QuotationData {
+  const p = proposal as Partial<QuotationData>
+  const now = new Date().toISOString()
+  return {
+    ...proposal,
+    status: VALID_STATUSES.includes(p.status as QuotationData['status'])
+      ? (p.status as QuotationData['status'])
+      : 'draft',
+    created_at: typeof p.created_at === 'string' ? p.created_at : now,
+    updated_at: typeof p.updated_at === 'string' ? p.updated_at : now,
+    client: deepMerge(initialClientData, p.client),
+    project: deepMerge(initialProjectData, p.project),
+    technical: deepMerge(initialTechnicalData, p.technical),
+    advanced: deepMerge(initialAdvancedData, p.advanced),
+    results: p.results ?? null,
+    drive_folder_link: p.drive_folder_link ?? null,
+    drive_project_name: p.drive_project_name ?? null,
+  }
 }
 
 // localStorage facade that surfaces quota failures instead of swallowing them.
@@ -117,8 +151,11 @@ export const useProposalsStore = create<ProposalsState>()(
             if (byId.has(proposal.id)) updated += 1
             else added += 1
             // Replace existing entries; append unknown ids. Imported id and
-            // created_at are preserved as-is.
-            byId.set(proposal.id, proposal)
+            // created_at are preserved; nested shapes are backfilled against
+            // the initial defaults (same pattern as loadProposal) so a
+            // partial or hand-edited file can never persist a proposal that
+            // crashes the list views.
+            byId.set(proposal.id, backfillImportedProposal(proposal))
           }
           return { proposals: Array.from(byId.values()) }
         })
