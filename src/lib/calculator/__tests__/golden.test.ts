@@ -196,6 +196,19 @@ describe('depreciation rule (audit X4 — Simon-confirmed 2026-06)', () => {
     }
     expect(benefitInYear(normal, off, 11)).toBeCloseTo(0, 0)
   })
+
+  it('deduccion renta: 50% x 35% renta on the pre-IVA basis, indexed, year 2', () => {
+    // Both runs carry normal depreciation; the diff isolates the deduction.
+    const sinDeduccion = cotizacion(baseInput({ incluirBeneficiosTributarios: true }))
+    const conDeduccion = cotizacion(
+      baseInput({ incluirBeneficiosTributarios: true, incluirDeduccionRenta: true })
+    )
+    const baseSinIva = conDeduccion.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
+    // indexRate 0.05, applied at i === 1 (anio 2): base x 1.05 x 0.175
+    expect(benefitInYear(conDeduccion, sinDeduccion, 2)).toBeCloseTo(baseSinIva * 1.05 * 0.175, 0)
+    expect(benefitInYear(conDeduccion, sinDeduccion, 1)).toBeCloseTo(0, 0)
+    expect(benefitInYear(conDeduccion, sinDeduccion, 3)).toBeCloseTo(0, 0)
+  })
 })
 
 describe('financing: Excel-verified fixture (AGENTS.md item 24)', () => {

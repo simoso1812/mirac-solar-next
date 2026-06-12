@@ -106,17 +106,18 @@ export function simulateYears(p: YearSimParams): YearSim[] {
     const cuotasCredito = p.cuotaMensualCredito * pagosEsteAnio
 
     // Tax benefits (Ley 1715) — do NOT change rates without Simon's sign-off.
+    // Both benefits are computed on the pre-IVA investment value.
     let beneficioTributario = 0
     if (p.incluirBeneficiosTributarios) {
+      const baseSinIva = p.valorProyectoTotal / (1 + PROMEDIOS_COSTO.iva_rate)
       if (p.incluirDeduccionRenta && i === 1) {
         // Deducción especial Art. 11: 50% of the investment deducted from
         // taxable income → cash value 0.50 × 0.35 = 0.175.
-        beneficioTributario += p.valorProyectoTotal * indexFactor * 0.175
+        beneficioTributario += baseSinIva * indexFactor * 0.175
       }
       // Depreciation applies to every renta payer; the toggle picks the
       // schedule: accelerated (Ley 1715, 3 years) vs normal linear (10 years).
-      // Cash value = annual expense × renta rate, on the pre-IVA basis.
-      const baseDepreciable = p.valorProyectoTotal / (1 + PROMEDIOS_COSTO.iva_rate)
+      // Cash value = annual expense × renta rate.
       const tasaDepreciacion = p.incluirDepreciacionAcelerada
         ? TASA_DEPRECIACION_ACELERADA
         : TASA_DEPRECIACION_NORMAL
@@ -124,7 +125,7 @@ export function simulateYears(p: YearSimParams): YearSim[] {
         ? ANIOS_DEPRECIACION_ACELERADA
         : ANIOS_DEPRECIACION_NORMAL
       if (i < aniosDepreciacion) {
-        beneficioTributario += baseDepreciable * tasaDepreciacion * TASA_RENTA
+        beneficioTributario += baseSinIva * tasaDepreciacion * TASA_RENTA
       }
     }
 

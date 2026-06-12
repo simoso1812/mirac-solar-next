@@ -127,12 +127,13 @@ src/
   - Calculator input fields: `incluirDeduccionRenta` and `incluirDepreciacionAcelerada`
   - Both are gated by master `beneficios_tributarios` / `incluirBeneficiosTributarios`
   - The advanced form must set `beneficios_tributarios` true when either child toggle is on, and false when both are off.
-- **Depreciation modeling** (audit X4 — confirmed by Simon 2026-06, constants in `engine.ts`):
-  - Depreciation is a DEDUCTION: cash value = annual expense × **35% renta** (`TASA_RENTA`), never the expense itself.
-  - Basis is the **pre-IVA** price: `valorProyectoTotal / (1 + iva_rate)`.
-  - Acelerada ON → 33.33%/año × 3 años (Ley 1715 Art. 14 máximo). Acelerada OFF (but master on, i.e. renta payer) → normal lineal 10%/año × 10 años (Art. 137 ET, maquinaria y equipo).
-  - Master off = client does not declare renta → no depreciation at all.
-  - The pre-fix rule credited `0.33 × CAPEX` per year as raw cash (~99% of CAPEX, no tax rate) — proposals quoted with the toggle on before this fix overstate TIR/VPN; regenerate them.
+- **Tax-benefit modeling** (audit X4 — confirmed by Simon 2026-06, constants in `engine.ts`):
+  - **Both benefits use the pre-IVA basis**: `baseSinIva = valorProyectoTotal / (1 + iva_rate)`.
+  - Benefits are DEDUCTIONS: cash value = deduction × **35% renta** (`TASA_RENTA`), never the deduction itself.
+  - **Deducción renta** (Art. 11): 50% of `baseSinIva` deducted → cash `baseSinIva × 0.175`, indexed, in year 2.
+  - **Depreciación**: acelerada ON → 33.33%/año × 3 años (Ley 1715 Art. 14 máximo). Acelerada OFF (but master on, i.e. renta payer) → normal lineal 10%/año × 10 años (Art. 137 ET, maquinaria y equipo).
+  - Master off = client does not declare renta → no tax benefits at all.
+  - The pre-fix rule credited `0.33 × CAPEX` per year as raw cash (~99% of CAPEX, no tax rate) and used the IVA-inclusive basis — proposals quoted with these toggles on before the fix overstate TIR/VPN; regenerate them.
 - **Connection modes**:
   - `net_metering` — 1:1 valuation of surplus energy
   - `net_billing` — surplus at reduced `precio_excedentes` (default 300 COP/kWh)
@@ -338,7 +339,7 @@ CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on ever
 
 ## Open questions for Simon (from the 2026-06 repo audit — unresolved, need domain sign-off)
 
-1. ~~**Accelerated depreciation (audit X4).**~~ **RESOLVED 2026-06 by Simon** — see "Depreciation modeling" under Domain rules: 35% renta rate applied, pre-IVA basis, accelerated 33.33%×3y vs normal lineal 10%×10y when the toggle is off. Implemented in `engine.ts` + golden tests. Remaining sub-questions: (a) should the **deducción de renta** basis also exclude IVA? (currently 17.5% of the FULL price, indexed, in year 2); (b) the PDF "Info Financiera" page shows a deducible of `costoSinIVA × 0.44`, which matches neither the deduction (50%) nor its cash value (17.5%) — confirm what that figure should be.
+1. ~~**Accelerated depreciation (audit X4).**~~ **RESOLVED 2026-06 by Simon** — see "Tax-benefit modeling" under Domain rules: 35% renta rate applied, pre-IVA basis for BOTH benefits (deducción confirmed pre-IVA too), accelerated 33.33%×3y vs normal lineal 10%×10y when the toggle is off. Implemented in `engine.ts` + golden tests. Remaining sub-question: the PDF "Info Financiera" page shows a deducible of `costoSinIVA × 0.44`, which matches neither the 50% deduction nor its 17.5% cash value — confirm what that figure should be.
 2. **Non-annual loan terms.** The engine now honors `plazo_meses` exactly (18 months = 18 cuotas). If banks only quote multiples of 12, the schema could be locked down, but the current behavior is correct either way.
 3. **Vercel env confirmations.** Is `DOCUSEAL_WEBHOOK_SECRET` set in production? Is `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` referrer-restricted in Google Cloud Console (it is necessarily public in the JS bundle)?
 4. **MARKITDOWN service.** `MARKITDOWN_SERVICE_URL` is read by the bill scanner but undocumented operationally — is the Render microservice still deployed, or is the text path permanently falling back to vision?
@@ -399,3 +400,4 @@ CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on ever
     - **Docs**: README rewritten (was create-next-app boilerplate), `.env.example` now lists the real env surface (Notion vars dropped), this file refreshed.
     - **NOT changed (needs Simon)**: the X4 accelerated-depreciation rule — see "Open questions for Simon".
 32. **X4 resolved — depreciation rule corrected** (Simon sign-off 2026-06): see "Depreciation modeling" domain rule. `engine.ts` now computes depreciation as `(CAPEX / 1.07) × tasa × 35%` with tasa 33.33%×3y (acelerada) or 10%×10y (normal lineal, applies to any renta payer with the toggle off). Previously the toggle credited `0.33 × CAPEX` raw per year (~99% of CAPEX as cash). Typical impact on a commercial quote with both benefits: TIR 56% → 40%, payback 1.5 → 2.2 años. 6 golden snapshots updated deliberately; 2 new tests pin the rule. **Regenerate any proposal quoted with the depreciation toggle on before this fix.** Toggle copy updated in `step-advanced.tsx` and `financial-section.tsx`.
+33. **Deducción de renta basis corrected to pre-IVA** (Simon sign-off 2026-06, follow-up to item 32): the Art. 11 deduction now computes on `baseSinIva` like depreciation — `(CAPEX / 1.07) × 1.05 × 0.175` in year 2 instead of the IVA-inclusive price (~6.5% smaller benefit). One shared `baseSinIva` drives both benefits in `engine.ts`. New golden test pins it; 4 snapshots updated deliberately. Toggle copy updated ("17.5% del valor sin IVA (50% × renta 35%)").

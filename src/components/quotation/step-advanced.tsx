@@ -531,7 +531,7 @@ export function StepAdvanced() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <Label>Deducción de renta</Label>
-                    <p className="text-xs text-muted-foreground">17.5% del CAPEX en año 1</p>
+                    <p className="text-xs text-muted-foreground">17.5% del valor sin IVA (50% × renta 35%)</p>
                   </div>
                   <Switch
                     checked={incluirDeduccionRenta}

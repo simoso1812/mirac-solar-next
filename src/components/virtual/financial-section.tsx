@@ -218,7 +218,7 @@ export function FinancialSection({
                   checked={overrides.incluirDeduccionRenta}
                   onChange={(v) => onOverridesChange({ ...overrides, incluirDeduccionRenta: v })}
                   label="Deducción de Renta"
-                  description="17.5% del CAPEX deducible en año 1 (Ley 1715, Art. 11)"
+                  description="50% del valor sin IVA deducible de renta (Ley 1715, Art. 11); beneficio = 17.5%"
                 />
                 <Toggle
                   checked={overrides.incluirDepreciacionAcelerada}
