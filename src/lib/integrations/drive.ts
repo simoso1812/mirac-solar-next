@@ -150,14 +150,62 @@ async function buscarSubcarpeta(
 }
 
 // ---------------------------------------------------------------------------
-// Prepare folder + get access token (for client-side PDF upload)
+// Resumable upload session (for client-side PDF upload without exposing tokens)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a Google Drive resumable upload session server-side and return the
+ * session URI. The browser can PUT the file bytes directly to that URI
+ * without any Authorization header, so the OAuth access token never leaves
+ * the server.
+ */
+export async function createResumableUploadSession(
+  folderId: string,
+  fileName: string,
+  mimeType: string,
+): Promise<string | null> {
+  try {
+    const drive = getDriveService()
+
+    // Obtain a fresh access token server-side only.
+    const oauth2 = drive.context._options.auth as import('google-auth-library').OAuth2Client
+    const { token } = await oauth2.getAccessToken()
+    if (!token) throw new Error('Failed to obtain access token')
+
+    const res = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,webViewLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Type': mimeType,
+        },
+        body: JSON.stringify({ name: fileName, parents: [folderId] }),
+      },
+    )
+
+    if (!res.ok) {
+      const text = await res.text()
+      console.error(`Error creating resumable upload session (${res.status}):`, text)
+      return null
+    }
+
+    return res.headers.get('location')
+  } catch (e) {
+    console.error('Error creating resumable upload session:', e)
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prepare folder structure (for client-side PDF upload)
 // ---------------------------------------------------------------------------
 
 export interface DrivePrepareResult {
   success: boolean
   folderLink: string | null
   uploadFolderId: string | null
-  accessToken: string | null
   projectName: string
   error?: string
 }
@@ -169,11 +217,6 @@ export async function prepararCarpetaDrive(
 ): Promise<DrivePrepareResult> {
   try {
     const drive = getDriveService()
-
-    // Get fresh access token for client-side upload
-    const oauth2 = drive.context._options.auth as import('google-auth-library').OAuth2Client
-    const { token } = await oauth2.getAccessToken()
-    if (!token) throw new Error('Failed to obtain access token')
 
     // 1. Get next consecutive number
     const consecutivo = await obtenerSiguienteConsecutivo(drive, parentFolderId)
@@ -204,7 +247,6 @@ export async function prepararCarpetaDrive(
       success: true,
       folderLink: folder.data.webViewLink ?? null,
       uploadFolderId: propuestaFolderId,
-      accessToken: token,
       projectName,
     }
   } catch (e) {
@@ -214,7 +256,6 @@ export async function prepararCarpetaDrive(
       success: false,
       folderLink: null,
       uploadFolderId: null,
-      accessToken: null,
       projectName: '',
       error: msg,
     }
