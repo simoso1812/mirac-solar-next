@@ -755,9 +755,12 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             </PosRow>
           )
         })()}
-        {/* Tax deductible (44% of pre-IVA cost) */}
+        {/* "Deducibles del impuesto de renta": deducción especial Ley 1715
+            Art. 11 = 50% of the pre-IVA investment. The legacy 0.44 constant
+            was 0.50 with an old IVA factor pre-divided in, double-discounting
+            the already pre-IVA base. */}
         {(() => {
-          const deducible = costoSinIVA * 0.44
+          const deducible = costoSinIVA * 0.5
           const { val, suffix } = fmtLargeMoney(deducible)
           return (
             <PosRow x={25} y={186}>
