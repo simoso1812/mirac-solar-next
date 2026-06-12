@@ -460,7 +460,6 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           { label: 'Pago anual', w: 34 },
           { label: 'Ahorro total', w: 34 },
         ]
-        const colX = (idx: number) => tableLeft + cols.slice(0, idx).reduce((s, c) => s + c.w, 0)
 
         return (
         <Page size="A4" style={styles.page}>
