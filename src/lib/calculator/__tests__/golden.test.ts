@@ -176,6 +176,26 @@ describe('financing: Excel-verified fixture (AGENTS.md item 24)', () => {
     expect(Math.abs(cuotaMensual - 1_789_308)).toBeLessThanOrEqual(15)
   })
 
+  it('results.financiamiento exposes the same figures (PDF/web/MCP source)', () => {
+    const r = cotizacion(input)
+    const fin = r.financiamiento!
+    expect(fin).not.toBeNull()
+    expect(Math.abs(fin.cuota_mensual_cop - 1_789_308)).toBeLessThanOrEqual(15)
+    expect(fin.monto_financiado_cop).toBe(76_800_000)
+    expect(fin.desembolso_inicial_cop).toBe(96_000_000 - 76_800_000)
+    expect(fin.num_pagos).toBe(60)
+    expect(fin.total_pagado_cop).toBe(fin.cuota_mensual_cop * 60)
+    expect(fin.total_intereses_cop).toBe(fin.total_pagado_cop - 76_800_000)
+    // Same cuota the year-1 table row carries.
+    const cuotaY1 = r.flujo_caja.find((row) => row.anio === 1)!.cuota_financiamiento_cop
+    expect(fin.cuota_mensual_cop * 12).toBe(cuotaY1)
+  })
+
+  it('financiamiento is null without credit', () => {
+    const r = cotizacion(baseInput())
+    expect(r.financiamiento).toBeNull()
+  })
+
   it('pmt() with geometric EA conversion reproduces the cuota directly', () => {
     const tasaMensual = Math.pow(1.15, 1 / 12) - 1
     const cuota = Math.abs(pmt(tasaMensual, 60, -76_800_000))

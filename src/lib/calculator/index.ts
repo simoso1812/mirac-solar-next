@@ -194,15 +194,31 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
 
   // Financing
   const montoAFinanciar = Math.ceil(valorProyectoTotal * (percFinanciamiento / 100))
+  // tasa_interes is Tasa Efectiva Anual (EA, Colombian convention).
+  // Convert to equivalent monthly rate geometrically: (1+EA)^(1/12) - 1.
+  const tasaMensualCredito = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
+  const numPagosCredito = plazoCreditoAnios * 12
   let cuotaMensualCredito = 0
   if (montoAFinanciar > 0 && plazoCreditoAnios > 0 && tasaInteresCredito > 0) {
-    // tasa_interes is Tasa Efectiva Anual (EA, Colombian convention).
-    // Convert to equivalent monthly rate geometrically: (1+EA)^(1/12) - 1.
-    const tasaMensual = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
-    const numPagos = plazoCreditoAnios * 12
-    cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensual, numPagos, -montoAFinanciar)))
+    cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensualCredito, numPagosCredito, -montoAFinanciar)))
   }
   const desembolsoInicial = valorProyectoTotal - montoAFinanciar
+
+  // Single source of truth for every financing figure a client sees
+  // (web card, PDF page, MCP summary all read this block).
+  const financiamientoResults = cuotaMensualCredito > 0
+    ? {
+        porcentaje_financiado: percFinanciamiento,
+        monto_financiado_cop: montoAFinanciar,
+        desembolso_inicial_cop: desembolsoInicial,
+        tasa_ea: tasaInteresCredito,
+        tasa_mensual: tasaMensualCredito,
+        num_pagos: numPagosCredito,
+        cuota_mensual_cop: cuotaMensualCredito,
+        total_pagado_cop: cuotaMensualCredito * numPagosCredito,
+        total_intereses_cop: cuotaMensualCredito * numPagosCredito - montoAFinanciar,
+      }
+    : null
 
   // Cash flow for IRR/NPV — connection mode determines surplus pricing
   let precioExcedentes: number
@@ -351,6 +367,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     payback_anios: payback,
     tir: tir * 100,
     vpn,
+    financiamiento: financiamientoResults,
     inversores: Object.entries(inverterResult.combo).map(([kw, count]) => {
       const kwNum = Number(kw)
       // Custom brand: use the free-text brand/model supplied by the user

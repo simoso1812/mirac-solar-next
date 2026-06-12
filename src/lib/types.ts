@@ -114,6 +114,18 @@ export interface CashFlowEntry {
   flujo_acumulado_cop: number
 }
 
+export interface FinancingMetrics {
+  porcentaje_financiado: number // 0-100
+  monto_financiado_cop: number
+  desembolso_inicial_cop: number
+  tasa_ea: number // fraction, Tasa Efectiva Anual
+  tasa_mensual: number // fraction, geometric monthly equivalent
+  num_pagos: number
+  cuota_mensual_cop: number
+  total_pagado_cop: number
+  total_intereses_cop: number
+}
+
 export interface CarbonMetrics {
   annual_co2_avoided_kg: number
   annual_co2_avoided_tons: number
@@ -163,6 +175,10 @@ export interface CalculationResults {
   payback_anios: number
   tir: number
   vpn: number
+
+  // Financing (null when no credit; absent on results persisted before
+  // this field existed — always access via optional chaining)
+  financiamiento: FinancingMetrics | null
 
   // Inverter
   inversores: InverterRecommendation[]

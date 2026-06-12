@@ -86,37 +86,23 @@ export function FinancialSection({
 }: FinancialSectionProps) {
   const r = whatIfResults
 
-  const debtEnabled = financiamiento?.habilitado
-  // Year 1 row carries the annualized cuota; /12 gives monthly cuota.
-  const cuotaAnualY1 = debtEnabled
-    ? r.flujo_caja.find((row) => row.anio === 1)?.cuota_financiamiento_cop ?? 0
-    : 0
-  const cuotaMensual = cuotaAnualY1 / 12
-  const montoFinanciado = debtEnabled
-    ? Math.round(r.costo_total_cop * financiamiento.porcentaje_financiado)
-    : 0
-  const anticipo = debtEnabled
-    ? Math.round(r.costo_total_cop * (1 - financiamiento.porcentaje_financiado))
-    : 0
-  const anticipoPct = debtEnabled ? Math.round((1 - financiamiento.porcentaje_financiado) * 100) : 0
-  const plazoAnios = debtEnabled ? Math.round(financiamiento.plazo_meses / 12) : 0
-  const tasaMensualEquiv = debtEnabled
-    ? Math.pow(1 + financiamiento.tasa_interes, 1 / 12) - 1
-    : 0
-  const debtMetrics = debtEnabled
+  // Every financing figure comes straight from the engine's results block
+  // (single source of truth shared with the PDF and the MCP summary).
+  const fin = financiamiento?.habilitado ? r.financiamiento ?? null : null
+  const debtEnabled = fin !== null
+  const anticipoPct = fin ? Math.round(100 - fin.porcentaje_financiado) : 0
+  const plazoAnios = fin ? Math.round(fin.num_pagos / 12) : 0
+  const debtMetrics = fin
     ? [
-        { label: '% CAPEX Financiado', value: `${Math.round(financiamiento.porcentaje_financiado * 100)}%` },
-        { label: 'Tasa EA', value: `${(financiamiento.tasa_interes * 100).toFixed(2)}%` },
-        { label: 'Tasa Mensual Equiv.', value: `${(tasaMensualEquiv * 100).toFixed(4)}%` },
-        { label: 'Plazo', value: `${financiamiento.plazo_meses} meses (${plazoAnios} años)` },
-        { label: `Anticipo (${anticipoPct}%)`, value: formatCOP(anticipo) },
-        { label: 'Monto Financiado', value: formatCOP(montoFinanciado) },
-        { label: 'Cuota Mensual', value: formatCOP(Math.round(cuotaMensual)) },
-        { label: 'Total Cuotas', value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses)) },
-        {
-          label: 'Total Intereses',
-          value: formatCOP(Math.round(cuotaMensual * financiamiento.plazo_meses - montoFinanciado)),
-        },
+        { label: '% CAPEX Financiado', value: `${Math.round(fin.porcentaje_financiado)}%` },
+        { label: 'Tasa EA', value: `${(fin.tasa_ea * 100).toFixed(2)}%` },
+        { label: 'Tasa Mensual Equiv.', value: `${(fin.tasa_mensual * 100).toFixed(4)}%` },
+        { label: 'Plazo', value: `${fin.num_pagos} meses (${plazoAnios} años)` },
+        { label: `Anticipo (${anticipoPct}%)`, value: formatCOP(fin.desembolso_inicial_cop) },
+        { label: 'Monto Financiado', value: formatCOP(fin.monto_financiado_cop) },
+        { label: 'Cuota Mensual', value: formatCOP(fin.cuota_mensual_cop) },
+        { label: 'Total Cuotas', value: formatCOP(fin.total_pagado_cop) },
+        { label: 'Total Intereses', value: formatCOP(fin.total_intereses_cop) },
       ]
     : []
 

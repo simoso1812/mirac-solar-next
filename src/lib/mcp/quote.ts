@@ -190,8 +190,11 @@ export function summarize(stores: QuotationStores) {
     `**Ahorro anual:** ${formatCOP(r.ahorro_anual_cop)} · **mensual:** ${formatCOP(r.ahorro_mensual_cop)}`,
     // r.tir and r.roi_porcentaje are already x100 (percentages) — print directly.
     `**Payback:** ${yrs(r.payback_anios)} · **TIR:** ${r.tir.toFixed(1)}% · **VPN:** ${formatCOP(r.vpn)} · **ROI:** ${r.roi_porcentaje.toFixed(1)}%`,
+    r.financiamiento
+      ? `**Financiamiento:** cuota ${formatCOP(r.financiamiento.cuota_mensual_cop)}/mes · ${r.financiamiento.num_pagos} meses · anticipo ${formatCOP(r.financiamiento.desembolso_inicial_cop)} · tasa ${(r.financiamiento.tasa_ea * 100).toFixed(1)}% EA`
+      : null,
     `**CO2 evitado (vida util):** ${Math.round(r.carbon.lifetime_co2_avoided_tons ?? 0)} t`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 
   const structured = {
     kwp: r.kwp,
@@ -207,6 +210,9 @@ export function summarize(stores: QuotationStores) {
     roi_porcentaje: Number(r.roi_porcentaje.toFixed(2)),
     bateria_incluida: !!r.bateria?.habilitada,
     bateria_capacidad_kwh: r.bateria?.capacidad_nominal_kwh ?? 0,
+    financiamiento_cuota_mensual_cop: r.financiamiento?.cuota_mensual_cop ?? 0,
+    financiamiento_num_pagos: r.financiamiento?.num_pagos ?? 0,
+    financiamiento_anticipo_cop: r.financiamiento?.desembolso_inicial_cop ?? 0,
   }
 
   return { summary, structured }

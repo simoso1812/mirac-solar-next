@@ -184,21 +184,12 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
   const valorIVA = r.costo_total_cop - costoSinIVA
   const omAnual = r.costo_total_cop * 0.02
 
-  const usaFinanciamiento = advanced.financiamiento.habilitado
-  const desembolsoInicial = usaFinanciamiento
-    ? r.costo_total_cop * (1 - advanced.financiamiento.porcentaje_financiado)
-    : r.costo_total_cop
-
-  const cuotaMensual = usaFinanciamiento
-    ? (() => {
-        const monto = r.costo_total_cop * advanced.financiamiento.porcentaje_financiado
-        const tasaMensual = advanced.financiamiento.tasa_interes / 12
-        const n = advanced.financiamiento.plazo_meses
-        if (tasaMensual === 0) return monto / n
-        const factor = Math.pow(1 + tasaMensual, n)
-        return (monto * tasaMensual * factor) / (factor - 1)
-      })()
-    : 0
+  // Financing figures come from the engine — never recompute them here
+  // (the old inline PMT used a nominal /12 rate and disagreed with the web).
+  const fin = advanced.financiamiento.habilitado ? r.financiamiento ?? null : null
+  const usaFinanciamiento = fin !== null
+  const desembolsoInicial = fin ? fin.desembolso_inicial_cop : r.costo_total_cop
+  const cuotaMensual = fin?.cuota_mensual_cop ?? 0
 
   const generacionPromedioMensual = r.generacion_anual_kwh / 12
 
@@ -793,7 +784,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
       </Page>
 
       {/* 9. FINANCIACIÓN (conditional) */}
-      {usaFinanciamiento && (
+      {fin && (
         <Page size="A4" style={styles.page}>
           <Image src={`${BG}/fin.jpg`} style={styles.bg} />
           {/* Anticipo (millions) */}
@@ -810,11 +801,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
           {/* Plazo del crédito */}
           <Pos x={104} y={191} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="center" width={50}>
-            {advanced.financiamiento.plazo_meses}
+            {fin.num_pagos}
           </Pos>
           {/* Vida útil */}
           <Pos x={19} y={214} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="center" width={50}>
-            {Math.floor(advanced.financiamiento.plazo_meses / 12)}
+            {Math.floor(fin.num_pagos / 12)}
           </Pos>
         </Page>
       )}
