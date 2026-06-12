@@ -124,9 +124,11 @@ src/
   - `net_metering` — 1:1 valuation of surplus energy
   - `net_billing` — surplus at reduced `precio_excedentes` (default 300 COP/kWh)
   - `autoconsumo` — no surplus credit
-- **Cost curves** (empirical, per-kWp gets cheaper with size):
-  - <20 kW: `cost = 11917544 × kWp^(-0.484721)`
-  - ≥20 kW: polynomial in kWp (see `DEFAULT_PARAMS.costo_grande_coef_*`)
+- **Cost model** (empirical, per-kWp gets cheaper with size) — 3-segment model calibrated to the 2025-2026 Mirac dataset (n=80), implemented in `src/lib/calculator/cost.ts` `estimatePrice()`:
+  - <10 kWp: power law on COP/kWp: `copPerKwp = 15_021_515.41 × kWp^(-0.9522841) + 1_852_798.36`
+  - 10-50 kWp: linear on price: `2_841_579.58 × kWp + 7_854_609.55`
+  - >50 kWp: linear on price: `2_458_941.57 × kWp + 36_121_590.48`
+  - NOTE: the legacy 2-segment coefficients in `DEFAULT_PARAMS` (`costo_pequeno_coef_*`, `costo_grande_coef_*`) are dead config — nothing reads them. An earlier version of this doc described that old model; `cost.ts` is the source of truth.
 - **Inverter selection**: auto-pick from `INVERTER_DATABASE` unless `override_inversores` is set; sizing uses `factor_seguridad`.
 
 ## Calculator pattern (CRITICAL)
@@ -155,12 +157,15 @@ All battery display sites have defensive guards (`typeof horas === 'number'`) so
 
 ## Savings model (energy offset — CRITICAL, recently fixed)
 
-Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the system actually generates** — never by total consumption. The savings loop lives in **two places** that must stay in sync: `src/lib/calculator/index.ts` (the `cashflowFree` loop feeding TIR/VPN/ROI/payback/`ahorro_anual_cop`) and `src/lib/calculator/cashflow.ts` (the detailed year-by-year table).
+Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the system actually generates** — never by total consumption. The savings loop now lives in **exactly one place**: `simulateYears()` in `src/lib/calculator/engine.ts`. `index.ts` maps it to the headline metrics (TIR/VPN/ROI/payback/`ahorro_anual_cop`) and `cashflow.ts` is only a formatter (year 0 + cumulative + partial TIR/VPN columns). Any change to the savings model happens in `engine.ts`, once.
 
 - **No battery**: month-by-month. If `genMes ≥ consumoMes`, save the full month bill plus surplus sold at `precioExcedentes`; otherwise save only `genMes × costoKwh`.
 - **With battery**: a battery shifts daytime surplus to night, so the system self-consumes nearly all it generates — but savings still cannot exceed generation. `autoConsumo = min(generaciónAnual, consumoAnual)`, savings `= autoConsumo × costoKwh + max(0, generación − consumo) × precioExcedentes`.
+- Maintenance is `porcentaje_mantenimiento ×` (savings **including** surplus income); `demora6Meses` halves year 1 in both the headline metrics and the table; the credit honors `plazo_meses` in months (an 18-month loan pays 12 cuotas in year 1 and 6 in year 2).
 
 **Past bug (do not reintroduce)**: the battery branch used to set `ahorroAnualTotal = consumoAnual × costoKwh` and `cobertura = 100%`, assuming a battery covers the whole bill. That produced absurd metrics (e.g. TIR 310%, ROI 19277%, payback 0.3 años) whenever the array only covered part of the load. A battery stores energy, it cannot create it.
+
+**Second past bug (the reason for the consolidation — do not reintroduce)**: the loop used to exist in two hand-synced copies, and they drifted: the table omitted surplus income and the demora haircut, so the chart's break-even year disagreed with `payback_anios` by ~1.5 years. Golden-master tests in `src/lib/calculator/__tests__/golden.test.ts` now assert headline-vs-table consistency; a snapshot diff there is never routine.
 
 ## Financing (deuda tradicional — método francés)
 
@@ -170,6 +175,7 @@ Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the s
 - Amortization is **método francés** (fixed monthly cuota) via `pmt(tasaMensual, plazoMeses, -montoFinanciado)`.
 - `desembolsoInicial = valorProyectoTotal × (1 − porcentaje_financiado)` is the **anticipo** (down payment) and the year-0 equity outlay; IRR/ROI are computed on this levered equity, not the full CAPEX.
 - `financial-section.tsx` renders a financing card (gated on `habilitado`) with: % CAPEX financiado, Tasa EA, Tasa mensual equiv., plazo, anticipo (money + %), monto financiado, cuota mensual, total cuotas, total intereses. The form labels the input "Tasa EA — Efectiva Anual".
+- **Single source of truth**: `cotizacion()` exposes every financing figure on `results.financiamiento` (`FinancingMetrics | null`: monto, anticipo, tasa EA + monthly equivalent, num_pagos, cuota, total pagado/intereses). The web card, the PDF page, and the MCP summary all read this block — **never recompute a cuota at a display site** (the PDF once re-derived it with a nominal `/12` rate and quoted clients a different cuota than the web). Results persisted before this field existed lack it: always access via `r.financiamiento ?? null` / optional chaining.
 
 ## PPA — "Opción Cero Inversión"
 
@@ -313,6 +319,14 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 - `DOCUSEAL_WEBHOOK_SECRET` — optional. When set, `/api/docuseal/webhook` validates the `X-Docuseal-Signature` header.
 - `MCP_AUTH_TOKEN` — optional. When set, the remote MCP server (`/api/mcp`) requires the secret as `?key=<token>` or `Authorization: Bearer <token>` (else 404). Leave unset for an open server (e.g. local dev).
 - `MCP_PUBLIC_BASE_URL` — optional. Public origin used by `create_quotation_link` to build `/s/<id>` links. Defaults to `https://$VERCEL_PROJECT_PRODUCTION_URL`, then `http://localhost:3000`.
+
+## Open questions for Simon (from the 2026-06 repo audit — unresolved, need domain sign-off)
+
+1. **Accelerated depreciation (audit X4 — highest stakes).** The engine credits `valorProyectoTotal × 0.33` as a cash inflow in each of years 1-3 (≈99% of CAPEX returned, no tax rate applied) in `engine.ts`. The renta deduction right next to it DOES apply a rate (0.175 = 50% deduction × 35% renta). Under Ley 1715, depreciation's cash value is usually `depreciation × tax rate` (≈ 0.33 × 0.35 ≈ 11.6%/yr). If the current rule is wrong, proposals with this toggle on materially overstate TIR/VPN. Deliberately NOT changed during the audit fixes (domain rule). Confirm intended modeling and update `engine.ts` + golden tests.
+2. **Non-annual loan terms.** The engine now honors `plazo_meses` exactly (18 months = 18 cuotas). If banks only quote multiples of 12, the schema could be locked down, but the current behavior is correct either way.
+3. **Vercel env confirmations.** Is `DOCUSEAL_WEBHOOK_SECRET` set in production? Is `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` referrer-restricted in Google Cloud Console (it is necessarily public in the JS bundle)?
+4. **MARKITDOWN service.** `MARKITDOWN_SERVICE_URL` is read by the bill scanner but undocumented operationally — is the Render microservice still deployed, or is the text path permanently falling back to vision?
+5. **Multi-device horizon.** Proposals now have export/import + Upstash-independent backup paths, but localStorage is still primary. If anyone besides Simon will ever open `/propuestas`, upgrade to Upstash-as-primary before the book grows.
 
 ## Recent context (chronological)
 

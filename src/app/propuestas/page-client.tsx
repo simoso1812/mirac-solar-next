@@ -260,6 +260,7 @@ export default function PropuestasPage() {
           type="file"
           accept="application/json"
           className="hidden"
+          aria-label="Importar propuestas desde archivo JSON"
           onChange={handleImportFile}
         />
 
