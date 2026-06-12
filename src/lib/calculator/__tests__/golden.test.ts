@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import { cotizacion, buildInputFromStore, pmt } from '@/lib/calculator'
 import type { CotizacionInput } from '@/lib/calculator'
 import { initialProjectData, initialTechnicalData, initialAdvancedData, deepMerge } from '@/lib/defaults'
+import { PROMEDIOS_COSTO } from '@/lib/constants'
 import type { CalculationResults } from '@/lib/types'
 
 function baseInput(overrides: Partial<CotizacionInput> = {}): CotizacionInput {
@@ -156,6 +157,44 @@ describe('golden masters: tax benefit toggles', () => {
       })
     )
     expect(headline(gatedOff)).toEqual(headline(off))
+  })
+})
+
+describe('depreciation rule (audit X4 — Simon-confirmed 2026-06)', () => {
+  // Depreciation is a deduction: cash value = expense x 35% renta, on the
+  // pre-IVA basis. Accelerated = 33.33%/yr x 3y; toggle off = 10%/yr x 10y.
+  const benefitInYear = (withDep: CalculationResults, without: CalculationResults, anio: number) => {
+    const a = withDep.flujo_caja.find((row) => row.anio === anio)!.flujo_neto_cop
+    const b = without.flujo_caja.find((row) => row.anio === anio)!.flujo_neto_cop
+    return a - b
+  }
+
+  it('accelerated: 33.33%/yr x 3 years on pre-IVA basis x 35% renta', () => {
+    const off = cotizacion(baseInput())
+    const on = cotizacion(
+      baseInput({ incluirBeneficiosTributarios: true, incluirDepreciacionAcelerada: true })
+    )
+    const baseDepreciable = on.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
+    const expectedPerYear = baseDepreciable * (1 / 3) * 0.35
+    for (const anio of [1, 2, 3]) {
+      expect(benefitInYear(on, off, anio)).toBeCloseTo(expectedPerYear, 0)
+    }
+    expect(benefitInYear(on, off, 4)).toBeCloseTo(0, 0)
+    // Total over 3 years ~= 35% of the pre-IVA basis, never ~99% of CAPEX.
+    const total = expectedPerYear * 3
+    expect(total / on.costo_total_cop).toBeLessThan(0.35)
+  })
+
+  it('toggle off: normal linear depreciation, 10%/yr x 10 years', () => {
+    const off = cotizacion(baseInput())
+    // Master on (renta payer) but accelerated off -> normal schedule applies.
+    const normal = cotizacion(baseInput({ incluirBeneficiosTributarios: true }))
+    const baseDepreciable = normal.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
+    const expectedPerYear = baseDepreciable * 0.1 * 0.35
+    for (const anio of [1, 5, 10]) {
+      expect(benefitInYear(normal, off, anio)).toBeCloseTo(expectedPerYear, 0)
+    }
+    expect(benefitInYear(normal, off, 11)).toBeCloseTo(0, 0)
   })
 })
 

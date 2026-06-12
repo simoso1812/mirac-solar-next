@@ -541,7 +541,7 @@ export function StepAdvanced() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <Label>Depreciación acelerada</Label>
-                    <p className="text-xs text-muted-foreground">33% anual por 3 años</p>
+                    <p className="text-xs text-muted-foreground">Deprecia en 3 años en vez de 10; beneficio = gasto × 35% renta</p>
                   </div>
                   <Switch
                     checked={incluirDepreciacionAcelerada}

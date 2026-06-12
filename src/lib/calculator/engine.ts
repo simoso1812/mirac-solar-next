@@ -7,6 +7,17 @@
  * the demora6Meses haircut that the headline included (audit X2). Any
  * change to the savings model happens here, once.
  */
+import { PROMEDIOS_COSTO } from '@/lib/constants'
+
+// Tax modeling constants — confirmed with Simon (2026-06, audit X4):
+// depreciation is a DEDUCTION, so its cash value is expense × renta rate,
+// computed on the pre-IVA basis. Renta payers depreciate the asset either
+// way; the "depreciación acelerada" toggle only picks the schedule.
+const TASA_RENTA = 0.35 // tarifa general de renta
+const TASA_DEPRECIACION_ACELERADA = 1 / 3 // Ley 1715 Art. 14 máximo (33.33%/año)
+const ANIOS_DEPRECIACION_ACELERADA = 3
+const TASA_DEPRECIACION_NORMAL = 0.1 // Art. 137 ET, maquinaria y equipo (lineal, 10 años)
+const ANIOS_DEPRECIACION_NORMAL = 10
 
 export interface YearSimParams {
   consumoMensualKwh: number
@@ -98,10 +109,22 @@ export function simulateYears(p: YearSimParams): YearSim[] {
     let beneficioTributario = 0
     if (p.incluirBeneficiosTributarios) {
       if (p.incluirDeduccionRenta && i === 1) {
+        // Deducción especial Art. 11: 50% of the investment deducted from
+        // taxable income → cash value 0.50 × 0.35 = 0.175.
         beneficioTributario += p.valorProyectoTotal * indexFactor * 0.175
       }
-      if (p.incluirDepreciacionAcelerada && i < 3) {
-        beneficioTributario += p.valorProyectoTotal * 0.33
+      // Depreciation applies to every renta payer; the toggle picks the
+      // schedule: accelerated (Ley 1715, 3 years) vs normal linear (10 years).
+      // Cash value = annual expense × renta rate, on the pre-IVA basis.
+      const baseDepreciable = p.valorProyectoTotal / (1 + PROMEDIOS_COSTO.iva_rate)
+      const tasaDepreciacion = p.incluirDepreciacionAcelerada
+        ? TASA_DEPRECIACION_ACELERADA
+        : TASA_DEPRECIACION_NORMAL
+      const aniosDepreciacion = p.incluirDepreciacionAcelerada
+        ? ANIOS_DEPRECIACION_ACELERADA
+        : ANIOS_DEPRECIACION_NORMAL
+      if (i < aniosDepreciacion) {
+        beneficioTributario += baseDepreciable * tasaDepreciacion * TASA_RENTA
       }
     }
 

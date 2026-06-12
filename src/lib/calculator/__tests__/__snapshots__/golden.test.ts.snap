@@ -531,23 +531,23 @@ exports[`golden masters: tax benefit toggles > ambos beneficios > headline 1`] =
   "generacion_anual_kwh": 10271,
   "kwp": 8.61,
   "numero_paneles": 14,
-  "payback_anios": 1.53,
-  "roi_porcentaje": 1314.15,
-  "tir": 56.48,
-  "vpn": 112040102,
+  "payback_anios": 2.2,
+  "roi_porcentaje": 1247.86,
+  "tir": 39.64,
+  "vpn": 94126491,
 }
 `;
 
 exports[`golden masters: tax benefit toggles > ambos beneficios > table 1`] = `
 {
-  "final_acumulado": 395803678,
+  "final_acumulado": 374193694,
   "year0_flujo": -32599299,
   "year1": {
     "ahorro_cop": 8143564,
     "anio": 1,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 586369,
-    "flujo_neto_cop": 19051205,
+    "flujo_neto_cop": 11847877,
     "generacion_kwh": 10271,
     "mantenimiento_cop": 436497,
   },
@@ -556,7 +556,7 @@ exports[`golden masters: tax benefit toggles > ambos beneficios > table 1`] = `
     "anio": 2,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 607218,
-    "flujo_neto_cop": 25447290,
+    "flujo_neto_cop": 18243962,
     "generacion_kwh": 10260,
     "mantenimiento_cop": 457863,
   },
@@ -572,23 +572,23 @@ exports[`golden masters: tax benefit toggles > solo deduccion renta > headline 1
   "generacion_anual_kwh": 10271,
   "kwp": 8.61,
   "numero_paneles": 14,
-  "payback_anios": 3.05,
-  "roi_porcentaje": 1215.15,
-  "tir": 33.2,
-  "vpn": 85287123,
+  "payback_anios": 2.73,
+  "roi_porcentaje": 1247.86,
+  "tir": 36.09,
+  "vpn": 91839273,
 }
 `;
 
 exports[`golden masters: tax benefit toggles > solo deduccion renta > table 1`] = `
 {
-  "final_acumulado": 363530372,
+  "final_acumulado": 374193694,
   "year0_flujo": -32599299,
   "year1": {
     "ahorro_cop": 8143564,
     "anio": 1,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 586369,
-    "flujo_neto_cop": 8293436,
+    "flujo_neto_cop": 9359769,
     "generacion_kwh": 10271,
     "mantenimiento_cop": 436497,
   },
@@ -597,7 +597,7 @@ exports[`golden masters: tax benefit toggles > solo deduccion renta > table 1`] 
     "anio": 2,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 607218,
-    "flujo_neto_cop": 14689521,
+    "flujo_neto_cop": 15755853,
     "generacion_kwh": 10260,
     "mantenimiento_cop": 457863,
   },
@@ -613,23 +613,23 @@ exports[`golden masters: tax benefit toggles > solo depreciacion > headline 1`] 
   "generacion_anual_kwh": 10271,
   "kwp": 8.61,
   "numero_paneles": 14,
-  "payback_anios": 1.7,
-  "roi_porcentaje": 1295.77,
-  "tir": 51.64,
-  "vpn": 107089588,
+  "payback_anios": 2.67,
+  "roi_porcentaje": 1229.48,
+  "tir": 35.97,
+  "vpn": 89175978,
 }
 `;
 
 exports[`golden masters: tax benefit toggles > solo depreciacion > table 1`] = `
 {
-  "final_acumulado": 389813557,
+  "final_acumulado": 368203573,
   "year0_flujo": -32599299,
   "year1": {
     "ahorro_cop": 8143564,
     "anio": 1,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 586369,
-    "flujo_neto_cop": 19051205,
+    "flujo_neto_cop": 11847877,
     "generacion_kwh": 10271,
     "mantenimiento_cop": 436497,
   },
@@ -638,7 +638,7 @@ exports[`golden masters: tax benefit toggles > solo depreciacion > table 1`] = `
     "anio": 2,
     "cuota_financiamiento_cop": 0,
     "excedentes_cop": 607218,
-    "flujo_neto_cop": 19457169,
+    "flujo_neto_cop": 12253841,
     "generacion_kwh": 10260,
     "mantenimiento_cop": 457863,
   },

@@ -224,7 +224,7 @@ export function FinancialSection({
                   checked={overrides.incluirDepreciacionAcelerada}
                   onChange={(v) => onOverridesChange({ ...overrides, incluirDepreciacionAcelerada: v })}
                   label="Depreciación Acelerada"
-                  description="33% anual por 3 años (Ley 1715, Art. 14)"
+                  description="Deprecia en 3 años (Ley 1715, Art. 14) en vez de 10 años lineal; beneficio = gasto × 35% renta"
                 />
               </div>
             </div>
