@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
@@ -10,8 +9,6 @@ import { INVERTER_DATABASE } from '@/lib/constants'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { formatCOP } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
-import { buttonVariants } from '@/components/ui/button-variants'
-import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -20,27 +17,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
   SlidersHorizontal, ArrowLeft, ArrowRight, ChevronDown, ChevronUp,
-  Plug, DollarSign, Settings2, Plus, Trash2, ImagePlus, Loader2,
+  Plug, DollarSign, Settings2, Plus, Trash2,
 } from 'lucide-react'
-import { compressImage, dataUrlByteSize } from '@/lib/images'
-import type { ProposalImage } from '@/lib/types'
+import { InverterOverrideSection } from '@/components/quotation/advanced/inverter-override-section'
+import { ImagesSection } from '@/components/quotation/advanced/images-section'
 
-// Positional keys for the controlled, append/remove-only editor rows (inverter
-// overrides, PPA options). These lists are fully form-controlled and never
-// reordered, so a position-based key is correct here.
+// Positional keys for the controlled, append/remove-only PPA option rows.
+// This list is fully form-controlled and never reordered, so a position-based
+// key is correct here.
 const ROW_KEYS = Array.from({ length: 64 }, (_, i) => `row-${i}`)
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
   const [showAdvancedParams, setShowAdvancedParams] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<AdvancedFormValues>({
+  const form = useForm<AdvancedFormValues>({
     resolver: zodResolver(advancedSchema),
     defaultValues: {
       ...initialAdvancedData,
@@ -57,16 +48,20 @@ export function StepAdvanced() {
     },
   })
 
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = form
+
   const financiamientoHabilitado = watch('financiamiento.habilitado')
   const bateriaHabilitada = watch('bateria.habilitada')
   const ppaHabilitada = watch('ppa.habilitada')
   const ppaOpciones = watch('ppa.opciones')
-  const imagenes = watch('imagenes')
-  const [imageError, setImageError] = useState<string | null>(null)
-  const [imageLoading, setImageLoading] = useState(false)
   const modoConexion = watch('modo_conexion')
   const marcaInversor = watch('marca_inversor')
-  const overrideInversores = watch('override_inversores')
   const beneficiosTributarios = watch('beneficios_tributarios')
   const incluirDeduccionRenta = watch('incluir_deduccion_renta')
   const incluirDepreciacionAcelerada = watch('incluir_depreciacion_acelerada')
@@ -95,46 +90,6 @@ export function StepAdvanced() {
     setValue(field, enabled)
     setValue('beneficios_tributarios', enabled || otherEnabled)
   }
-
-  const handleAddImages = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setImageError(null)
-    setImageLoading(true)
-    try {
-      const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'))
-      const newImages: ProposalImage[] = await Promise.all(
-        imageFiles.map(async (file) => ({
-          id: crypto.randomUUID(),
-          data: await compressImage(file),
-          caption: '',
-        }))
-      )
-      const combined = [...(imagenes ?? []), ...newImages]
-      const totalBytes = combined.reduce((s, img) => s + dataUrlByteSize(img.data), 0)
-      if (totalBytes > 4_000_000) {
-        setImageError('Las imágenes ocupan mucho espacio; considera quitar algunas para evitar errores al guardar.')
-      }
-      setValue('imagenes', combined, { shouldDirty: true })
-    } catch (e) {
-      setImageError(e instanceof Error ? e.message : 'Error al procesar las imágenes')
-    } finally {
-      setImageLoading(false)
-    }
-  }
-
-  const removeImage = (id: string) => {
-    setValue('imagenes', (imagenes ?? []).filter((img) => img.id !== id), { shouldDirty: true })
-  }
-
-  const updateImageCaption = (id: string, caption: string) => {
-    setValue(
-      'imagenes',
-      (imagenes ?? []).map((img) => (img.id === id ? { ...img, caption } : img)),
-      { shouldDirty: true },
-    )
-  }
-
-  const brandInfo = INVERTER_DATABASE[marcaInversor]
 
   // Run the real calculator to get the exact price that will appear on the quote
   const formValues = watch()
@@ -327,106 +282,7 @@ export function StepAdvanced() {
             )}
 
             {/* Manual inverter config — shown when brand is not Automatico */}
-            {marcaInversor !== 'Automatico' && overrideInversores != null && (() => {
-              const overrides = overrideInversores
-              const availableModels = brandInfo?.models ?? []
-              const isCustomBrand = marcaInversor === 'Otro' || !brandInfo
-              const availableKw = availableModels.length > 0
-                ? availableModels.map((m) => m.potencia_kw)
-                : [3, 5, 6, 8, 10, 20, 30, 40, 50, 100]
-              const totalAcKw = overrides.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0)
-
-              return (
-                <div className="space-y-2 rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {isCustomBrand ? 'Potencia y cantidad de inversores' : 'Configuración de inversores'}
-                  </p>
-                  {overrides.map((inv, idx) => (
-                      <div key={ROW_KEYS[idx]} className="flex items-center gap-2">
-                        {isCustomBrand ? (
-                          <div className="flex flex-1 items-center gap-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={500}
-                              step={0.5}
-                              className="h-9"
-                              value={inv.potencia_kw}
-                              onChange={(e) => {
-                                const updated = [...overrides]
-                                updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) || 0 }
-                                setValue('override_inversores', updated)
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">kW</span>
-                          </div>
-                        ) : (
-                          <select
-                            className="flex h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
-                            value={inv.potencia_kw}
-                            onChange={(e) => {
-                              const updated = [...overrides]
-                              updated[idx] = { ...updated[idx], potencia_kw: Number(e.target.value) }
-                              setValue('override_inversores', updated)
-                            }}
-                          >
-                            {availableKw.map((kw) => {
-                              const m = availableModels.find((mod) => mod.potencia_kw === kw)
-                              return (
-                                <option key={kw} value={kw}>
-                                  {m ? `${m.modelo} (${kw}kW)` : `${kw} kW`}
-                                </option>
-                              )
-                            })}
-                          </select>
-                        )}
-                        <span className="text-sm text-muted-foreground">×</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={20}
-                          className="h-9 w-20"
-                          value={inv.cantidad}
-                          onChange={(e) => {
-                            const updated = [...overrides]
-                            updated[idx] = { ...updated[idx], cantidad: Math.max(1, parseInt(e.target.value) || 1) }
-                            setValue('override_inversores', updated)
-                          }}
-                        />
-                        {overrides.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="size-9 p-0"
-                            onClick={() => {
-                              setValue('override_inversores', overrides.filter((_, i) => i !== idx))
-                            }}
-                          >
-                            <Trash2 className="size-3.5 text-muted-foreground" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  <div className="flex items-center justify-between pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setValue('override_inversores', [...overrides, { potencia_kw: availableKw[0], cantidad: 1 }])
-                      }}
-                    >
-                      <Plus className="mr-1 size-3.5" />
-                      Agregar Inversor
-                    </Button>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Total AC: {totalAcKw} kW
-                    </span>
-                  </div>
-                </div>
-              )
-            })()}
+            <InverterOverrideSection form={form} />
 
             {/* Auto mode info */}
             {marcaInversor === 'Automatico' && (
@@ -813,83 +669,7 @@ export function StepAdvanced() {
           <Separator />
 
           {/* ─── Project Images ─── */}
-          <div className="space-y-3">
-            <div>
-              <Label className="text-base font-semibold">Imágenes del Proyecto</Label>
-              <p className="text-sm text-muted-foreground">
-                Adjunta fotos o renders. Se comprimen automáticamente y aparecen en la cotización virtual y el PDF.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <label
-                className={cn(
-                  buttonVariants({ variant: 'outline', size: 'sm' }),
-                  'cursor-pointer',
-                  imageLoading && 'pointer-events-none opacity-50',
-                )}
-              >
-                {imageLoading ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <ImagePlus className="mr-2 size-4" />
-                )}
-                {imageLoading ? 'Procesando...' : 'Agregar imágenes'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  disabled={imageLoading}
-                  onChange={(e) => {
-                    handleAddImages(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-              {(imagenes?.length ?? 0) > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {imagenes.length} {imagenes.length === 1 ? 'imagen' : 'imágenes'}
-                </span>
-              )}
-            </div>
-
-            {imageError && <p className="text-xs text-destructive">{imageError}</p>}
-
-            {(imagenes?.length ?? 0) > 0 && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {imagenes.map((img) => (
-                  <div key={img.id} className="space-y-2 rounded-lg border p-2">
-                    <div className="relative h-32 w-full">
-                      <Image
-                        src={img.data}
-                        alt={img.caption || 'Imagen del proyecto'}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 640px) 50vw, 33vw"
-                        className="rounded object-cover"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute right-1 top-1 size-6"
-                        onClick={() => removeImage(img.id)}
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                    <Input
-                      placeholder="Descripción (opcional)"
-                      value={img.caption}
-                      onChange={(e) => updateImageCaption(img.id, e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ImagesSection form={form} />
 
           <Separator />
 
