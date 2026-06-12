@@ -10,6 +10,7 @@ import {
 import { normalizeExtractedData } from '@/lib/bill-scanner/validator'
 import type { ExtractedBillData, BillScanResult } from '@/lib/bill-scanner/types'
 import {
+  BILL_SCANNER_MODEL,
   MAX_FILE_SIZE,
   MIN_USEFUL_CHARS,
   MARKITDOWN_TIMEOUT,
@@ -74,7 +75,7 @@ async function extractWithClaudeText(
   markdown: string,
 ): Promise<ExtractedBillData> {
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: BILL_SCANNER_MODEL,
     max_tokens: 2000,
     system: BILL_TEXT_EXTRACTION_SYSTEM_PROMPT,
     messages: [
@@ -113,7 +114,7 @@ async function extractWithClaudeVision(
       }
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: BILL_SCANNER_MODEL,
     max_tokens: 2000,
     system: BILL_EXTRACTION_SYSTEM_PROMPT,
     messages: [

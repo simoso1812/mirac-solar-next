@@ -2,6 +2,10 @@
 // action module so they live at module scope without tripping
 // server-no-mutable-module-state.
 
+// Current Sonnet alias (no date suffix, tracks the latest Sonnet release).
+// The previously hardcoded claude-sonnet-4-20250514 retires 2026-06-15.
+export const BILL_SCANNER_MODEL = 'claude-sonnet-4-6'
+
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 export const MIN_USEFUL_CHARS = 200
 export const MARKITDOWN_TIMEOUT = 45_000
