@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local agent/tooling state (binary, machine-specific)
+/data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
