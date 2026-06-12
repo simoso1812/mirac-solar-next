@@ -97,6 +97,10 @@ export const useQuotationStore = create<QuotationState>()(
     }),
     {
       name: 'mirac-quotation',
+      version: 1,
+      // Identity migrate: without it, zustand discards persisted state saved
+      // before `version` existed (treated as version 0).
+      migrate: (persisted) => persisted as QuotationState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<QuotationState>
         return {
