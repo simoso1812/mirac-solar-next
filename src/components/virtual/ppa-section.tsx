@@ -1,6 +1,7 @@
 'use client'
 
 import { formatCOP } from '@/lib/formatting'
+import { ppaMetrics } from '@/lib/calculator/derived'
 import type { CalculationResults, PpaOption } from '@/lib/types'
 
 interface PpaSectionProps {
@@ -61,15 +62,7 @@ function BarColumn({
 export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
   const generacionAnual = results.generacion_anual_kwh
 
-  const computed = opciones.map((opt) => {
-    const ahorroPorKwh = Math.max(0, costoKwh - opt.precio_kwh)
-    const porcentajeAhorro = costoKwh > 0 ? Math.round((ahorroPorKwh / costoKwh) * 100) : 0
-    const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
-    const ahorroTotal = ahorroAnual * opt.duracion_anios
-    const pagoMiracAnual = Math.round(generacionAnual * opt.precio_kwh)
-    const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
-    return { ...opt, ahorroPorKwh, porcentajeAhorro, ahorroAnual, ahorroTotal, pagoMiracAnual, pagoMiracMensual }
-  })
+  const computed = ppaMetrics(costoKwh, generacionAnual, opciones)
 
   const maxPrice = Math.max(costoKwh, ...opciones.map((o) => o.precio_kwh), 1)
 

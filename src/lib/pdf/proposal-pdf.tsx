@@ -11,7 +11,7 @@ import {
   Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
 import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData, ProposalImage } from '@/lib/types'
-import { PROMEDIOS_COSTO } from '@/lib/constants'
+import { ivaBreakdown, ppaMetrics } from '@/lib/calculator/derived'
 
 // Register fonts
 Font.register({
@@ -180,14 +180,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
 
-  const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
-  const valorIVA = r.costo_total_cop - costoSinIVA
-  const omAnual = r.costo_total_cop * 0.02
+  const { costoSinIVA, valorIVA, omAnual } = ivaBreakdown(r)
 
   // Financing figures come from the engine — never recompute them here
   // (the old inline PMT used a nominal /12 rate and disagreed with the web).
   const fin = advanced.financiamiento.habilitado ? r.financiamiento ?? null : null
-  const usaFinanciamiento = fin !== null
   const desembolsoInicial = fin ? fin.desembolso_inicial_cop : r.costo_total_cop
   const cuotaMensual = fin?.cuota_mensual_cop ?? 0
 
@@ -415,15 +412,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         const precioRed = advanced.costo_kwh
         const generacionAnual = r.generacion_anual_kwh
 
-        const opciones = advanced.ppa.opciones.map((opt) => {
-          const ahorroPorKwh = Math.max(0, precioRed - opt.precio_kwh)
-          const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
-          const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
-          const ahorroTotal = ahorroAnual * opt.duracion_anios
-          const pagoMiracAnual = Math.round(generacionAnual * opt.precio_kwh)
-          const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
-          return { ...opt, porcentajeAhorro, ahorroAnual, ahorroTotal, pagoMiracAnual, pagoMiracMensual }
-        })
+        const opciones = ppaMetrics(precioRed, generacionAnual, advanced.ppa.opciones)
 
         // Chart geometry (mm) — utility bar + one bar per option
         const chartLeft = 20
