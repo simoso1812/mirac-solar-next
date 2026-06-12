@@ -41,16 +41,18 @@ src/
 │   ├── clientes/page.tsx
 │   ├── cargadores/page.tsx            # EV charger calculator
 │   ├── actions/
-│   │   ├── drive.ts                   # server actions: prepare Drive folders + access token, register/upload signed contract mapping
+│   │   ├── drive.ts                   # server actions: prepare Drive folders, mint resumable upload sessions, register/upload signed contract mapping
 │   │   └── scan-bill.ts               # server action: Anthropic-powered utility bill OCR
 │   └── api/
 │       ├── [transport]/route.ts       # remote MCP server (Streamable HTTP) — solar quoting tools, served at /api/mcp
-│       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash)
+│       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash; zod-validated, size-capped, rate-limited)
+│       ├── pvgis/route.ts             # PVGIS HSP fetch; climate fallback labeled source: 'estimated'
 │       └── docuseal/
-│           ├── submission/route.ts    # create / refresh DocuSeal submission
+│           ├── submission/route.ts    # create / refresh DocuSeal submission (slug-gated refresh, rate-limited)
 │           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
 ├── components/
 │   ├── quotation/                     # wizard steps (client, project, technical, advanced, review)
+│   │   └── advanced/                  # extracted step-advanced sections (inverter-override, images)
 │   ├── virtual/                       # virtual web quotation sections + dialogs
 │   │   ├── virtual-quotation.tsx      # orchestrator; recomputes results live via cotizacion()
 │   │   ├── executive-summary.tsx
@@ -63,8 +65,8 @@ src/
 │   │   ├── ppa-section.tsx            # PPA "Opción Cero Inversión" — bar chart + per-option cards
 │   │   ├── image-gallery-section.tsx  # attached project images grid
 │   │   ├── project-details-section.tsx
-│   │   ├── call-to-action.tsx
-│   │   ├── esign-dialog.tsx
+│   │   ├── call-to-action.tsx         # sign/share/PDF buttons (legacy proposal.signature display kept for old data)
+│   │   ├── docuseal-sign-dialog.tsx
 │   │   ├── share-dialog.tsx
 │   │   └── version-selector.tsx
 │   ├── bill-scanner/                  # Anthropic-powered utility bill OCR UI
@@ -80,12 +82,15 @@ src/
 │   │   └── create-link.ts             # MCP create_quotation_link — builds payload, writes Upstash share, returns /s/<id> URL
 │   ├── calculator/                    # PORT OF Python streamlit calculator
 │   │   ├── index.ts                   # cotizacion() entrypoint, buildInputFromStore()
-│   │   ├── cost.ts                    # cost coefficients (small <20kW poly, large ≥20kW poly3)
-│   │   ├── cashflow.ts                # year-by-year cash flow + NPV/TIR/payback
-│   │   ├── financial.ts               # tax benefits (Ley 1715), depreciation, deducción
+│   │   ├── engine.ts                  # simulateYears() — THE single savings/cash-flow loop
+│   │   ├── derived.ts                 # display-layer math: ivaBreakdown(), ppaMetrics()
+│   │   ├── cost.ts                    # 3-segment empirical price model (estimatePrice)
+│   │   ├── cashflow.ts                # thin formatter over engine.ts (year 0 + cumulative + partial TIR/VPN)
+│   │   ├── financial.ts               # pmt/npv/irr primitives
 │   │   ├── inverter.ts                # auto-pick inverter from INVERTER_DATABASE
 │   │   ├── performance.ts             # PR adjustments by clima/cubierta
-│   │   └── carbon.ts                  # CO2 metrics + equivalents
+│   │   ├── carbon.ts                  # CO2 metrics + equivalents
+│   │   └── __tests__/                 # golden-master suite — snapshot diffs are NEVER routine
 │   ├── pdf/
 │   │   ├── proposal-pdf.tsx           # @react-pdf/renderer document
 │   │   ├── get-map-url.ts             # Google Static Maps URL builder
@@ -93,6 +98,8 @@ src/
 │   ├── contract/generator.ts          # docx contract generation
 │   ├── chargers.ts + chargers-pdf.ts  # EV charger calculator
 │   ├── share.ts                       # Upstash share-link helpers (POST + PATCH client)
+│   ├── rate-limit.ts                  # Redis fixed-window rateLimit() + getClientIp() (x-real-ip first, rightmost XFF fallback)
+│   ├── bill-scanner/constants.ts      # scanner limits + BILL_SCANNER_MODEL
 │   ├── proposal-drive-map.ts          # Upstash mapping: proposalId → Drive upload folder (used by webhook)
 │   ├── docuseal.ts                    # DocuSeal API client (submissions, signatures)
 │   ├── integrations/drive.ts          # googleapis Drive client (server-side upload helper)
@@ -303,12 +310,15 @@ Exposes the calculator as MCP tools so agents in Claude Code, Codex, and Claude.
 ## Commands
 
 ```bash
-npm run dev      # next dev (Turbopack)
-npm run build    # next build
-npm run start    # next start
-npm run lint     # eslint
-npx tsc --noEmit # typecheck (always run before declaring done)
+npm run dev        # next dev (Turbopack)
+npm run build      # next build
+npm run start      # next start
+npm run lint       # eslint
+npm test           # vitest run (golden-master suite — run before declaring done)
+npm run typecheck  # tsc --noEmit (always run before declaring done)
 ```
+
+CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on every PR and push to main. Dependabot opens weekly prod-dependency PRs.
 
 ## Env vars (`.env.local`)
 
@@ -368,3 +378,17 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 28. **MCP auth made Cowork-friendly** (PR #2): `MCP_AUTH_TOKEN` now accepted as `?key=<token>` (the Cowork connector UI only takes a URL) in addition to the Bearer header; unauthorized → 404 (stealth). Set in Vercel production; verified live (no key → 404, `?key=` → 200).
 29. **MCP `create_quotation_link` tool added** (`src/lib/mcp/create-link.ts`): generates a shareable virtual quotation link (`/s/<id>`) so Cowork/Codex/Claude Code can produce a client-ready proposal, not just numbers. Refactored `quote.ts` to a shared `buildStores()` + `summarize()` path so both tools and the `/s` page agree. Reuses the exported `toPayload()` from `share.ts` and writes `share:<id>` to Upstash directly (same as POST /api/share). Note: Upstash vars live only in Vercel (not local `.env.local`), so this tool is tested against pulled prod creds or in deployment. New env `MCP_PUBLIC_BASE_URL` for link origin.
 30. **Cowork skill added** (`skills/mirac-solar-quote/`): an Agent Skill (`SKILL.md` + `README.md`, zipped to `mirac-solar-quote.zip`) that tells Claude to use the **Calculadora Solar Mirac** MCP connector whenever the user asks for a solar quotation — decides between `quote_solar_system` (numbers) and `create_quotation_link` (shareable `/s/<id>`), lists the 7 supported cities + sensible defaults, and enforces "never invent cifras, always call the MCP". Upload via Claude → Settings → Capabilities → Skills. Requires the connector pointed at `/api/mcp?key=<MCP_AUTH_TOKEN>`.
+31. **2026-06 repo audit hardening (branch `feat/audit-hardening`)** — full implementation of the repo-audit improvement plan, verified by golden tests + an adversarial multi-agent review. Highlights, in commit order:
+    - **Golden-master test suite + CI gate.** `vitest` with 35 tests (`src/lib/calculator/__tests__/`): connection-mode × battery × financing matrix, tax-toggle combos, the Excel-verified financing fixture (76.8M @ 15% EA, 60 mo → cuota ~$1.789.308), battery-savings cap, headline-vs-table consistency, 18-month plazo. `.github/workflows/ci.yml` runs typecheck+lint+test+build on PR/push; `.github/dependabot.yml` weekly.
+    - **Dead attack surface deleted**: `/api/bill-scanner`, `/api/drive`, `/api/geocode`, `lib/integrations/geocoding.ts`, `gestionarCreacionDrive`, `subirCSVaDrive`, `esign-dialog.tsx` (zero consumers verified repo-wide; legacy `proposal.signature` display kept for old data).
+    - **Next 16.2.0 → 16.2.9** + `npm audit fix` + `@anthropic-ai/sdk` 0.104: `npm audit --omit=dev` has 0 high (3 remaining moderates are the postcss copy bundled inside Next stable — fix only exists in 16.3 canary).
+    - **X1 fixed**: `results.financiamiento` (`FinancingMetrics`) is the single financing source; the PDF's nominal `/12` cuota recomputation is gone. PDFs generated before this fix printed a wrong cuota — regenerate any that are still circulating.
+    - **X2/X3/A1 fixed**: single savings loop in `engine.ts` (see "Savings model"); table now includes surplus + demora; plazo honored in months. Headline metrics verified bit-identical for all whole-year plazos; non-multiple-of-12 plazos now produce *correct* (previously overstated) cuota counts.
+    - **S1 fixed**: Drive OAuth token no longer sent to the browser. `createDriveUploadSession` server action mints a resumable session URI (with the browser's `Origin` baked in — Google binds the session's CORS allowance to the initiate request's Origin); browser PUTs bytes with no auth header. Needs one manual e2e Drive sync test with real creds.
+    - **S2/S3/S5 fixed**: `/api/share` zod-validates payloads (original JSON stored so future keys survive), caps bodies at 4.5MB, rate-limits per IP (POST 10/min, PATCH 30/min, GET 120/min) via `src/lib/rate-limit.ts`; PATCH preserves remaining TTL (`keepTtl`+`xx`). `/api/docuseal/submission` validates + caps + rate-limits, and the `submissionId` refresh branch requires the `submitterSlug` as proof of access with a uniform 404 (closes sequential-ID enumeration of signer URLs). `getClientIp` prefers `x-real-ip` and falls back to the *rightmost* XFF entry (leftmost is client-spoofable).
+    - **A2 fixed**: `derived.ts` (`ivaBreakdown`, `ppaMetrics`) is the only place display math lives; pricing-table, ppa-section and the PDF consume it.
+    - **A3 mitigated**: `/propuestas` has Exportar/Importar JSON (import backfills each proposal against initial defaults so partial files can't crash the list); both stores persist with `version: 1` + identity migrate; localStorage quota failures toast instead of failing silently.
+    - **Q2/Q3/X5/S7 fixed**: PDF/Drive failures show Spanish toasts; bill scanner uses `BILL_SCANNER_MODEL = 'claude-sonnet-4-6'` (old dated Sonnet 4 id retires 2026-06-15); `/api/pvgis` labels climate fallbacks `source: 'estimated'`; MCP auth compare is constant-time (sha256 + `timingSafeEqual`).
+    - **A4**: `step-advanced.tsx` 932 → 712 lines via `quotation/advanced/{inverter-override,images}-section.tsx` (pure move, takes the `form` object as prop).
+    - **Docs**: README rewritten (was create-next-app boilerplate), `.env.example` now lists the real env surface (Notion vars dropped), this file refreshed.
+    - **NOT changed (needs Simon)**: the X4 accelerated-depreciation rule — see "Open questions for Simon".
