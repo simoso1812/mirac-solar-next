@@ -44,12 +44,17 @@ function loadDocusealScript(): Promise<void> {
 }
 
 async function requestDocusealSubmission(proposal: QuotationData): Promise<DocusealSignatureData> {
+  const submissionId = proposal.docuseal?.submission_id
   const res = await fetch('/api/docuseal/submission', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       proposal,
-      submissionId: proposal.docuseal?.submission_id,
+      // The API requires the submitter slug alongside the submission id as
+      // proof of access (DocuSeal ids are sequential and enumerable).
+      ...(submissionId
+        ? { submissionId, submitterSlug: proposal.docuseal?.submitter_slug }
+        : {}),
     }),
   })
 
