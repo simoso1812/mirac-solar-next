@@ -11,7 +11,7 @@ import {
   Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
 import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData, ProposalImage } from '@/lib/types'
-import { PROMEDIOS_COSTO } from '@/lib/constants'
+import { ivaBreakdown, ppaMetrics } from '@/lib/calculator/derived'
 
 // Register fonts
 Font.register({
@@ -180,25 +180,13 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
 
-  const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
-  const valorIVA = r.costo_total_cop - costoSinIVA
-  const omAnual = r.costo_total_cop * 0.02
+  const { costoSinIVA, valorIVA, omAnual } = ivaBreakdown(r)
 
-  const usaFinanciamiento = advanced.financiamiento.habilitado
-  const desembolsoInicial = usaFinanciamiento
-    ? r.costo_total_cop * (1 - advanced.financiamiento.porcentaje_financiado)
-    : r.costo_total_cop
-
-  const cuotaMensual = usaFinanciamiento
-    ? (() => {
-        const monto = r.costo_total_cop * advanced.financiamiento.porcentaje_financiado
-        const tasaMensual = advanced.financiamiento.tasa_interes / 12
-        const n = advanced.financiamiento.plazo_meses
-        if (tasaMensual === 0) return monto / n
-        const factor = Math.pow(1 + tasaMensual, n)
-        return (monto * tasaMensual * factor) / (factor - 1)
-      })()
-    : 0
+  // Financing figures come from the engine — never recompute them here
+  // (the old inline PMT used a nominal /12 rate and disagreed with the web).
+  const fin = advanced.financiamiento.habilitado ? r.financiamiento ?? null : null
+  const desembolsoInicial = fin ? fin.desembolso_inicial_cop : r.costo_total_cop
+  const cuotaMensual = fin?.cuota_mensual_cop ?? 0
 
   const generacionPromedioMensual = r.generacion_anual_kwh / 12
 
@@ -419,20 +407,75 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         )
       })()}
 
+      {/* DISEÑO DEL TECHO (conditional) */}
+      {technical.diseno_techo?.snapshot_data_url && technical.diseno_techo.areas.length > 0 && (() => {
+        const d = technical.diseno_techo!
+        const kwp = (d.total_panels * technical.potencia_panel_w) / 1000
+        return (
+          <Page size="A4" style={styles.page}>
+            <View style={{
+              position: 'absolute', top: 0, left: 0,
+              width: mm(210), height: mm(297),
+              backgroundColor: '#FFFFFF',
+            }} />
+            {/* Title */}
+            <Pos x={20} y={25} fontSize={28} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED}>
+              Diseño del Techo
+            </Pos>
+            <View style={{
+              position: 'absolute', left: mm(20), top: mm(38),
+              width: mm(170), height: 1, backgroundColor: BRAND_YELLOW,
+            }} />
+            {/* Snapshot */}
+            <Image
+              src={d.snapshot_data_url!}
+              style={{
+                position: 'absolute',
+                left: mm(20),
+                top: mm(48),
+                width: mm(170),
+                height: mm(115),
+                objectFit: 'contain',
+                borderRadius: 4,
+              }}
+            />
+            {/* Stats */}
+            <View style={{
+              position: 'absolute', left: mm(20), top: mm(170),
+              width: mm(170),
+            }}>
+              {[
+                ['Área total', `${Math.round(d.total_area_m2)} m²`],
+                ['Paneles ubicados', `${d.total_panels}`],
+                ['Potencia instalada', `${kwp.toFixed(1)} kWp`],
+                ['Techos', `${d.areas.length}`],
+              ].map(([label, value], i) => (
+                <View
+                  key={label}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    borderBottomWidth: i < 3 ? 0.5 : 0,
+                    borderBottomColor: '#E5E5E5',
+                    borderBottomStyle: 'solid',
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontFamily: 'Roboto', color: '#444444' }}>{label}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Roboto', fontWeight: 'bold', color: TEXT_BLACK }}>{value}</Text>
+                </View>
+              ))}
+            </View>
+          </Page>
+        )
+      })()}
+
       {/* PPA — Opción Cero Inversión (conditional) */}
       {advanced.ppa?.habilitada && advanced.ppa.opciones?.length > 0 && (() => {
         const precioRed = advanced.costo_kwh
         const generacionAnual = r.generacion_anual_kwh
 
-        const opciones = advanced.ppa.opciones.map((opt) => {
-          const ahorroPorKwh = Math.max(0, precioRed - opt.precio_kwh)
-          const porcentajeAhorro = precioRed > 0 ? Math.round((ahorroPorKwh / precioRed) * 100) : 0
-          const ahorroAnual = Math.round(generacionAnual * ahorroPorKwh)
-          const ahorroTotal = ahorroAnual * opt.duracion_anios
-          const pagoMiracAnual = Math.round(generacionAnual * opt.precio_kwh)
-          const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
-          return { ...opt, porcentajeAhorro, ahorroAnual, ahorroTotal, pagoMiracAnual, pagoMiracMensual }
-        })
+        const opciones = ppaMetrics(precioRed, generacionAnual, advanced.ppa.opciones)
 
         // Chart geometry (mm) — utility bar + one bar per option
         const chartLeft = 20
@@ -460,7 +503,6 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           { label: 'Pago anual', w: 34 },
           { label: 'Ahorro total', w: 34 },
         ]
-        const colX = (idx: number) => tableLeft + cols.slice(0, idx).reduce((s, c) => s + c.w, 0)
 
         return (
         <Page size="A4" style={styles.page}>
@@ -776,9 +818,12 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             </PosRow>
           )
         })()}
-        {/* Tax deductible (44% of pre-IVA cost) */}
+        {/* "Deducibles del impuesto de renta": deducción especial Ley 1715
+            Art. 11 = 50% of the pre-IVA investment. The legacy 0.44 constant
+            was 0.50 with an old IVA factor pre-divided in, double-discounting
+            the already pre-IVA base. */}
         {(() => {
-          const deducible = costoSinIVA * 0.44
+          const deducible = costoSinIVA * 0.5
           const { val, suffix } = fmtLargeMoney(deducible)
           return (
             <PosRow x={25} y={186}>
@@ -794,7 +839,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
       </Page>
 
       {/* 9. FINANCIACIÓN (conditional) */}
-      {usaFinanciamiento && (
+      {fin && (
         <Page size="A4" style={styles.page}>
           <Image src={`${BG}/fin.jpg`} style={styles.bg} />
           {/* Anticipo (millions) */}
@@ -811,11 +856,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
           {/* Plazo del crédito */}
           <Pos x={104} y={191} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="center" width={50}>
-            {advanced.financiamiento.plazo_meses}
+            {fin.num_pagos}
           </Pos>
           {/* Vida útil */}
           <Pos x={19} y={214} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="center" width={50}>
-            {Math.floor(advanced.financiamiento.plazo_meses / 12)}
+            {Math.floor(fin.num_pagos / 12)}
           </Pos>
         </Page>
       )}

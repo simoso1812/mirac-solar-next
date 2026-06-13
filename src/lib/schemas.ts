@@ -17,6 +17,26 @@ export const projectSchema = z.object({
   plantilla: z.string(),
 })
 
+const roofAreaSchema = z.object({
+  id: z.string(),
+  vertices: z.array(z.object({ lat: z.number(), lng: z.number() })).max(1000),
+  area_m2: z.number(),
+  panels: z.array(z.object({ lat: z.number(), lng: z.number() })).max(10000),
+  rotation_deg: z.number(),
+  row_gap_m: z.number(),
+})
+
+export const roofDesignSchema = z.object({
+  areas: z.array(roofAreaSchema).max(100),
+  total_panels: z.number(),
+  total_area_m2: z.number(),
+  orientacion: z.enum(['vertical', 'horizontal']),
+  // Defense-in-depth: a 640x640 JPEG snapshot is well under 1MB; cap the
+  // base64 string so a corrupted payload can't bloat the share/Redis entry.
+  snapshot_data_url: z.string().max(2_000_000).nullable(),
+  updated_at: z.string(),
+})
+
 export const technicalSchema = z.object({
   consumo_mensual_kwh: z.number().min(50, 'Mínimo 50 kWh').max(500000, 'Máximo 500,000 kWh'),
   potencia_panel_w: z.number().min(300, 'Mínimo 300 W').max(1000, 'Máximo 1000 W'),
@@ -26,6 +46,9 @@ export const technicalSchema = z.object({
   override_paneles: z.number().min(2, 'Mínimo 2 paneles').max(5000, 'Máximo 5000 paneles').nullable(),
   marca_panel: z.string(),
   modelo_panel: z.string(),
+  ancho_m: z.number().min(0.3, 'Mínimo 0.3 m').max(3, 'Máximo 3 m'),
+  alto_m: z.number().min(0.3, 'Mínimo 0.3 m').max(3, 'Máximo 3 m'),
+  diseno_techo: roofDesignSchema.nullable(),
 })
 
 const inverterOverrideSchema = z.object({
@@ -66,7 +89,7 @@ export const advancedSchema = z.object({
     id: z.string(),
     data: z.string(),
     caption: z.string(),
-  })),
+  })).max(50),
   beneficios_tributarios: z.boolean(),
   incluir_deduccion_renta: z.boolean(),
   incluir_depreciacion_acelerada: z.boolean(),

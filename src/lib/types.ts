@@ -30,6 +30,9 @@ export interface TechnicalData {
   override_paneles: number | null
   marca_panel: string
   modelo_panel: string
+  ancho_m: number // panel width in meters
+  alto_m: number // panel height in meters
+  diseno_techo: RoofDesign | null // saved roof design; null when never drawn
 }
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'
@@ -48,6 +51,29 @@ export interface ProposalImage {
   id: string
   data: string // compressed JPEG as base64 data URL
   caption: string
+}
+
+export interface RoofPanelPos {
+  lat: number
+  lng: number
+}
+
+export interface RoofArea {
+  id: string
+  vertices: { lat: number; lng: number }[] // polygon corners (lat/lng)
+  area_m2: number
+  panels: RoofPanelPos[] // placed panel centers (lat/lng)
+  rotation_deg: number // row orientation for this face
+  row_gap_m: number // inter-row gap (defaulted from tipo_cubierta, editable)
+}
+
+export interface RoofDesign {
+  areas: RoofArea[]
+  total_panels: number
+  total_area_m2: number
+  orientacion: 'vertical' | 'horizontal' // panel portrait/landscape
+  snapshot_data_url: string | null // rendered JPEG for web + PDF
+  updated_at: string // ISO string
 }
 
 export interface AdvancedData {
@@ -114,6 +140,18 @@ export interface CashFlowEntry {
   flujo_acumulado_cop: number
 }
 
+export interface FinancingMetrics {
+  porcentaje_financiado: number // 0-100
+  monto_financiado_cop: number
+  desembolso_inicial_cop: number
+  tasa_ea: number // fraction, Tasa Efectiva Anual
+  tasa_mensual: number // fraction, geometric monthly equivalent
+  num_pagos: number
+  cuota_mensual_cop: number
+  total_pagado_cop: number
+  total_intereses_cop: number
+}
+
 export interface CarbonMetrics {
   annual_co2_avoided_kg: number
   annual_co2_avoided_tons: number
@@ -163,6 +201,10 @@ export interface CalculationResults {
   payback_anios: number
   tir: number
   vpn: number
+
+  // Financing (null when no credit; absent on results persisted before
+  // this field existed — always access via optional chaining)
+  financiamiento: FinancingMetrics | null
 
   // Inverter
   inversores: InverterRecommendation[]

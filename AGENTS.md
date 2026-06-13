@@ -41,20 +41,24 @@ src/
 │   ├── clientes/page.tsx
 │   ├── cargadores/page.tsx            # EV charger calculator
 │   ├── actions/
-│   │   ├── drive.ts                   # server actions: prepare Drive folders + access token, register/upload signed contract mapping
+│   │   ├── drive.ts                   # server actions: prepare Drive folders, mint resumable upload sessions, register/upload signed contract mapping
 │   │   └── scan-bill.ts               # server action: Anthropic-powered utility bill OCR
 │   └── api/
 │       ├── [transport]/route.ts       # remote MCP server (Streamable HTTP) — solar quoting tools, served at /api/mcp
-│       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash)
+│       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash; zod-validated, size-capped, rate-limited)
+│       ├── pvgis/route.ts             # PVGIS HSP fetch; climate fallback labeled source: 'estimated'
 │       └── docuseal/
-│           ├── submission/route.ts    # create / refresh DocuSeal submission
+│           ├── submission/route.ts    # create / refresh DocuSeal submission (slug-gated refresh, rate-limited)
 │           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
 ├── components/
 │   ├── quotation/                     # wizard steps (client, project, technical, advanced, review)
+│   │   ├── roof-designer.tsx          # fullscreen map roof designer (draw roofs, auto-fill panels → override_paneles)
+│   │   └── advanced/                  # extracted step-advanced sections (inverter-override, images)
 │   ├── virtual/                       # virtual web quotation sections + dialogs
 │   │   ├── virtual-quotation.tsx      # orchestrator; recomputes results live via cotizacion()
 │   │   ├── executive-summary.tsx
 │   │   ├── system-design-section.tsx
+│   │   ├── roof-design-section.tsx    # roof designer snapshot + área/paneles/kWp (web; null when no design)
 │   │   ├── battery-section.tsx
 │   │   ├── pricing-table.tsx
 │   │   ├── bill-simulation-section.tsx
@@ -63,8 +67,8 @@ src/
 │   │   ├── ppa-section.tsx            # PPA "Opción Cero Inversión" — bar chart + per-option cards
 │   │   ├── image-gallery-section.tsx  # attached project images grid
 │   │   ├── project-details-section.tsx
-│   │   ├── call-to-action.tsx
-│   │   ├── esign-dialog.tsx
+│   │   ├── call-to-action.tsx         # sign/share/PDF buttons (legacy proposal.signature display kept for old data)
+│   │   ├── docuseal-sign-dialog.tsx
 │   │   ├── share-dialog.tsx
 │   │   └── version-selector.tsx
 │   ├── bill-scanner/                  # Anthropic-powered utility bill OCR UI
@@ -80,12 +84,20 @@ src/
 │   │   └── create-link.ts             # MCP create_quotation_link — builds payload, writes Upstash share, returns /s/<id> URL
 │   ├── calculator/                    # PORT OF Python streamlit calculator
 │   │   ├── index.ts                   # cotizacion() entrypoint, buildInputFromStore()
-│   │   ├── cost.ts                    # cost coefficients (small <20kW poly, large ≥20kW poly3)
-│   │   ├── cashflow.ts                # year-by-year cash flow + NPV/TIR/payback
-│   │   ├── financial.ts               # tax benefits (Ley 1715), depreciation, deducción
+│   │   ├── engine.ts                  # simulateYears() — THE single savings/cash-flow loop
+│   │   ├── derived.ts                 # display-layer math: ivaBreakdown(), ppaMetrics()
+│   │   ├── cost.ts                    # 3-segment empirical price model (estimatePrice)
+│   │   ├── cashflow.ts                # thin formatter over engine.ts (year 0 + cumulative + partial TIR/VPN)
+│   │   ├── financial.ts               # pmt/npv/irr primitives
 │   │   ├── inverter.ts                # auto-pick inverter from INVERTER_DATABASE
 │   │   ├── performance.ts             # PR adjustments by clima/cubierta
-│   │   └── carbon.ts                  # CO2 metrics + equivalents
+│   │   ├── carbon.ts                  # CO2 metrics + equivalents
+│   │   └── __tests__/                 # golden-master suite — snapshot diffs are NEVER routine
+│   ├── roof/                          # roof designer pure math + snapshot (map-free, unit-tested)
+│   │   ├── geometry.ts                # local-meters projection, polygonAreaM2, pointInPolygon, latLngToWorldPixel
+│   │   ├── packing.ts                 # defaultRowGap + packPanels (cubierta-aware grid, 1µm corner inset)
+│   │   ├── snapshot.ts                # offscreen-canvas Static Maps + panel overlay → JPEG data URL (browser-only)
+│   │   └── __tests__/                 # geometry + packing unit tests
 │   ├── pdf/
 │   │   ├── proposal-pdf.tsx           # @react-pdf/renderer document
 │   │   ├── get-map-url.ts             # Google Static Maps URL builder
@@ -93,6 +105,8 @@ src/
 │   ├── contract/generator.ts          # docx contract generation
 │   ├── chargers.ts + chargers-pdf.ts  # EV charger calculator
 │   ├── share.ts                       # Upstash share-link helpers (POST + PATCH client)
+│   ├── rate-limit.ts                  # Redis fixed-window rateLimit() + getClientIp() (x-real-ip first, rightmost XFF fallback)
+│   ├── bill-scanner/constants.ts      # scanner limits + BILL_SCANNER_MODEL
 │   ├── proposal-drive-map.ts          # Upstash mapping: proposalId → Drive upload folder (used by webhook)
 │   ├── docuseal.ts                    # DocuSeal API client (submissions, signatures)
 │   ├── integrations/drive.ts          # googleapis Drive client (server-side upload helper)
@@ -120,13 +134,22 @@ src/
   - Calculator input fields: `incluirDeduccionRenta` and `incluirDepreciacionAcelerada`
   - Both are gated by master `beneficios_tributarios` / `incluirBeneficiosTributarios`
   - The advanced form must set `beneficios_tributarios` true when either child toggle is on, and false when both are off.
+- **Tax-benefit modeling** (audit X4 — confirmed by Simon 2026-06, constants in `engine.ts`):
+  - **Both benefits use the pre-IVA basis**: `baseSinIva = valorProyectoTotal / (1 + iva_rate)`.
+  - Benefits are DEDUCTIONS: cash value = deduction × **35% renta** (`TASA_RENTA`), never the deduction itself.
+  - **Deducción renta** (Art. 11): 50% of `baseSinIva` deducted → cash `baseSinIva × 0.175`, indexed, in year 2.
+  - **Depreciación**: acelerada ON → 33.33%/año × 3 años (Ley 1715 Art. 14 máximo). Acelerada OFF (but master on, i.e. renta payer) → normal lineal 10%/año × 10 años (Art. 137 ET, maquinaria y equipo).
+  - Master off = client does not declare renta → no tax benefits at all.
+  - The pre-fix rule credited `0.33 × CAPEX` per year as raw cash (~99% of CAPEX, no tax rate) and used the IVA-inclusive basis — proposals quoted with these toggles on before the fix overstate TIR/VPN; regenerate them.
 - **Connection modes**:
   - `net_metering` — 1:1 valuation of surplus energy
   - `net_billing` — surplus at reduced `precio_excedentes` (default 300 COP/kWh)
   - `autoconsumo` — no surplus credit
-- **Cost curves** (empirical, per-kWp gets cheaper with size):
-  - <20 kW: `cost = 11917544 × kWp^(-0.484721)`
-  - ≥20 kW: polynomial in kWp (see `DEFAULT_PARAMS.costo_grande_coef_*`)
+- **Cost model** (empirical, per-kWp gets cheaper with size) — 3-segment model calibrated to the 2025-2026 Mirac dataset (n=80), implemented in `src/lib/calculator/cost.ts` `estimatePrice()`:
+  - <10 kWp: power law on COP/kWp: `copPerKwp = 15_021_515.41 × kWp^(-0.9522841) + 1_852_798.36`
+  - 10-50 kWp: linear on price: `2_841_579.58 × kWp + 7_854_609.55`
+  - >50 kWp: linear on price: `2_458_941.57 × kWp + 36_121_590.48`
+  - NOTE: the legacy 2-segment coefficients in `DEFAULT_PARAMS` (`costo_pequeno_coef_*`, `costo_grande_coef_*`) are dead config — nothing reads them. An earlier version of this doc described that old model; `cost.ts` is the source of truth.
 - **Inverter selection**: auto-pick from `INVERTER_DATABASE` unless `override_inversores` is set; sizing uses `factor_seguridad`.
 
 ## Calculator pattern (CRITICAL)
@@ -155,12 +178,15 @@ All battery display sites have defensive guards (`typeof horas === 'number'`) so
 
 ## Savings model (energy offset — CRITICAL, recently fixed)
 
-Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the system actually generates** — never by total consumption. The savings loop lives in **two places** that must stay in sync: `src/lib/calculator/index.ts` (the `cashflowFree` loop feeding TIR/VPN/ROI/payback/`ahorro_anual_cop`) and `src/lib/calculator/cashflow.ts` (the detailed year-by-year table).
+Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the system actually generates** — never by total consumption. The savings loop now lives in **exactly one place**: `simulateYears()` in `src/lib/calculator/engine.ts`. `index.ts` maps it to the headline metrics (TIR/VPN/ROI/payback/`ahorro_anual_cop`) and `cashflow.ts` is only a formatter (year 0 + cumulative + partial TIR/VPN columns). Any change to the savings model happens in `engine.ts`, once.
 
 - **No battery**: month-by-month. If `genMes ≥ consumoMes`, save the full month bill plus surplus sold at `precioExcedentes`; otherwise save only `genMes × costoKwh`.
 - **With battery**: a battery shifts daytime surplus to night, so the system self-consumes nearly all it generates — but savings still cannot exceed generation. `autoConsumo = min(generaciónAnual, consumoAnual)`, savings `= autoConsumo × costoKwh + max(0, generación − consumo) × precioExcedentes`.
+- Maintenance is `porcentaje_mantenimiento ×` (savings **including** surplus income); `demora6Meses` halves year 1 in both the headline metrics and the table; the credit honors `plazo_meses` in months (an 18-month loan pays 12 cuotas in year 1 and 6 in year 2).
 
 **Past bug (do not reintroduce)**: the battery branch used to set `ahorroAnualTotal = consumoAnual × costoKwh` and `cobertura = 100%`, assuming a battery covers the whole bill. That produced absurd metrics (e.g. TIR 310%, ROI 19277%, payback 0.3 años) whenever the array only covered part of the load. A battery stores energy, it cannot create it.
+
+**Second past bug (the reason for the consolidation — do not reintroduce)**: the loop used to exist in two hand-synced copies, and they drifted: the table omitted surplus income and the demora haircut, so the chart's break-even year disagreed with `payback_anios` by ~1.5 years. Golden-master tests in `src/lib/calculator/__tests__/golden.test.ts` now assert headline-vs-table consistency; a snapshot diff there is never routine.
 
 ## Financing (deuda tradicional — método francés)
 
@@ -170,6 +196,7 @@ Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the s
 - Amortization is **método francés** (fixed monthly cuota) via `pmt(tasaMensual, plazoMeses, -montoFinanciado)`.
 - `desembolsoInicial = valorProyectoTotal × (1 − porcentaje_financiado)` is the **anticipo** (down payment) and the year-0 equity outlay; IRR/ROI are computed on this levered equity, not the full CAPEX.
 - `financial-section.tsx` renders a financing card (gated on `habilitado`) with: % CAPEX financiado, Tasa EA, Tasa mensual equiv., plazo, anticipo (money + %), monto financiado, cuota mensual, total cuotas, total intereses. The form labels the input "Tasa EA — Efectiva Anual".
+- **Single source of truth**: `cotizacion()` exposes every financing figure on `results.financiamiento` (`FinancingMetrics | null`: monto, anticipo, tasa EA + monthly equivalent, num_pagos, cuota, total pagado/intereses). The web card, the PDF page, and the MCP summary all read this block — **never recompute a cuota at a display site** (the PDF once re-derived it with a nominal `/12` rate and quoted clients a different cuota than the web). Results persisted before this field existed lack it: always access via `r.financiamiento ?? null` / optional chaining.
 
 ## PPA — "Opción Cero Inversión"
 
@@ -188,6 +215,21 @@ Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the s
 - Form: "Imágenes del Proyecto" section in `step-advanced.tsx` — multi-file upload, thumbnail grid with caption inputs, soft warning if total > 4MB.
 - Virtual: `image-gallery-section.tsx`. PDF: "Imágenes del Proyecto" page(s), 4 per page (2×2), paginated.
 - Inline storage means images travel with the proposal everywhere (localStorage, `/s/` share links, PDF). Tradeoff: localStorage ~5MB and Upstash share-size limits cap practical count at ~6-10 photos.
+
+## Roof designer — "Diseño del techo" (Tier C: visual panel layout)
+
+A fullscreen map tool, launched from the **Técnico** step ("Diseñar en el mapa"), where the user draws one or more roof outlines on the satellite image and auto-fills each with panel rectangles. Spec: `docs/superpowers/specs/2026-06-13-roof-designer-design.md`; plan: `docs/superpowers/plans/2026-06-13-roof-designer.md`.
+
+- **Sizing seam (CRITICAL)**: the designer is purely additive to the engine. On "Aplicar" it writes the placed-panel total into the pre-existing `technical.override_paneles` and stores the geometry in `technical.diseno_techo`. `cotizacion()` already honors `override_paneles` (`index.ts:141`), so kWp/cost/generation/financials/carbon/MCP all follow with **no engine change**. Bidirectional: consumption proposes a count, the layout (when used) wins; skip the designer and today's consumption sizing stands.
+- **Data model**: `TechnicalData` gains `ancho_m`, `alto_m` (panel size in meters, defaults 1.13 × 2.38), and `diseno_techo: RoofDesign | null`. `RoofDesign` = `{ areas: RoofArea[], total_panels, total_area_m2, orientacion, snapshot_data_url, updated_at }`; `RoofArea` = `{ id, vertices[], area_m2, panels[], rotation_deg, row_gap_m }`. Vertices and panel centers are stored as **lat/lng** (projection-independent). Types in `types.ts`, zod (`roofAreaSchema`/`roofDesignSchema` + the three fields, with `.max()` caps) in `schemas.ts`, defaults in `defaults.ts`.
+- **Pure math** lives in `src/lib/roof/` (map-free, unit-tested): `geometry.ts` (equirectangular local-meters projection — `M_PER_DEG_LAT = 111_133` WGS-84 mean meridian; `polygonAreaM2`, `pointInPolygon`, Web-Mercator `latLngToWorldPixel`), `packing.ts` (`defaultRowGap(cubierta)` → losa 0.7 m vs flush 0.02 m; `packPanels()` packs an axis-aligned, optionally-rotated grid and keeps only cells whose four corners are **fully inside** the polygon — deliberately conservative, never over-quotes. A **1µm corner inset** keeps the count FP-stable on edge-flush panels).
+- **Snapshot** (`snapshot.ts`, browser-only): composites a Google **Static Maps** satellite image (`crossOrigin`, zoom clamped ≤ 20) with the roof polygons + oriented panel rectangles on an offscreen canvas → one JPEG data URL, reused verbatim in the web section and the PDF. `toDataURL` is wrapped to return `null` on a tainted canvas. This is the proven `@react-pdf` path (raster `<Image>` works; SVG/canvas-in-PDF render blank).
+- **Drawing (no DrawingManager)**: `google.maps.drawing.DrawingManager` was **removed from the Maps JS API at v3.65** (it crashed the designer on open — passed typecheck/build because the type stubs remain). The designer collects polygon vertices from `GoogleMap` `onClick` instead: "Dibujar techo" → click corners (in-progress `<Polygon>`/`<Polyline>`) → "Terminar techo" (≥3 points) commits a `RoofArea`. Do NOT reintroduce `DrawingManager`.
+- **Where it shows**: web `roof-design-section.tsx` (rendered after `SystemDesignSection`); PDF "Diseño del Techo" page in `proposal-pdf.tsx` (guarded on `technical.diseno_techo?.snapshot_data_url`).
+- **Maps libraries**: all `useJsApiLoader` mounts MUST import the shared `MAPS_LIBRARIES` (`src/components/maps-libraries.ts`, `['places','maps']`) — divergent arrays make `@react-google-maps/api` refuse to reload. No `'drawing'` (removed at v3.65) or `'geometry'` (the roof math uses our own pure helpers). 4 mounts share it.
+- **Persistence/share**: the share codec (`share.ts` `toPayload`/`fromPayload`) round-trips the new fields via short-keys `an`/`al`/`dt`, and `/api/share`'s zod schema accepts them; old payloads backfill from `initialTechnicalData`. The inline snapshot adds to the localStorage/Upstash payload (capped, taint/quota-guarded) — same tradeoff as `imagenes`.
+- **Gotchas already handled**: unchecking the manual-override toggle clears `diseno_techo`; changing `ancho_m`/`alto_m` invalidates the stale layout (a saved design isn't wiped on first load); the designer renders **outside** the Técnico `<form>` (no Enter-submit); `handleApply` bails after the async snapshot if the component unmounted.
+- **Not modeled** (Tier D, out of scope): true tilt/azimuth 3D, inter-row shading, string grouping. Per-panel `<Polygon>` rendering was reviewed and judged acceptable at the realistic 150-250 panel scale.
 
 ## Zustand persist gotcha (already fixed — keep in mind for future schema additions)
 
@@ -297,12 +339,15 @@ Exposes the calculator as MCP tools so agents in Claude Code, Codex, and Claude.
 ## Commands
 
 ```bash
-npm run dev      # next dev (Turbopack)
-npm run build    # next build
-npm run start    # next start
-npm run lint     # eslint
-npx tsc --noEmit # typecheck (always run before declaring done)
+npm run dev        # next dev (Turbopack)
+npm run build      # next build
+npm run start      # next start
+npm run lint       # eslint
+npm test           # vitest run (golden-master suite — run before declaring done)
+npm run typecheck  # tsc --noEmit (always run before declaring done)
 ```
+
+CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on every PR and push to main. Dependabot opens weekly prod-dependency PRs.
 
 ## Env vars (`.env.local`)
 
@@ -313,6 +358,14 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 - `DOCUSEAL_WEBHOOK_SECRET` — optional. When set, `/api/docuseal/webhook` validates the `X-Docuseal-Signature` header.
 - `MCP_AUTH_TOKEN` — optional. When set, the remote MCP server (`/api/mcp`) requires the secret as `?key=<token>` or `Authorization: Bearer <token>` (else 404). Leave unset for an open server (e.g. local dev).
 - `MCP_PUBLIC_BASE_URL` — optional. Public origin used by `create_quotation_link` to build `/s/<id>` links. Defaults to `https://$VERCEL_PROJECT_PRODUCTION_URL`, then `http://localhost:3000`.
+
+## Open questions for Simon (from the 2026-06 repo audit — unresolved, need domain sign-off)
+
+1. ~~**Accelerated depreciation (audit X4).**~~ **RESOLVED 2026-06 by Simon** — see "Tax-benefit modeling" under Domain rules: 35% renta rate applied, pre-IVA basis for BOTH benefits (deducción confirmed pre-IVA too), accelerated 33.33%×3y vs normal lineal 10%×10y when the toggle is off. Implemented in `engine.ts` + golden tests. The PDF "Deducibles" figure was also corrected to `costoSinIVA × 0.5` (Art. 11). Fully closed — no open sub-questions.
+2. **Non-annual loan terms.** The engine now honors `plazo_meses` exactly (18 months = 18 cuotas). If banks only quote multiples of 12, the schema could be locked down, but the current behavior is correct either way.
+3. **Vercel env confirmations.** Is `DOCUSEAL_WEBHOOK_SECRET` set in production? Is `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` referrer-restricted in Google Cloud Console (it is necessarily public in the JS bundle)?
+4. **MARKITDOWN service.** `MARKITDOWN_SERVICE_URL` is read by the bill scanner but undocumented operationally — is the Render microservice still deployed, or is the text path permanently falling back to vision?
+5. **Multi-device horizon.** Proposals now have export/import + Upstash-independent backup paths, but localStorage is still primary. If anyone besides Simon will ever open `/propuestas`, upgrade to Upstash-as-primary before the book grows.
 
 ## Recent context (chronological)
 
@@ -354,3 +407,21 @@ npx tsc --noEmit # typecheck (always run before declaring done)
 28. **MCP auth made Cowork-friendly** (PR #2): `MCP_AUTH_TOKEN` now accepted as `?key=<token>` (the Cowork connector UI only takes a URL) in addition to the Bearer header; unauthorized → 404 (stealth). Set in Vercel production; verified live (no key → 404, `?key=` → 200).
 29. **MCP `create_quotation_link` tool added** (`src/lib/mcp/create-link.ts`): generates a shareable virtual quotation link (`/s/<id>`) so Cowork/Codex/Claude Code can produce a client-ready proposal, not just numbers. Refactored `quote.ts` to a shared `buildStores()` + `summarize()` path so both tools and the `/s` page agree. Reuses the exported `toPayload()` from `share.ts` and writes `share:<id>` to Upstash directly (same as POST /api/share). Note: Upstash vars live only in Vercel (not local `.env.local`), so this tool is tested against pulled prod creds or in deployment. New env `MCP_PUBLIC_BASE_URL` for link origin.
 30. **Cowork skill added** (`skills/mirac-solar-quote/`): an Agent Skill (`SKILL.md` + `README.md`, zipped to `mirac-solar-quote.zip`) that tells Claude to use the **Calculadora Solar Mirac** MCP connector whenever the user asks for a solar quotation — decides between `quote_solar_system` (numbers) and `create_quotation_link` (shareable `/s/<id>`), lists the 7 supported cities + sensible defaults, and enforces "never invent cifras, always call the MCP". Upload via Claude → Settings → Capabilities → Skills. Requires the connector pointed at `/api/mcp?key=<MCP_AUTH_TOKEN>`.
+31. **2026-06 repo audit hardening (branch `feat/audit-hardening`)** — full implementation of the repo-audit improvement plan, verified by golden tests + an adversarial multi-agent review. Highlights, in commit order:
+    - **Golden-master test suite + CI gate.** `vitest` with 35 tests (`src/lib/calculator/__tests__/`): connection-mode × battery × financing matrix, tax-toggle combos, the Excel-verified financing fixture (76.8M @ 15% EA, 60 mo → cuota ~$1.789.308), battery-savings cap, headline-vs-table consistency, 18-month plazo. `.github/workflows/ci.yml` runs typecheck+lint+test+build on PR/push; `.github/dependabot.yml` weekly.
+    - **Dead attack surface deleted**: `/api/bill-scanner`, `/api/drive`, `/api/geocode`, `lib/integrations/geocoding.ts`, `gestionarCreacionDrive`, `subirCSVaDrive`, `esign-dialog.tsx` (zero consumers verified repo-wide; legacy `proposal.signature` display kept for old data).
+    - **Next 16.2.0 → 16.2.9** + `npm audit fix` + `@anthropic-ai/sdk` 0.104: `npm audit --omit=dev` has 0 high (3 remaining moderates are the postcss copy bundled inside Next stable — fix only exists in 16.3 canary).
+    - **X1 fixed**: `results.financiamiento` (`FinancingMetrics`) is the single financing source; the PDF's nominal `/12` cuota recomputation is gone. PDFs generated before this fix printed a wrong cuota — regenerate any that are still circulating.
+    - **X2/X3/A1 fixed**: single savings loop in `engine.ts` (see "Savings model"); table now includes surplus + demora; plazo honored in months. Headline metrics verified bit-identical for all whole-year plazos; non-multiple-of-12 plazos now produce *correct* (previously overstated) cuota counts.
+    - **S1 fixed**: Drive OAuth token no longer sent to the browser. `createDriveUploadSession` server action mints a resumable session URI (with the browser's `Origin` baked in — Google binds the session's CORS allowance to the initiate request's Origin); browser PUTs bytes with no auth header. Needs one manual e2e Drive sync test with real creds.
+    - **S2/S3/S5 fixed**: `/api/share` zod-validates payloads (original JSON stored so future keys survive), caps bodies at 4.5MB, rate-limits per IP (POST 10/min, PATCH 30/min, GET 120/min) via `src/lib/rate-limit.ts`; PATCH preserves remaining TTL (`keepTtl`+`xx`). `/api/docuseal/submission` validates + caps + rate-limits, and the `submissionId` refresh branch requires the `submitterSlug` as proof of access with a uniform 404 (closes sequential-ID enumeration of signer URLs). `getClientIp` prefers `x-real-ip` and falls back to the *rightmost* XFF entry (leftmost is client-spoofable).
+    - **A2 fixed**: `derived.ts` (`ivaBreakdown`, `ppaMetrics`) is the only place display math lives; pricing-table, ppa-section and the PDF consume it.
+    - **A3 mitigated**: `/propuestas` has Exportar/Importar JSON (import backfills each proposal against initial defaults so partial files can't crash the list); both stores persist with `version: 1` + identity migrate; localStorage quota failures toast instead of failing silently.
+    - **Q2/Q3/X5/S7 fixed**: PDF/Drive failures show Spanish toasts; bill scanner uses `BILL_SCANNER_MODEL = 'claude-sonnet-4-6'` (old dated Sonnet 4 id retires 2026-06-15); `/api/pvgis` labels climate fallbacks `source: 'estimated'`; MCP auth compare is constant-time (sha256 + `timingSafeEqual`).
+    - **A4**: `step-advanced.tsx` 932 → 712 lines via `quotation/advanced/{inverter-override,images}-section.tsx` (pure move, takes the `form` object as prop).
+    - **Docs**: README rewritten (was create-next-app boilerplate), `.env.example` now lists the real env surface (Notion vars dropped), this file refreshed.
+    - **NOT changed (needs Simon)**: the X4 accelerated-depreciation rule — see "Open questions for Simon".
+32. **X4 resolved — depreciation rule corrected** (Simon sign-off 2026-06): see "Depreciation modeling" domain rule. `engine.ts` now computes depreciation as `(CAPEX / 1.07) × tasa × 35%` with tasa 33.33%×3y (acelerada) or 10%×10y (normal lineal, applies to any renta payer with the toggle off). Previously the toggle credited `0.33 × CAPEX` raw per year (~99% of CAPEX as cash). Typical impact on a commercial quote with both benefits: TIR 56% → 40%, payback 1.5 → 2.2 años. 6 golden snapshots updated deliberately; 2 new tests pin the rule. **Regenerate any proposal quoted with the depreciation toggle on before this fix.** Toggle copy updated in `step-advanced.tsx` and `financial-section.tsx`.
+33. **Deducción de renta basis corrected to pre-IVA** (Simon sign-off 2026-06, follow-up to item 32): the Art. 11 deduction now computes on `baseSinIva` like depreciation — `(CAPEX / 1.07) × 1.05 × 0.175` in year 2 instead of the IVA-inclusive price (~6.5% smaller benefit). One shared `baseSinIva` drives both benefits in `engine.ts`. New golden test pins it; 4 snapshots updated deliberately. Toggle copy updated ("17.5% del valor sin IVA (50% × renta 35%)").
+34. **PDF "Deducibles del impuesto de renta" figure corrected**: the `costoSinIVA × 0.44` legacy constant (almost certainly 0.50 pre-divided by an old IVA factor, double-discounting the already pre-IVA base) is now `costoSinIVA × 0.5` — the Art. 11 deducción especial, consistent with the confirmed tax model. The background JPG (`info_financiera.jpg`) carries the label. This closes the last X4 sub-question; every tax figure in the app now derives from the Simon-confirmed model.
+35. **Roof designer added (branch `feat/roof-designer`)** — Tier-C visual panel layout (see "Roof designer" domain rule). Built and hardened via a multi-agent workflow chain: brainstorm → spec+plan → 12-task implementation workflow → adversarial design pre-mortem → two hardening/diff-review workflows (perspective-diverse verification). New `src/lib/roof/` pure modules (geometry/packing/snapshot) + `roof-designer.tsx` + web/PDF surfaces; `TechnicalData` gains `ancho_m`/`alto_m`/`diseno_techo`; panel count flows through the existing `override_paneles` seam (no engine change). The reviews caught and fixed: two divergent `useJsApiLoader` library arrays, a share-codec round-trip data-loss (designs dropped on `/s/` links) + the coupled `/api/share` 400, a `M_PER_DEG_LAT` ~0.5% error, a sub-nanometer FP boundary bug in packing (now a 1µm inset), an unmount-after-await setState, and array/quota guards. Typecheck + lint (0 errors) + 50 tests + build all green. **Browser e2e smoke (done, Medellín, real creds)** caught the one thing static checks couldn't: `DrawingManager` was removed from the Maps JS API at v3.65 → designer crashed on open; fixed with the click-to-draw flow. Re-verified live: draw → Terminar → Auto-llenar (274 panels / 168.5 kWp) → Aplicar wrote `override_paneles=274` and persisted the design with a **269 KB snapshot JPEG** — so the Static Maps canvas path works with no taint from localhost (largely answers open question #3, though prod-origin referrer restrictions should still be confirmed). PDF "Diseño del Techo" page not yet eyeballed in a generated PDF.

@@ -7,6 +7,7 @@ import { recomendarInversor, redondearAPar } from './inverter'
 import { calcularPerformanceRatio, calcularFactorClipping } from './performance'
 import { pmt, npv, irr } from './financial'
 import { calculateEmissionsAvoided } from './carbon'
+import { simulateYears } from './engine'
 import { generarFlujoCajaDetallado } from './cashflow'
 import type { CalculationResults, TechnicalData, AdvancedData, ProjectData } from '@/lib/types'
 
@@ -23,8 +24,8 @@ export interface CotizacionInput {
   indexRate: number // annual indexation (e.g. 0.06)
   discountRate: number // discount rate for NPV (e.g. 0.10)
   percFinanciamiento: number // 0-100
-  tasaInteresCredito: number // annual (e.g. 0.12)
-  plazoCreditoAnios: number
+  tasaInteresCredito: number // annual EA (e.g. 0.12)
+  plazoCreditoMeses: number
   incluirBaterias: boolean
   costoKwhBateria: number
   capacidadBateriaKwh: number // user-entered nominal capacity; if > 0, overrides auto-sizing
@@ -80,7 +81,7 @@ export function buildInputFromStore(
       ? advanced.financiamiento.porcentaje_financiado * 100
       : 0,
     tasaInteresCredito: advanced.financiamiento.tasa_interes,
-    plazoCreditoAnios: Math.round(advanced.financiamiento.plazo_meses / 12),
+    plazoCreditoMeses: Math.round(advanced.financiamiento.plazo_meses),
     incluirBaterias: advanced.bateria.habilitada,
     costoKwhBateria: advanced.bateria.costo_kwh_bateria ?? 400000,
     capacidadBateriaKwh: advanced.bateria.capacidad_kwh ?? 0,
@@ -119,7 +120,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const {
     consumoMensualKwh, potenciaPanelW, factorSeguridad, ciudad, cubierta,
     clima, costoKwh, indexRate, discountRate, percFinanciamiento,
-    tasaInteresCredito, plazoCreditoAnios, incluirBaterias, costoKwhBateria,
+    tasaInteresCredito, plazoCreditoMeses, incluirBaterias, costoKwhBateria,
     capacidadBateriaKwh, profundidadDescarga, eficienciaBateria, horasAutonomia, horizonteTiempo,
     incluirBeneficiosTributarios, incluirDeduccionRenta,
     incluirDepreciacionAcelerada, precioManual, demora6Meses,
@@ -194,15 +195,31 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
 
   // Financing
   const montoAFinanciar = Math.ceil(valorProyectoTotal * (percFinanciamiento / 100))
+  // tasa_interes is Tasa Efectiva Anual (EA, Colombian convention).
+  // Convert to equivalent monthly rate geometrically: (1+EA)^(1/12) - 1.
+  const tasaMensualCredito = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
+  const numPagosCredito = plazoCreditoMeses
   let cuotaMensualCredito = 0
-  if (montoAFinanciar > 0 && plazoCreditoAnios > 0 && tasaInteresCredito > 0) {
-    // tasa_interes is Tasa Efectiva Anual (EA, Colombian convention).
-    // Convert to equivalent monthly rate geometrically: (1+EA)^(1/12) - 1.
-    const tasaMensual = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
-    const numPagos = plazoCreditoAnios * 12
-    cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensual, numPagos, -montoAFinanciar)))
+  if (montoAFinanciar > 0 && plazoCreditoMeses > 0 && tasaInteresCredito > 0) {
+    cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensualCredito, numPagosCredito, -montoAFinanciar)))
   }
   const desembolsoInicial = valorProyectoTotal - montoAFinanciar
+
+  // Single source of truth for every financing figure a client sees
+  // (web card, PDF page, MCP summary all read this block).
+  const financiamientoResults = cuotaMensualCredito > 0
+    ? {
+        porcentaje_financiado: percFinanciamiento,
+        monto_financiado_cop: montoAFinanciar,
+        desembolso_inicial_cop: desembolsoInicial,
+        tasa_ea: tasaInteresCredito,
+        tasa_mensual: tasaMensualCredito,
+        num_pagos: numPagosCredito,
+        cuota_mensual_cop: cuotaMensualCredito,
+        total_pagado_cop: cuotaMensualCredito * numPagosCredito,
+        total_intereses_cop: cuotaMensualCredito * numPagosCredito - montoAFinanciar,
+      }
+    : null
 
   // Cash flow for IRR/NPV — connection mode determines surplus pricing
   let precioExcedentes: number
@@ -216,57 +233,31 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const tasaDegradacion = input.tasaDegradacion ?? DEFAULT_PARAMS.tasa_degradacion_anual
   const porcentajeMantenimiento = input.porcentajeMantenimiento ?? DEFAULT_PARAMS.porcentaje_mantenimiento
 
-  const cashflowFree: number[] = []
-  let ahorroAnualAnio1 = 0
+  // Single shared simulation — feeds BOTH the headline metrics and the
+  // detailed year-by-year table (see engine.ts).
+  const yearSims = simulateYears({
+    consumoMensualKwh,
+    costoKwh,
+    precioExcedentes,
+    indexRate,
+    monthlyGeneration: monthlyGenerationInit,
+    horizonte: horizonteTiempo,
+    incluirBaterias,
+    tasaDegradacion,
+    porcentajeMantenimiento,
+    cuotaMensualCredito,
+    plazoCreditoMeses,
+    valorProyectoTotal,
+    incluirBeneficiosTributarios,
+    incluirDeduccionRenta,
+    incluirDepreciacionAcelerada,
+    demora6Meses,
+  })
 
-  for (let i = 0; i < horizonteTiempo; i++) {
-    const currentMonthly = monthlyGenerationInit.map(
-      (gen) => gen * Math.pow(1 - tasaDegradacion, i)
-    )
-
-    const generacionAnual = currentMonthly.reduce((a, b) => a + b, 0)
-    const consumoAnual = consumoMensualKwh * 12
-
-    let ahorroAnualTotal = 0
-    if (incluirBaterias) {
-      // A battery shifts surplus generation to cover night-time load, so the
-      // system can self-consume nearly all it generates — but savings can
-      // never exceed actual generation. Cap at min(generación, consumo);
-      // any true surplus is sold at the export price.
-      const autoConsumo = Math.min(generacionAnual, consumoAnual)
-      const excedentes = Math.max(0, generacionAnual - consumoAnual)
-      ahorroAnualTotal = autoConsumo * costoKwh + excedentes * precioExcedentes
-    } else {
-      for (const genMes of currentMonthly) {
-        if (genMes >= consumoMensualKwh) {
-          ahorroAnualTotal += consumoMensualKwh * costoKwh + (genMes - consumoMensualKwh) * precioExcedentes
-        } else {
-          ahorroAnualTotal += genMes * costoKwh
-        }
-      }
-    }
-
-    let ahorroIndexado = ahorroAnualTotal * Math.pow(1 + indexRate, i)
-    if (i === 0) ahorroAnualAnio1 = ahorroAnualTotal
-
-    if (demora6Meses && i === 0) ahorroIndexado *= 0.5
-
-    const mantenimiento = porcentajeMantenimiento * ahorroIndexado
-    const cuotasAnuales = i < plazoCreditoAnios ? cuotaMensualCredito * 12 : 0
-    let flujo = ahorroIndexado - mantenimiento - cuotasAnuales
-
-    // Tax benefits
-    if (incluirBeneficiosTributarios) {
-      if (incluirDeduccionRenta && i === 1) {
-        flujo += valorProyectoTotal * Math.pow(1 + indexRate, i) * 0.175
-      }
-      if (incluirDepreciacionAcelerada && i < 3) {
-        flujo += valorProyectoTotal * 0.33
-      }
-    }
-
-    cashflowFree.push(flujo)
-  }
+  const cashflowFree: number[] = yearSims.map((y) => y.flujoNeto)
+  const ahorroAnualAnio1 = yearSims.length > 0
+    ? yearSims[0].ahorroBase + yearSims[0].ingresosExcedentesBase
+    : 0
 
   cashflowFree.unshift(-desembolsoInicial)
 
@@ -306,30 +297,13 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   // Carbon
   const carbon = calculateEmissionsAvoided(generacionAnualKwh, ciudad, horizonteTiempo)
 
-  // Cash flow detail
-  const flujoCaja = generarFlujoCajaDetallado({
-    load: consumoMensualKwh,
-    sizeKwp,
+  // Cash flow detail — formats the same simulation the metrics came from
+  const flujoCaja = generarFlujoCajaDetallado(yearSims, {
+    desembolsoInicial,
+    discountRate,
     costkWh: costoKwh,
     indexRate,
-    discountRate,
-    monthlyGeneration: monthlyGenerationInit,
-    cubierta,
-    clima,
-    horizonte: horizonteTiempo,
-    percFinanciamiento,
-    tasaInteresCredito,
-    plazoCreditoAnios,
-    desembolsoInicial,
-    cuotaMensualCredito,
-    valorProyectoTotal,
-    incluirBaterias,
-    incluirBeneficiosTributarios,
-    incluirDeduccionRenta,
-    incluirDepreciacionAcelerada,
-    precioExcedentes,
     tasaDegradacion,
-    porcentajeMantenimiento,
   })
 
   return {
@@ -351,6 +325,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     payback_anios: payback,
     tir: tir * 100,
     vpn,
+    financiamiento: financiamientoResults,
     inversores: Object.entries(inverterResult.combo).map(([kw, count]) => {
       const kwNum = Number(kw)
       // Custom brand: use the free-text brand/model supplied by the user
@@ -415,4 +390,6 @@ export { recomendarInversor } from './inverter'
 export { calcularPerformanceRatio, calcularFactorClipping } from './performance'
 export { pmt, npv, irr } from './financial'
 export { calculateEmissionsAvoided } from './carbon'
+export { simulateYears } from './engine'
+export type { YearSim, YearSimParams } from './engine'
 export { generarFlujoCajaDetallado } from './cashflow'

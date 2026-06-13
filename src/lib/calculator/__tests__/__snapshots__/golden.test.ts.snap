@@ -1,0 +1,646 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=false | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8143564,
+  "ahorro_mensual_cop": 678631,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 3.92,
+  "roi_porcentaje": 1130.75,
+  "tir": 28.57,
+  "vpn": 73659545,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=false | financiado=false > table 1`] = `
+{
+  "final_acumulado": 336017997,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 7736386,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 407178,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 8122543,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 427502,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=false | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8143564,
+  "ahorro_mensual_cop": 678631,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 4.65,
+  "roi_porcentaje": 3443,
+  "tir": 38.42,
+  "vpn": 72294321,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=false | financiado=true > table 1`] = `
+{
+  "final_acumulado": 326938147,
+  "year0_flujo": -9779789,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 1356514,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 407178,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 1742671,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 427502,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=true | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8160000,
+  "ahorro_mensual_cop": 680000,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 4.34,
+  "roi_porcentaje": 1010.89,
+  "tir": 25.96,
+  "vpn": 69983413,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=true | financiado=false > table 1`] = `
+{
+  "final_acumulado": 333381171,
+  "year0_flujo": -36599299,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 7752000,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 408000,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 8139600,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 428400,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=true | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8160000,
+  "ahorro_mensual_cop": 680000,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 5.4,
+  "roi_porcentaje": 3043.47,
+  "tir": 33.21,
+  "vpn": 68450685,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > autoconsumo | bateria=true | financiado=true > table 1`] = `
+{
+  "final_acumulado": 323187221,
+  "year0_flujo": -10979789,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 589308,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 408000,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 0,
+    "flujo_neto_cop": 976908,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 428400,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=false | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8350518,
+  "ahorro_mensual_cop": 695877,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 3.83,
+  "roi_porcentaje": 1154.05,
+  "tir": 29.15,
+  "vpn": 76016156,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=false | financiado=false > table 1`] = `
+{
+  "final_acumulado": 343614087,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 206954,
+    "flujo_neto_cop": 7932992,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 417526,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 214312,
+    "flujo_neto_cop": 8326140,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 438218,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=false | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8350518,
+  "ahorro_mensual_cop": 695877,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 4.35,
+  "roi_porcentaje": 3520.67,
+  "tir": 39.66,
+  "vpn": 74650932,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=false | financiado=true > table 1`] = `
+{
+  "final_acumulado": 334534237,
+  "year0_flujo": -9779789,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 206954,
+    "flujo_neto_cop": 1553120,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 417526,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 214312,
+    "flujo_neto_cop": 1946268,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 438218,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=true | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8361153,
+  "ahorro_mensual_cop": 696763,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 4.25,
+  "roi_porcentaje": 1030.34,
+  "tir": 26.46,
+  "vpn": 72225718,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=true | financiado=false > table 1`] = `
+{
+  "final_acumulado": 340496140,
+  "year0_flujo": -36599299,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 201153,
+    "flujo_neto_cop": 7943095,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 418058,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 207975,
+    "flujo_neto_cop": 8337176,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 438799,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=true | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8361153,
+  "ahorro_mensual_cop": 696763,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 5.29,
+  "roi_porcentaje": 3108.27,
+  "tir": 34.19,
+  "vpn": 70692989,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_billing | bateria=true | financiado=true > table 1`] = `
+{
+  "final_acumulado": 330302190,
+  "year0_flujo": -10979789,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 201153,
+    "flujo_neto_cop": 780403,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 418058,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 207975,
+    "flujo_neto_cop": 1174484,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 438799,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=false | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 3.68,
+  "roi_porcentaje": 1196.77,
+  "tir": 30.22,
+  "vpn": 80336610,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=false | financiado=false > table 1`] = `
+{
+  "final_acumulado": 357540251,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 586369,
+    "flujo_neto_cop": 8293436,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 607218,
+    "flujo_neto_cop": 8699400,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=false | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 3.88,
+  "roi_porcentaje": 3663.07,
+  "tir": 42,
+  "vpn": 78971386,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=false | financiado=true > table 1`] = `
+{
+  "final_acumulado": 348460401,
+  "year0_flujo": -9779789,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 586369,
+    "flujo_neto_cop": 1913564,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 6379872,
+    "excedentes_cop": 607218,
+    "flujo_neto_cop": 2319528,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=true | financiado=false > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 4.09,
+  "roi_porcentaje": 1065.98,
+  "tir": 27.38,
+  "vpn": 76336610,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=true | financiado=false > table 1`] = `
+{
+  "final_acumulado": 353540251,
+  "year0_flujo": -36599299,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 569933,
+    "flujo_neto_cop": 8293436,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 589263,
+    "flujo_neto_cop": 8699400,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=true | financiado=true > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": {
+    "capacidad_nominal_kwh": 10,
+    "capacidad_util_kwh": 9,
+    "costo_cop": 4000000,
+    "horas_autonomia": 8.1,
+  },
+  "costo_total_cop": 36599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 5.1,
+  "roi_porcentaje": 3227.08,
+  "tir": 36.04,
+  "vpn": 74803882,
+}
+`;
+
+exports[`golden masters: connection mode x battery x financing > net_metering | bateria=true | financiado=true > table 1`] = `
+{
+  "final_acumulado": 343346301,
+  "year0_flujo": -10979789,
+  "year1": {
+    "ahorro_cop": 8160000,
+    "anio": 1,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 569933,
+    "flujo_neto_cop": 1130744,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8568000,
+    "anio": 2,
+    "cuota_financiamiento_cop": 7162692,
+    "excedentes_cop": 589263,
+    "flujo_neto_cop": 1536708,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: tax benefit toggles > ambos beneficios > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 2.23,
+  "roi_porcentaje": 1246.66,
+  "tir": 39.39,
+  "vpn": 93802626,
+}
+`;
+
+exports[`golden masters: tax benefit toggles > ambos beneficios > table 1`] = `
+{
+  "final_acumulado": 373801817,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 586369,
+    "flujo_neto_cop": 11847877,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 607218,
+    "flujo_neto_cop": 17852085,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: tax benefit toggles > solo deduccion renta > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 2.77,
+  "roi_porcentaje": 1246.66,
+  "tir": 35.87,
+  "vpn": 91515408,
+}
+`;
+
+exports[`golden masters: tax benefit toggles > solo deduccion renta > table 1`] = `
+{
+  "final_acumulado": 373801817,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 586369,
+    "flujo_neto_cop": 9359769,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 607218,
+    "flujo_neto_cop": 15363976,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;
+
+exports[`golden masters: tax benefit toggles > solo depreciacion > headline 1`] = `
+{
+  "ahorro_anual_cop": 8729934,
+  "ahorro_mensual_cop": 727495,
+  "bateria": null,
+  "costo_total_cop": 32599299,
+  "generacion_anual_kwh": 10271,
+  "kwp": 8.61,
+  "numero_paneles": 14,
+  "payback_anios": 2.67,
+  "roi_porcentaje": 1229.48,
+  "tir": 35.97,
+  "vpn": 89175978,
+}
+`;
+
+exports[`golden masters: tax benefit toggles > solo depreciacion > table 1`] = `
+{
+  "final_acumulado": 368203573,
+  "year0_flujo": -32599299,
+  "year1": {
+    "ahorro_cop": 8143564,
+    "anio": 1,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 586369,
+    "flujo_neto_cop": 11847877,
+    "generacion_kwh": 10271,
+    "mantenimiento_cop": 436497,
+  },
+  "year2": {
+    "ahorro_cop": 8550045,
+    "anio": 2,
+    "cuota_financiamiento_cop": 0,
+    "excedentes_cop": 607218,
+    "flujo_neto_cop": 12253841,
+    "generacion_kwh": 10260,
+    "mantenimiento_cop": 457863,
+  },
+}
+`;

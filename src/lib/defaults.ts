@@ -28,6 +28,9 @@ export const initialTechnicalData: TechnicalData = {
   override_paneles: null,
   marca_panel: '',
   modelo_panel: '',
+  ancho_m: 1.13,
+  alto_m: 2.38,
+  diseno_techo: null,
 }
 
 export const initialAdvancedData: AdvancedData = {

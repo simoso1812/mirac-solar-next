@@ -11,6 +11,7 @@
  * the request gets a 404 so the secret URL stays unguessable. When the env
  * var is unset (e.g. local dev), the server is open.
  */
+import { createHash, timingSafeEqual } from 'crypto'
 import { createMcpHandler } from 'mcp-handler'
 import {
   quoteInputShape,
@@ -104,14 +105,25 @@ const handler = createMcpHandler(
   { basePath: '/api', maxDuration: 60 },
 )
 
+// Constant-time string compare. Hashing both sides first equalizes lengths,
+// so no length information leaks and timingSafeEqual never throws.
+function safeEqual(a: string, b: string): boolean {
+  const hashA = createHash('sha256').update(a).digest()
+  const hashB = createHash('sha256').update(b).digest()
+  return timingSafeEqual(hashA, hashB)
+}
+
 // Optional shared-secret auth in front of the MCP handler.
 function authorized(req: Request): boolean {
   const secret = process.env.MCP_AUTH_TOKEN
   if (!secret) return true // open when no secret configured (local dev)
   // Accept the secret as ?key= (for the Cowork connector, URL-only) or as a
   // Bearer header (for Claude Code / Codex, which can send headers).
-  if (new URL(req.url).searchParams.get('key') === secret) return true
-  return (req.headers.get('authorization') ?? '') === `Bearer ${secret}`
+  // Note: the ?key= form ends up in proxy/server logs; documented tradeoff
+  // for the Cowork connector, which only accepts a URL.
+  const key = new URL(req.url).searchParams.get('key')
+  if (key !== null && safeEqual(key, secret)) return true
+  return safeEqual(req.headers.get('authorization') ?? '', `Bearer ${secret}`)
 }
 
 async function guarded(req: Request): Promise<Response> {

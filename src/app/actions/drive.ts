@@ -1,6 +1,11 @@
 'use server'
 
-import { prepararCarpetaDrive, uploadBytesToDriveFolder, type DrivePrepareResult } from '@/lib/integrations/drive'
+import {
+  prepararCarpetaDrive,
+  createResumableUploadSession,
+  uploadBytesToDriveFolder,
+  type DrivePrepareResult,
+} from '@/lib/integrations/drive'
 import { setProposalDriveMapping } from '@/lib/proposal-drive-map'
 import { getDocusealSubmission } from '@/lib/docuseal'
 
@@ -11,11 +16,11 @@ export async function prepareDriveUpload(
   try {
     const parentFolderId = process.env.PARENT_FOLDER_ID
     if (!parentFolderId) {
-      return { success: false, folderLink: null, uploadFolderId: null, accessToken: null, projectName: '', error: 'PARENT_FOLDER_ID not configured' }
+      return { success: false, folderLink: null, uploadFolderId: null, projectName: '', error: 'PARENT_FOLDER_ID not configured' }
     }
 
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN) {
-      return { success: false, folderLink: null, uploadFolderId: null, accessToken: null, projectName: '', error: 'Google Drive credentials not configured' }
+      return { success: false, folderLink: null, uploadFolderId: null, projectName: '', error: 'Google Drive credentials not configured' }
     }
 
     const result = await prepararCarpetaDrive(parentFolderId, clientName, locationLabel)
@@ -24,13 +29,40 @@ export async function prepareDriveUpload(
       success: result.success,
       folderLink: result.folderLink ?? null,
       uploadFolderId: result.uploadFolderId ?? null,
-      accessToken: result.accessToken ?? null,
       projectName: result.projectName ?? '',
       error: result.error,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return { success: false, folderLink: null, uploadFolderId: null, accessToken: null, projectName: '', error: message }
+    return { success: false, folderLink: null, uploadFolderId: null, projectName: '', error: message }
+  }
+}
+
+/**
+ * Create a Google Drive resumable upload session server-side. The returned
+ * session URI lets the browser PUT the file bytes directly to Google without
+ * ever seeing the OAuth access token.
+ */
+export async function createDriveUploadSession(
+  folderId: string,
+  fileName: string,
+  mimeType: string,
+  browserOrigin?: string,
+): Promise<{ success: boolean; uploadUrl: string | null; error?: string }> {
+  try {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN) {
+      return { success: false, uploadUrl: null, error: 'Google Drive credentials not configured' }
+    }
+
+    const uploadUrl = await createResumableUploadSession(folderId, fileName, mimeType, browserOrigin)
+    if (!uploadUrl) {
+      return { success: false, uploadUrl: null, error: 'No se pudo crear la sesión de subida a Drive' }
+    }
+
+    return { success: true, uploadUrl }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { success: false, uploadUrl: null, error: message }
   }
 }
 

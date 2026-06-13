@@ -7,6 +7,7 @@ import { getStaticMapUrlForPdf } from '@/lib/pdf/get-map-url'
 import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import type { QuotationData } from '@/lib/types'
 
@@ -62,6 +63,7 @@ export function PdfDownloadButton({ proposal, className }: PdfDownloadButtonProp
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('PDF generation error:', err)
+      toast.error('No se pudo generar el PDF. Inténtalo de nuevo.')
     } finally {
       setLoading(false)
     }

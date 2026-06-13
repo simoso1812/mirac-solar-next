@@ -8,8 +8,10 @@ import { renderGenerationChart } from '@/lib/pdf/render-chart'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2, CheckCircle, ExternalLink } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   prepareDriveUpload,
+  createDriveUploadSession,
   registerProposalDriveMapping,
   uploadSignedContractToDrive,
 } from '@/app/actions/drive'
@@ -22,43 +24,42 @@ interface DriveSyncButtonProps {
 }
 
 /**
- * Upload a file directly to Google Drive using their REST API.
- * This bypasses Vercel's 4.5MB body limit since the upload goes
- * straight from the browser to Google's servers.
+ * Upload a file directly to Google Drive via a server-created resumable
+ * upload session. The session URI is minted server-side, so the OAuth access
+ * token never reaches the browser, and the upload still goes straight from
+ * the browser to Google's servers (bypasses Vercel's 4.5MB body limit).
  */
 async function uploadFileToDrive(
   blob: Blob,
   fileName: string,
   folderId: string,
-  accessToken: string,
 ): Promise<string | null> {
-  const metadata = {
-    name: fileName,
-    parents: [folderId],
+  const mimeType = blob.type || 'application/pdf'
+
+  // Google binds the session's CORS allowance to the Origin of the initiate
+  // request, so the server must mint the session on behalf of THIS origin.
+  const session = await createDriveUploadSession(
+    folderId,
+    fileName,
+    mimeType,
+    window.location.origin,
+  )
+  if (!session.success || !session.uploadUrl) {
+    throw new Error(session.error ?? 'No se pudo crear la sesión de subida a Drive')
   }
 
-  const form = new FormData()
-  form.append(
-    'metadata',
-    new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
-  )
-  form.append('file', blob, fileName)
-
-  const res = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink',
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: form,
-    },
-  )
+  const res = await fetch(session.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': mimeType },
+    body: blob,
+  })
 
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`Google Drive upload failed (${res.status}): ${text}`)
   }
 
-  const data = await res.json()
+  const data: { webViewLink?: string } = await res.json()
   return data.webViewLink ?? null
 }
 
@@ -109,19 +110,20 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
       const pdfName = `Propuesta_${safeClient}_${proposal.project.fecha}.pdf`
       const signedContractBaseName = `Contrato_Firmado_${safeClient}_${proposal.project.fecha}`
 
-      // 2. Server action: create folder structure + get access token (small payload, no PDF)
+      // 2. Server action: create folder structure (small payload, no PDF)
       const driveResult = await prepareDriveUpload(
         proposal.client.nombre,
         proposal.project.ubicacion_label ?? '',
       )
 
-      if (!driveResult.success || !driveResult.uploadFolderId || !driveResult.accessToken) {
+      if (!driveResult.success || !driveResult.uploadFolderId) {
         setError(driveResult.error ?? 'Error al preparar carpeta en Drive')
         return
       }
 
-      // 3. Upload PDF directly from browser to Google Drive (bypasses Vercel limit)
-      await uploadFileToDrive(blob, pdfName, driveResult.uploadFolderId, driveResult.accessToken)
+      // 3. Upload PDF directly from browser to Google Drive via a
+      // server-created resumable session (bypasses Vercel limit, no token in browser)
+      await uploadFileToDrive(blob, pdfName, driveResult.uploadFolderId)
 
       // 4. Register webhook mapping so DocuSeal can deliver the signed
       // contract to this folder later.
@@ -145,6 +147,7 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
           )
         } catch (signedErr) {
           console.warn('Signed contract upload failed (proposal PDF was uploaded):', signedErr)
+          toast.warning('El contrato firmado no se pudo subir a Drive. La propuesta sí se subió; intenta sincronizar de nuevo más tarde.')
         }
       }
 

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, type ChangeEvent } from 'react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp } from '@/lib/formatting'
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/table'
 import {
   FolderOpen, Plus, Search, ArrowUpDown, LayoutGrid, List,
-  ChevronLeft, ChevronRight, MapPin,
+  ChevronLeft, ChevronRight, MapPin, Download, Upload,
 } from 'lucide-react'
 import type { QuotationData } from '@/lib/types'
 
@@ -39,6 +40,29 @@ function groupByClient(proposals: QuotationData[]): ClientGroup[] {
   }))
 }
 
+function isImportableProposal(item: unknown): boolean {
+  if (typeof item !== 'object' || item === null) return false
+  const p = item as Record<string, unknown>
+  return (
+    typeof p.id === 'string' &&
+    typeof p.client === 'object' &&
+    p.client !== null &&
+    !Array.isArray(p.client)
+  )
+}
+
+function extractProposalList(parsed: unknown): QuotationData[] | null {
+  const list = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' &&
+        parsed !== null &&
+        Array.isArray((parsed as { proposals?: unknown }).proposals)
+      ? (parsed as { proposals: unknown[] }).proposals
+      : null
+  if (!list || !list.every(isImportableProposal)) return null
+  return list as QuotationData[]
+}
+
 const statusConfig = {
   draft: { label: 'Borrador', color: 'bg-gray-400', badgeClass: 'bg-muted/50 text-muted-foreground border-muted' },
   sent: { label: 'Enviada', color: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-600 border-blue-200' },
@@ -49,7 +73,9 @@ const statusConfig = {
 export default function PropuestasPage() {
   const hydrated = useHydrated()
   const storeProposals = useProposalsStore((s) => s.proposals)
+  const importProposals = useProposalsStore((s) => s.importProposals)
   const proposals = useMemo(() => hydrated ? storeProposals : [], [hydrated, storeProposals])
+  const importInputRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<SortKey>('date')
@@ -120,6 +146,51 @@ export default function PropuestasPage() {
     return counts
   }, [proposals])
 
+  const handleExport = () => {
+    if (proposals.length === 0) {
+      toast.info('No hay propuestas para exportar')
+      return
+    }
+    const payload = {
+      version: 1,
+      exported_at: new Date().toISOString(),
+      proposals,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `mirac-propuestas-${new Date().toISOString().slice(0, 10)}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    toast.success(
+      proposals.length === 1
+        ? '1 propuesta exportada'
+        : `${proposals.length} propuestas exportadas`
+    )
+  }
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+    try {
+      const parsed: unknown = JSON.parse(await file.text())
+      const list = extractProposalList(parsed)
+      if (!list) {
+        toast.error('Archivo inválido')
+        return
+      }
+      const { added, updated } = importProposals(list)
+      toast.success(`Importadas: ${added} nuevas, ${updated} actualizadas`)
+    } catch {
+      toast.error('Archivo inválido')
+    } finally {
+      // Reset so re-importing the same file fires onChange again
+      input.value = ''
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -174,6 +245,24 @@ export default function PropuestasPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Export / Import */}
+        <Button variant="outline" className="h-9" onClick={handleExport}>
+          <Download className="mr-2 size-4" />
+          Exportar
+        </Button>
+        <Button variant="outline" className="h-9" onClick={() => importInputRef.current?.click()}>
+          <Upload className="mr-2 size-4" />
+          Importar
+        </Button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          aria-label="Importar propuestas desde archivo JSON"
+          onChange={handleImportFile}
+        />
 
         {/* View toggle */}
         <div className="flex rounded-lg border overflow-hidden">

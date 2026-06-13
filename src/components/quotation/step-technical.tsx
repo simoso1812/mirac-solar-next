@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { technicalSchema, type TechnicalFormValues } from '@/lib/schemas'
@@ -13,7 +14,9 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Settings, ArrowLeft, ArrowRight, Zap, Sun, Hash } from 'lucide-react'
+import { Settings, ArrowLeft, ArrowRight, Zap, Sun, Hash, Map as MapIcon } from 'lucide-react'
+import { RoofDesigner } from './roof-designer'
+import type { RoofDesign } from '@/lib/types'
 
 export function StepTechnical() {
   const { technicalData, projectData, setTechnicalData, setStep } = useQuotationStore()
@@ -35,6 +38,12 @@ export function StepTechnical() {
   const factorSeg = watched.factor_seguridad ?? 1.1
   const overridePaneles = watched.override_paneles
 
+  const [designerOpen, setDesignerOpen] = useState(false)
+  const anchoM = watched.ancho_m ?? 1.13
+  const altoM = watched.alto_m ?? 2.38
+  const disenoTecho = watched.diseno_techo as RoofDesign | null | undefined
+  const cubierta = (watched.tipo_cubierta ?? 'metalica') as 'metalica' | 'teja' | 'losa'
+
   // Live calculation preview
   const hsp = HSP_POR_CIUDAD[projectData.ciudad] ?? 4.5
   const eficiencia = DEFAULT_PARAMS.eficiencia_sistema_estimacion
@@ -44,12 +53,28 @@ export function StepTechnical() {
   const kwp = paneles * (potenciaPanel / 1000)
   const generacionEstimada = kwp * hsp * 30 * eficiencia
 
+  // A saved roof design's panel centers were packed for a specific panel size.
+  // If the user changes the panel dimensions, that geometry (centers + count)
+  // is no longer valid, so we clear the design and force a re-run of the
+  // designer. We skip the very first render so loading a saved design (which
+  // sets ancho_m/alto_m at mount time) doesn't wipe it.
+  const prevDimsRef = useRef<{ ancho: number; alto: number } | null>(null)
+  useEffect(() => {
+    const prev = prevDimsRef.current
+    prevDimsRef.current = { ancho: anchoM, alto: altoM }
+    if (prev === null) return
+    if (prev.ancho !== anchoM || prev.alto !== altoM) {
+      setValue('diseno_techo', null)
+    }
+  }, [anchoM, altoM, setValue])
+
   const onSubmit = (data: TechnicalFormValues) => {
     setTechnicalData(data)
     setStep(3)
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -113,6 +138,22 @@ export function StepTechnical() {
               />
             </div>
 
+            {/* Panel width */}
+            <div className="space-y-2">
+              <Label htmlFor="ancho_m">Ancho del panel (m)</Label>
+              <Input id="ancho_m" type="number" step={0.01} min={0.3} max={3}
+                {...register('ancho_m', { valueAsNumber: true })} />
+              {errors.ancho_m && <p className="text-sm text-destructive">{errors.ancho_m.message}</p>}
+            </div>
+
+            {/* Panel height */}
+            <div className="space-y-2">
+              <Label htmlFor="alto_m">Alto del panel (m)</Label>
+              <Input id="alto_m" type="number" step={0.01} min={0.3} max={3}
+                {...register('alto_m', { valueAsNumber: true })} />
+              {errors.alto_m && <p className="text-sm text-destructive">{errors.alto_m.message}</p>}
+            </div>
+
             {/* Safety factor */}
             <div className="space-y-2">
               <Label>Factor de Seguridad: {factorSeg?.toFixed(2) ?? '1.10'}</Label>
@@ -171,7 +212,15 @@ export function StepTechnical() {
                 id="override-toggle"
                 checked={overridePaneles != null}
                 onCheckedChange={(checked) => {
-                  setValue('override_paneles', checked ? (panelesCalc || 10) : null)
+                  if (checked) {
+                    setValue('override_paneles', panelesCalc || 10)
+                  } else {
+                    // Clear the roof design too: the calculator only reads
+                    // override_paneles, so a lingering diseno_techo would be
+                    // silently ignored while still showing in the web/PDF.
+                    setValue('override_paneles', null)
+                    setValue('diseno_techo', null)
+                  }
                 }}
               />
             </div>
@@ -184,8 +233,11 @@ export function StepTechnical() {
                   step={1}
                   value={overridePaneles}
                   onChange={(e) => {
-                    const v = parseInt(e.target.value, 10)
-                    if (!isNaN(v)) setValue('override_paneles', v)
+                    const parsed = parseInt(e.target.value, 10)
+                    if (Number.isNaN(parsed)) return
+                    // Clamp to the schema bounds so the live preview never
+                    // reflects an out-of-range count before form submit.
+                    setValue('override_paneles', Math.max(2, Math.min(5000, parsed)))
                   }}
                 />
                 {panelesCalc > 0 && (
@@ -194,6 +246,36 @@ export function StepTechnical() {
                   </p>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Roof designer */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">Diseño del techo (opcional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Dibuja el techo en el mapa para ubicar los paneles reales. El total reemplaza la cantidad.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDesignerOpen(true)}
+                disabled={projectData.lat == null || projectData.lon == null}
+              >
+                <MapIcon className="mr-2 size-4" />
+                Diseñar en el mapa
+              </Button>
+            </div>
+            {projectData.lat == null && (
+              <p className="text-xs text-destructive">Primero fija la ubicación en el paso Proyecto.</p>
+            )}
+            {disenoTecho && disenoTecho.areas.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Diseño guardado: {disenoTecho.total_panels} paneles · {Math.round(disenoTecho.total_area_m2)} m²
+                en {disenoTecho.areas.length} techo(s).
+              </p>
             )}
           </div>
 
@@ -251,5 +333,24 @@ export function StepTechnical() {
         </form>
       </CardContent>
     </Card>
+    {designerOpen && projectData.lat != null && projectData.lon != null && (
+      <RoofDesigner
+        lat={projectData.lat}
+        lng={projectData.lon}
+        potenciaPanelW={potenciaPanel}
+        tipoCubierta={cubierta}
+        anchoM={anchoM}
+        altoM={altoM}
+        panelesSugeridos={panelesCalc}
+        initialDesign={disenoTecho ?? null}
+        onClose={() => setDesignerOpen(false)}
+        onApply={(design) => {
+          setValue('diseno_techo', design)
+          setValue('override_paneles', design.total_panels)
+          setDesignerOpen(false)
+        }}
+      />
+    )}
+    </>
   )
 }

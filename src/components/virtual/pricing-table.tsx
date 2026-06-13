@@ -1,7 +1,7 @@
 'use client'
 
 import { formatCOPShort } from '@/lib/formatting'
-import { PROMEDIOS_COSTO } from '@/lib/constants'
+import { ivaBreakdown } from '@/lib/calculator/derived'
 import type { CalculationResults } from '@/lib/types'
 
 interface PricingTableProps {
@@ -9,12 +9,7 @@ interface PricingTableProps {
 }
 
 export function PricingTable({ results: r }: PricingTableProps) {
-  const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
-  const valorIVA = r.costo_total_cop - costoSinIVA
-  const omAnual = r.costo_total_cop * 0.02
-  const costoBateria = r.bateria?.habilitada ? r.bateria.costo_cop : 0
-  const costoFvSinIVA = costoSinIVA - costoBateria / (1 + PROMEDIOS_COSTO.iva_rate)
-  const bateriaSinIVA = costoBateria / (1 + PROMEDIOS_COSTO.iva_rate)
+  const { valorIVA, omAnual, costoBateria, bateriaSinIVA, costoFvSinIVA } = ivaBreakdown(r)
 
   return (
     <section>

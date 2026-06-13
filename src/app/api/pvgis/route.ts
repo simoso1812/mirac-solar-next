@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const hsp = await fetchPVGIS(latNum, lonNum)
-    return NextResponse.json({ hsp, source: hsp ? 'pvgis' : 'estimated' })
+    if (hsp) {
+      return NextResponse.json({ hsp, source: 'pvgis' })
+    }
+    // PVGIS unavailable: fall back to climate-based estimation
+    return NextResponse.json({ hsp: getHSPEstimado(latNum, lonNum), source: 'estimated' })
   } catch {
     // Fallback to climate-based estimation
     const hsp = getHSPEstimado(latNum, lonNum)
@@ -67,17 +71,21 @@ async function fetchPVGIS(lat: number, lon: number): Promise<number[] | null> {
     const second = await attemptPVGIS(urlStr, lat, lon)
     if (second) return second
   } catch {
-    // fall through to the city-based estimate
+    // fall through
   }
 
-  return getHSPEstimado(lat, lon)
+  // Both attempts failed: let the handler fall back and label the source
+  // as 'estimated' instead of claiming PVGIS data.
+  return null
 }
 
 function processPVGISData(data: Record<string, unknown>, lat: number, lon: number): number[] | null {
   const outputs = (data.outputs ?? {}) as Record<string, unknown>
   const monthlyData = (outputs.monthly ?? []) as Record<string, unknown>[]
 
-  if (!monthlyData.length) return getHSPEstimado(lat, lon)
+  // No monthly data at all means this is not usable PVGIS data; per-month
+  // backfill below still applies when only some months are missing.
+  if (!monthlyData.length) return null
 
   const hspMensual: number[] = []
 

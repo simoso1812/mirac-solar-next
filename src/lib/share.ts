@@ -3,7 +3,7 @@
  * Supports single proposals and multi-version comparisons.
  * Only stores input data — results are recalculated on load.
  */
-import type { QuotationData } from '@/lib/types'
+import type { QuotationData, RoofDesign } from '@/lib/types'
 import {
   deepMerge,
   initialAdvancedData,
@@ -16,7 +16,7 @@ import {
 export interface SharePayload {
   c: { n: string; d: string; e: string; t: string; a: string }
   p: { ci: string; f: string; la: number | null; lo: number | null; h: number[] | null }
-  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null; mp?: string; mo?: string }
+  t: { co: number; pw: number; fs: number; tc: string; cl: string; op: number | null; mp?: string; mo?: string; an?: number; al?: number; dt?: RoofDesign | null }
   a: Record<string, unknown>
   d?: Record<string, unknown>
 }
@@ -42,7 +42,7 @@ export function toPayload(proposal: QuotationData): SharePayload {
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
     p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: p.hsp_mensual_pvgis },
-    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel },
+    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel, an: t.ancho_m, al: t.alto_m, dt: t.diseno_techo },
     a: a as unknown as Record<string, unknown>,
     d: proposal.docuseal as unknown as Record<string, unknown> | undefined,
   }
@@ -75,6 +75,9 @@ export function fromPayload(payload: SharePayload): QuotationData {
     override_paneles: payload.t.op,
     marca_panel: payload.t.mp ?? '',
     modelo_panel: payload.t.mo ?? '',
+    ancho_m: payload.t.an ?? 1.13,
+    alto_m: payload.t.al ?? 2.38,
+    diseno_techo: (payload.t.dt as RoofDesign | null) ?? null,
   })
   const advanced = deepMerge(initialAdvancedData, payload.a)
 

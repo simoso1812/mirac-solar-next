@@ -150,14 +150,73 @@ async function buscarSubcarpeta(
 }
 
 // ---------------------------------------------------------------------------
-// Prepare folder + get access token (for client-side PDF upload)
+// Resumable upload session (for client-side PDF upload without exposing tokens)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a Google Drive resumable upload session server-side and return the
+ * session URI. The browser can PUT the file bytes directly to that URI
+ * without any Authorization header, so the OAuth access token never leaves
+ * the server.
+ *
+ * `browserOrigin` must be the page origin that will perform the PUT: Google
+ * binds the session's CORS allowance to the Origin of THIS initiate request,
+ * so without it the browser's (preflighted) PUT would be blocked.
+ */
+export async function createResumableUploadSession(
+  folderId: string,
+  fileName: string,
+  mimeType: string,
+  browserOrigin?: string,
+): Promise<string | null> {
+  try {
+    const drive = getDriveService()
+
+    // Obtain a fresh access token server-side only.
+    const oauth2 = drive.context._options.auth as import('google-auth-library').OAuth2Client
+    const { token } = await oauth2.getAccessToken()
+    if (!token) throw new Error('Failed to obtain access token')
+
+    // Only forward a sane-looking origin; header values reject CR/LF anyway.
+    const origin = browserOrigin && /^https?:\/\/[^\s]+$/.test(browserOrigin)
+      ? browserOrigin
+      : undefined
+
+    const res = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,webViewLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Type': mimeType,
+          ...(origin ? { Origin: origin } : {}),
+        },
+        body: JSON.stringify({ name: fileName, parents: [folderId] }),
+      },
+    )
+
+    if (!res.ok) {
+      const text = await res.text()
+      console.error(`Error creating resumable upload session (${res.status}):`, text)
+      return null
+    }
+
+    return res.headers.get('location')
+  } catch (e) {
+    console.error('Error creating resumable upload session:', e)
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prepare folder structure (for client-side PDF upload)
 // ---------------------------------------------------------------------------
 
 export interface DrivePrepareResult {
   success: boolean
   folderLink: string | null
   uploadFolderId: string | null
-  accessToken: string | null
   projectName: string
   error?: string
 }
@@ -169,11 +228,6 @@ export async function prepararCarpetaDrive(
 ): Promise<DrivePrepareResult> {
   try {
     const drive = getDriveService()
-
-    // Get fresh access token for client-side upload
-    const oauth2 = drive.context._options.auth as import('google-auth-library').OAuth2Client
-    const { token } = await oauth2.getAccessToken()
-    if (!token) throw new Error('Failed to obtain access token')
 
     // 1. Get next consecutive number
     const consecutivo = await obtenerSiguienteConsecutivo(drive, parentFolderId)
@@ -204,7 +258,6 @@ export async function prepararCarpetaDrive(
       success: true,
       folderLink: folder.data.webViewLink ?? null,
       uploadFolderId: propuestaFolderId,
-      accessToken: token,
       projectName,
     }
   } catch (e) {
@@ -214,113 +267,9 @@ export async function prepararCarpetaDrive(
       success: false,
       folderLink: null,
       uploadFolderId: null,
-      accessToken: null,
       projectName: '',
       error: msg,
     }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main function — create project folder + structure + upload PDF
-// ---------------------------------------------------------------------------
-
-export interface DriveCreateResult {
-  success: boolean
-  folderLink: string | null
-  pdfLink: string | null
-  projectName: string
-  error?: string
-}
-
-export async function gestionarCreacionDrive(
-  parentFolderId: string,
-  clientName: string,
-  locationLabel: string,
-  pdfBytes: Buffer,
-  pdfName: string
-): Promise<DriveCreateResult> {
-  try {
-    const drive = getDriveService()
-
-    // 1. Get next consecutive number
-    const consecutivo = await obtenerSiguienteConsecutivo(drive, parentFolderId)
-    const yearShort = new Date().getFullYear().toString().slice(-2)
-    const projectName = `FV${yearShort}${consecutivo.toString().padStart(3, '0')} - ${clientName}${locationLabel ? ` - ${locationLabel}` : ''}`
-
-    // 2. Create main project folder
-    const folder = await drive.files.create({
-      requestBody: {
-        name: projectName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentFolderId],
-      },
-      fields: 'id, webViewLink',
-      supportsAllDrives: true,
-    })
-
-    const folderId = folder.data.id
-    if (!folderId) throw new Error('Failed to create project folder')
-
-    // 3. Create subfolder structure
-    await crearSubcarpetas(drive, folderId, ESTRUCTURA_CARPETAS)
-
-    // 4. Upload PDF to 01_Propuesta_y_Contratacion
-    let pdfLink: string | null = null
-    const propuestaFolderId = await buscarSubcarpeta(drive, folderId, '01_Propuesta_y_Contratacion')
-    if (propuestaFolderId) {
-      pdfLink = await subirArchivo(drive, propuestaFolderId, pdfName, pdfBytes, 'application/pdf')
-    }
-
-    return {
-      success: true,
-      folderLink: folder.data.webViewLink ?? null,
-      pdfLink,
-      projectName,
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    console.error('Drive integration error:', msg)
-    return {
-      success: false,
-      folderLink: null,
-      pdfLink: null,
-      projectName: '',
-      error: msg,
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Upload CSV to 08_Administrativo_y_Financiero
-// ---------------------------------------------------------------------------
-
-export async function subirCSVaDrive(
-  parentFolderId: string,
-  projectFolderName: string,
-  csvName: string,
-  csvContent: string
-): Promise<string | null> {
-  try {
-    const drive = getDriveService()
-
-    // Find the project folder
-    const res = await drive.files.list({
-      q: `'${parentFolderId}' in parents and name='${projectFolderName}'`,
-      fields: 'files(id)',
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    })
-    const projectId = res.data.files?.[0]?.id
-    if (!projectId) return null
-
-    // Find admin subfolder
-    const adminId = await buscarSubcarpeta(drive, projectId, '08_Administrativo_y_Financiero')
-    if (!adminId) return null
-
-    return await subirArchivo(drive, adminId, csvName, Buffer.from(csvContent, 'utf-8'), 'text/csv')
-  } catch (e) {
-    console.error('Error uploading CSV:', e)
-    return null
-  }
-}

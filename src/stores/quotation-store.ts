@@ -1,7 +1,8 @@
 'use client'
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
+import { toast } from 'sonner'
 import type { ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData } from '@/lib/types'
 export {
   initialClientData,
@@ -17,6 +18,32 @@ import {
   initialAdvancedData,
   deepMerge,
 } from '@/lib/defaults'
+
+// localStorage facade that surfaces quota failures instead of swallowing them.
+// A large roof design + inline images can exceed the browser quota; without
+// this, the persist middleware fails silently and the user loses work.
+const safeLocalStorage: StateStorage = {
+  getItem: (name) => {
+    if (typeof window === 'undefined') return null
+    return window.localStorage.getItem(name)
+  },
+  setItem: (name, value) => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(name, value)
+    } catch (error) {
+      // QuotaExceededError (a DOMException) or any other storage failure
+      console.error('No se pudo guardar la cotización en localStorage:', error)
+      toast.error(
+        'No se pudo guardar: el almacenamiento del navegador está lleno. Reduce las imágenes o el diseño del techo.'
+      )
+    }
+  },
+  removeItem: (name) => {
+    if (typeof window === 'undefined') return
+    window.localStorage.removeItem(name)
+  },
+}
 
 interface QuotationState {
   currentStep: number
@@ -97,6 +124,11 @@ export const useQuotationStore = create<QuotationState>()(
     }),
     {
       name: 'mirac-quotation',
+      version: 1,
+      storage: createJSONStorage(() => safeLocalStorage),
+      // Identity migrate: without it, zustand discards persisted state saved
+      // before `version` existed (treated as version 0).
+      migrate: (persisted) => persisted as QuotationState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<QuotationState>
         return {

@@ -1,8 +1,10 @@
 /**
- * Cash flow generation — ported from generar_csv_flujo_caja_detallado()
+ * Cash flow table formatting — thin layer over the shared year simulation
+ * (engine.ts). This file no longer contains its own savings loop; it only
+ * adds year 0, cumulative totals and partial TIR/VPN columns.
  */
-import { DEFAULT_PARAMS } from '@/lib/constants'
 import { irr as calcIrr, npv as calcNpv } from './financial'
+import type { YearSim } from './engine'
 
 export interface CashFlowRow {
   year: number
@@ -24,42 +26,19 @@ export interface CashFlowRow {
   degradacion_aplicada_pct: number
 }
 
-export interface CashFlowParams {
-  load: number // monthly consumption kWh
-  sizeKwp: number
-  costkWh: number
-  indexRate: number // annual indexation rate (e.g. 0.06)
-  discountRate: number
-  monthlyGeneration: number[] // 12 months base generation
-  cubierta: string
-  clima: string
-  horizonte: number
-  percFinanciamiento: number // 0-100
-  tasaInteresCredito: number
-  plazoCreditoAnios: number
+export interface CashFlowFormatParams {
   desembolsoInicial: number
-  cuotaMensualCredito: number
-  valorProyectoTotal: number
-  incluirBaterias: boolean
-  incluirBeneficiosTributarios: boolean
-  incluirDeduccionRenta: boolean
-  incluirDepreciacionAcelerada: boolean
-  precioExcedentes?: number
-  tasaDegradacion?: number
-  porcentajeMantenimiento?: number
+  discountRate: number
+  costkWh: number
+  indexRate: number
+  tasaDegradacion: number
 }
 
-export function generarFlujoCajaDetallado(params: CashFlowParams): CashFlowRow[] {
-  const {
-    load, costkWh, indexRate, discountRate, monthlyGeneration,
-    horizonte, plazoCreditoAnios, desembolsoInicial, cuotaMensualCredito,
-    valorProyectoTotal, incluirBaterias, incluirBeneficiosTributarios,
-    incluirDeduccionRenta, incluirDepreciacionAcelerada,
-  } = params
-
-  const precioExcedentes = params.precioExcedentes ?? DEFAULT_PARAMS.precio_excedentes
-  const tasaDegradacion = params.tasaDegradacion ?? DEFAULT_PARAMS.tasa_degradacion_anual
-  const porcentajeMantenimiento = params.porcentajeMantenimiento ?? DEFAULT_PARAMS.porcentaje_mantenimiento
+export function generarFlujoCajaDetallado(
+  years: YearSim[],
+  params: CashFlowFormatParams
+): CashFlowRow[] {
+  const { desembolsoInicial, discountRate, costkWh, indexRate, tasaDegradacion } = params
 
   const rows: CashFlowRow[] = []
   const flujosAcumulados: number[] = []
@@ -87,69 +66,9 @@ export function generarFlujoCajaDetallado(params: CashFlowParams): CashFlowRow[]
 
   flujosAcumulados.push(-desembolsoInicial)
 
-  // Years 1-N
-  for (let i = 0; i < horizonte; i++) {
-    const currentMonthly = monthlyGeneration.map(
-      (gen) => gen * Math.pow(1 - tasaDegradacion, i)
-    )
-    const generacionAnual = currentMonthly.reduce((a, b) => a + b, 0)
-    const consumoAnual = load * 12
-
-    let excedentesTotales = 0
-    let ahorroAnualTotal = 0
-    let ingresosExcedentes = 0
-    let coberturaConsumo = 0
-
-    if (incluirBaterias) {
-      // A battery enables near-full self-consumption of what the system
-      // generates (it shifts daytime surplus to night), but it can never
-      // create energy — savings are capped by actual annual generation.
-      const autoConsumo = Math.min(generacionAnual, consumoAnual)
-      ahorroAnualTotal = autoConsumo * costkWh
-      const excedentes = Math.max(0, generacionAnual - consumoAnual)
-      excedentesTotales = excedentes
-      ingresosExcedentes = excedentes * precioExcedentes
-      coberturaConsumo = consumoAnual > 0
-        ? Math.min(100, (generacionAnual / consumoAnual) * 100)
-        : 0
-    } else {
-      for (const genMes of currentMonthly) {
-        const consumoMes = load
-        if (genMes >= consumoMes) {
-          ahorroAnualTotal += consumoMes * costkWh
-          const excMes = genMes - consumoMes
-          excedentesTotales += excMes
-          ingresosExcedentes += excMes * precioExcedentes
-        } else {
-          ahorroAnualTotal += genMes * costkWh
-        }
-      }
-      coberturaConsumo = consumoAnual > 0
-        ? Math.min(100, (generacionAnual / consumoAnual) * 100)
-        : 0
-    }
-
-    const costoEnergiaIndexado = costkWh * Math.pow(1 + indexRate, i)
-    const ahorroIndexado = ahorroAnualTotal * Math.pow(1 + indexRate, i)
-    const ingresosExcedentesIndexados = ingresosExcedentes * Math.pow(1 + indexRate, i)
-    const mantenimiento = porcentajeMantenimiento * ahorroIndexado
-    const cuotasAnuales = i < plazoCreditoAnios ? cuotaMensualCredito * 12 : 0
-
-    // Tax benefits
-    let beneficioTributario = 0
-    if (incluirBeneficiosTributarios) {
-      if (incluirDeduccionRenta && i === 1) {
-        const capexIndexado = valorProyectoTotal * Math.pow(1 + indexRate, i)
-        beneficioTributario += capexIndexado * 0.175
-      }
-      if (incluirDepreciacionAcelerada && i < 3) {
-        beneficioTributario += valorProyectoTotal * 0.33
-      }
-    }
-
-    const flujoAnual = ahorroIndexado - mantenimiento - cuotasAnuales + beneficioTributario
-    const flujoAcumulado = flujosAcumulados.reduce((a, b) => a + b, 0) + flujoAnual
-    flujosAcumulados.push(flujoAnual)
+  for (const y of years) {
+    const flujoAcumulado = flujosAcumulados.reduce((a, b) => a + b, 0) + y.flujoNeto
+    flujosAcumulados.push(y.flujoNeto)
 
     let tirParcial = 0
     let vpnParcial = flujoAcumulado
@@ -165,19 +84,19 @@ export function generarFlujoCajaDetallado(params: CashFlowParams): CashFlowRow[]
     }
 
     rows.push({
-      year: i + 1,
+      year: y.year,
       inversion_inicial_cop: 0,
-      generacion_anual_kwh: generacionAnual,
-      consumo_anual_kwh: consumoAnual,
-      excedentes_vendidos_kwh: excedentesTotales,
-      cobertura_consumo_pct: coberturaConsumo,
-      costo_energia_indexado_cop_kwh: costoEnergiaIndexado,
-      ahorro_anual_cop: ahorroIndexado,
-      ingresos_excedentes_cop: ingresosExcedentesIndexados,
-      mantenimiento_cop: mantenimiento,
-      cuotas_credito_cop: cuotasAnuales,
-      beneficio_tributario_total_cop: beneficioTributario,
-      flujo_neto_anual_cop: flujoAnual,
+      generacion_anual_kwh: y.generacionAnualKwh,
+      consumo_anual_kwh: y.consumoAnualKwh,
+      excedentes_vendidos_kwh: y.excedentesKwh,
+      cobertura_consumo_pct: y.coberturaConsumoPct,
+      costo_energia_indexado_cop_kwh: costkWh * Math.pow(1 + indexRate, y.year - 1),
+      ahorro_anual_cop: y.ahorroIndexado,
+      ingresos_excedentes_cop: y.ingresosExcedentesIndexados,
+      mantenimiento_cop: y.mantenimiento,
+      cuotas_credito_cop: y.cuotasCredito,
+      beneficio_tributario_total_cop: y.beneficioTributario,
+      flujo_neto_anual_cop: y.flujoNeto,
       flujo_acumulado_cop: flujoAcumulado,
       vpn_parcial_cop: vpnParcial,
       tir_parcial_pct: tirParcial,
