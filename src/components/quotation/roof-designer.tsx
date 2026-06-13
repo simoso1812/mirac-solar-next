@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { nanoid } from 'nanoid'
-import { GoogleMap, useJsApiLoader, DrawingManager, Polygon } from '@react-google-maps/api'
+import { GoogleMap, useJsApiLoader, Polygon, Polyline } from '@react-google-maps/api'
 import { MAPS_LIBRARIES } from '@/components/maps-libraries'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Loader2, Trash2, Zap } from 'lucide-react'
+import { Loader2, Trash2, Zap, Undo2 } from 'lucide-react'
 import { packPanels, defaultRowGap, type Cubierta, type Orientacion } from '@/lib/roof/packing'
 import { polygonAreaM2 } from '@/lib/roof/geometry'
 import { toLatLng } from '@/lib/roof/geometry'
@@ -57,7 +57,11 @@ export function RoofDesigner({
   const [rowGap, setRowGap] = useState<number>(
     initialDesign?.areas[0]?.row_gap_m ?? defaultRowGap(tipoCubierta)
   )
+  // Drawing mode + the vertices the user has clicked for the in-progress roof.
+  // google.maps.drawing.DrawingManager was removed from the Maps JS API at
+  // v3.65, so we collect polygon vertices from map clicks ourselves.
   const [drawing, setDrawing] = useState(true)
+  const [drawingVertices, setDrawingVertices] = useState<{ lat: number; lng: number }[]>([])
   const [saving, setSaving] = useState(false)
   const mapRef = useRef<google.maps.Map | null>(null)
   // Guards the async snapshot path: the user can close the dialog (unmounting
@@ -75,10 +79,29 @@ export function RoofDesigner({
   const totalAreaM2 = useMemo(() => areas.reduce((s, a) => s + a.area_m2, 0), [areas])
   const kwp = (totalPanels * potenciaPanelW) / 1000
 
-  const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
-    const path = poly.getPath()
-    const vertices = path.getArray().map((p) => ({ lat: p.lat(), lng: p.lng() }))
-    poly.setMap(null) // we render our own <Polygon>
+  const startDrawing = useCallback(() => {
+    setDrawingVertices([])
+    setDrawing(true)
+  }, [])
+
+  const addVertex = useCallback((e: google.maps.MapMouseEvent) => {
+    if (!e.latLng) return
+    const point = { lat: e.latLng.lat(), lng: e.latLng.lng() }
+    setDrawingVertices((prev) => [...prev, point])
+  }, [])
+
+  const undoVertex = useCallback(() => {
+    setDrawingVertices((prev) => prev.slice(0, -1))
+  }, [])
+
+  const cancelDrawing = useCallback(() => {
+    setDrawingVertices([])
+    setDrawing(false)
+  }, [])
+
+  const finishDrawing = useCallback(() => {
+    if (drawingVertices.length < 3) return
+    const vertices = drawingVertices
     setAreas((prev) => [
       ...prev,
       {
@@ -90,8 +113,9 @@ export function RoofDesigner({
         row_gap_m: rowGap,
       },
     ])
+    setDrawingVertices([])
     setDrawing(false)
-  }, [rowGap])
+  }, [drawingVertices, rowGap])
 
   const autoFill = useCallback(() => {
     setAreas((prev) => prev.map((a) => ({
@@ -132,9 +156,23 @@ export function RoofDesigner({
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b p-3">
-        <Button type="button" size="sm" variant={drawing ? 'default' : 'outline'} onClick={() => setDrawing(true)}>
-          Dibujar techo
-        </Button>
+        {!drawing ? (
+          <Button type="button" size="sm" variant="default" onClick={startDrawing}>
+            Dibujar techo
+          </Button>
+        ) : (
+          <>
+            <Button type="button" size="sm" variant="default" onClick={finishDrawing} disabled={drawingVertices.length < 3}>
+              Terminar techo ({drawingVertices.length})
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={undoVertex} disabled={drawingVertices.length === 0}>
+              <Undo2 className="mr-1 size-4" /> Deshacer punto
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={cancelDrawing}>
+              Cancelar dibujo
+            </Button>
+          </>
+        )}
         <Button type="button" size="sm" variant="outline" onClick={autoFill} disabled={areas.length === 0}>
           <Zap className="mr-1 size-4" /> Auto-llenar paneles
         </Button>
@@ -166,6 +204,12 @@ export function RoofDesigner({
         </div>
       </div>
 
+      {drawing && (
+        <div className="border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
+          Haz clic en el mapa para marcar las esquinas del techo. Con 3 o más puntos, pulsa &quot;Terminar techo&quot;.
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
         <div className="flex-1">
@@ -179,23 +223,28 @@ export function RoofDesigner({
               center={{ lat, lng }}
               zoom={20}
               onLoad={(m) => { mapRef.current = m }}
-              options={{ mapTypeId: 'satellite', tilt: 0, disableDefaultUI: false, zoomControl: true }}
+              onClick={drawing ? addVertex : undefined}
+              options={{ mapTypeId: 'satellite', tilt: 0, disableDefaultUI: false, zoomControl: true, draggableCursor: drawing ? 'crosshair' : undefined }}
             >
-              {drawing && (
-                <DrawingManager
-                  onPolygonComplete={onPolygonComplete}
-                  options={{
-                    drawingControl: false,
-                    drawingMode: google.maps.drawing.OverlayType.POLYGON,
-                    polygonOptions: { fillColor: '#facc15', fillOpacity: 0.1, strokeColor: '#facc15', strokeWeight: 2 },
-                  }}
+              {/* In-progress roof being drawn */}
+              {drawing && drawingVertices.length >= 3 && (
+                <Polygon
+                  paths={drawingVertices}
+                  options={{ fillColor: '#facc15', fillOpacity: 0.1, strokeColor: '#facc15', strokeWeight: 2, clickable: false }}
                 />
               )}
+              {drawing && drawingVertices.length === 2 && (
+                <Polyline
+                  path={drawingVertices}
+                  options={{ strokeColor: '#facc15', strokeWeight: 2 }}
+                />
+              )}
+              {/* Committed roofs + their panels */}
               {areas.map((area) => (
                 <div key={area.id}>
                   <Polygon
                     paths={area.vertices}
-                    options={{ fillColor: '#facc15', fillOpacity: 0.08, strokeColor: '#facc15', strokeWeight: 2 }}
+                    options={{ fillColor: '#facc15', fillOpacity: 0.08, strokeColor: '#facc15', strokeWeight: 2, clickable: false }}
                   />
                   {area.panels.map((p, i) => (
                     <Polygon
