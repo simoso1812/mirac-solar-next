@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { technicalSchema, type TechnicalFormValues } from '@/lib/schemas'
@@ -52,6 +52,21 @@ export function StepTechnical() {
   const paneles = overridePaneles ?? panelesCalc
   const kwp = paneles * (potenciaPanel / 1000)
   const generacionEstimada = kwp * hsp * 30 * eficiencia
+
+  // A saved roof design's panel centers were packed for a specific panel size.
+  // If the user changes the panel dimensions, that geometry (centers + count)
+  // is no longer valid, so we clear the design and force a re-run of the
+  // designer. We skip the very first render so loading a saved design (which
+  // sets ancho_m/alto_m at mount time) doesn't wipe it.
+  const prevDimsRef = useRef<{ ancho: number; alto: number } | null>(null)
+  useEffect(() => {
+    const prev = prevDimsRef.current
+    prevDimsRef.current = { ancho: anchoM, alto: altoM }
+    if (prev === null) return
+    if (prev.ancho !== anchoM || prev.alto !== altoM) {
+      setValue('diseno_techo', null)
+    }
+  }, [anchoM, altoM, setValue])
 
   const onSubmit = (data: TechnicalFormValues) => {
     setTechnicalData(data)
@@ -197,7 +212,15 @@ export function StepTechnical() {
                 id="override-toggle"
                 checked={overridePaneles != null}
                 onCheckedChange={(checked) => {
-                  setValue('override_paneles', checked ? (panelesCalc || 10) : null)
+                  if (checked) {
+                    setValue('override_paneles', panelesCalc || 10)
+                  } else {
+                    // Clear the roof design too: the calculator only reads
+                    // override_paneles, so a lingering diseno_techo would be
+                    // silently ignored while still showing in the web/PDF.
+                    setValue('override_paneles', null)
+                    setValue('diseno_techo', null)
+                  }
                 }}
               />
             </div>
@@ -210,8 +233,11 @@ export function StepTechnical() {
                   step={1}
                   value={overridePaneles}
                   onChange={(e) => {
-                    const v = parseInt(e.target.value, 10)
-                    if (!isNaN(v)) setValue('override_paneles', v)
+                    const parsed = parseInt(e.target.value, 10)
+                    if (Number.isNaN(parsed)) return
+                    // Clamp to the schema bounds so the live preview never
+                    // reflects an out-of-range count before form submit.
+                    setValue('override_paneles', Math.max(2, Math.min(5000, parsed)))
                   }}
                 />
                 {panelesCalc > 0 && (
