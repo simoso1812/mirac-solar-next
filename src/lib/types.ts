@@ -30,6 +30,9 @@ export interface TechnicalData {
   override_paneles: number | null
   marca_panel: string
   modelo_panel: string
+  ancho_m: number // panel width in meters
+  alto_m: number // panel height in meters
+  diseno_techo: RoofDesign | null // saved roof design; null when never drawn
 }
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'
@@ -48,6 +51,29 @@ export interface ProposalImage {
   id: string
   data: string // compressed JPEG as base64 data URL
   caption: string
+}
+
+export interface RoofPanelPos {
+  lat: number
+  lng: number
+}
+
+export interface RoofArea {
+  id: string
+  vertices: { lat: number; lng: number }[] // polygon corners (lat/lng)
+  area_m2: number
+  panels: RoofPanelPos[] // placed panel centers (lat/lng)
+  rotation_deg: number // row orientation for this face
+  row_gap_m: number // inter-row gap (defaulted from tipo_cubierta, editable)
+}
+
+export interface RoofDesign {
+  areas: RoofArea[]
+  total_panels: number
+  total_area_m2: number
+  orientacion: 'vertical' | 'horizontal' // panel portrait/landscape
+  snapshot_data_url: string | null // rendered JPEG for web + PDF
+  updated_at: string // ISO string
 }
 
 export interface AdvancedData {
