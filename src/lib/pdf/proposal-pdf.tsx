@@ -407,6 +407,69 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         )
       })()}
 
+      {/* DISEÑO DEL TECHO (conditional) */}
+      {technical.diseno_techo?.snapshot_data_url && technical.diseno_techo.areas.length > 0 && (() => {
+        const d = technical.diseno_techo!
+        const kwp = (d.total_panels * technical.potencia_panel_w) / 1000
+        return (
+          <Page size="A4" style={styles.page}>
+            <View style={{
+              position: 'absolute', top: 0, left: 0,
+              width: mm(210), height: mm(297),
+              backgroundColor: '#FFFFFF',
+            }} />
+            {/* Title */}
+            <Pos x={20} y={25} fontSize={28} fontFamily="DMSans" fontWeight="bold" color={BRAND_RED}>
+              Diseño del Techo
+            </Pos>
+            <View style={{
+              position: 'absolute', left: mm(20), top: mm(38),
+              width: mm(170), height: 1, backgroundColor: BRAND_YELLOW,
+            }} />
+            {/* Snapshot */}
+            <Image
+              src={d.snapshot_data_url!}
+              style={{
+                position: 'absolute',
+                left: mm(20),
+                top: mm(48),
+                width: mm(170),
+                height: mm(115),
+                objectFit: 'contain',
+                borderRadius: 4,
+              }}
+            />
+            {/* Stats */}
+            <View style={{
+              position: 'absolute', left: mm(20), top: mm(170),
+              width: mm(170),
+            }}>
+              {[
+                ['Área total', `${Math.round(d.total_area_m2)} m²`],
+                ['Paneles ubicados', `${d.total_panels}`],
+                ['Potencia instalada', `${kwp.toFixed(1)} kWp`],
+                ['Techos', `${d.areas.length}`],
+              ].map(([label, value], i) => (
+                <View
+                  key={label}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    borderBottomWidth: i < 3 ? 0.5 : 0,
+                    borderBottomColor: '#E5E5E5',
+                    borderBottomStyle: 'solid',
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontFamily: 'Roboto', color: '#444444' }}>{label}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Roboto', fontWeight: 'bold', color: TEXT_BLACK }}>{value}</Text>
+                </View>
+              ))}
+            </View>
+          </Page>
+        )
+      })()}
+
       {/* PPA — Opción Cero Inversión (conditional) */}
       {advanced.ppa?.habilitada && advanced.ppa.opciones?.length > 0 && (() => {
         const precioRed = advanced.costo_kwh
