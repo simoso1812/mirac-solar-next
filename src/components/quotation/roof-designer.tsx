@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { nanoid } from 'nanoid'
 import { GoogleMap, useJsApiLoader, DrawingManager, Polygon } from '@react-google-maps/api'
 import { MAPS_LIBRARIES } from '@/components/maps-libraries'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Trash2, Zap } from 'lucide-react'
 import { packPanels, defaultRowGap, type Cubierta, type Orientacion } from '@/lib/roof/packing'
 import { polygonAreaM2 } from '@/lib/roof/geometry'
-import { toLocalMeters, toLatLng } from '@/lib/roof/geometry'
+import { toLatLng } from '@/lib/roof/geometry'
 import { renderRoofSnapshot } from '@/lib/roof/snapshot'
 import type { RoofArea, RoofDesign } from '@/lib/types'
 
@@ -25,15 +26,12 @@ interface RoofDesignerProps {
   onClose: () => void
 }
 
-let _id = 0
-const nextId = () => `area-${Date.now()}-${_id++}`
+const nextId = () => `area-${nanoid()}`
 
 // Build the 4 lat/lng corners of a panel rectangle for rendering.
 function panelCorners(center: { lat: number; lng: number }, w: number, h: number, rotationDeg: number) {
   const r = (rotationDeg * Math.PI) / 180
   const cos = Math.cos(r), sin = Math.sin(r)
-  const local = toLocalMeters(center, center) // {0,0}
-  void local
   const offs = [
     { x: -w / 2, y: -h / 2 }, { x: w / 2, y: -h / 2 },
     { x: w / 2, y: h / 2 }, { x: -w / 2, y: h / 2 },
@@ -62,6 +60,16 @@ export function RoofDesigner({
   const [drawing, setDrawing] = useState(true)
   const [saving, setSaving] = useState(false)
   const mapRef = useRef<google.maps.Map | null>(null)
+  // Guards the async snapshot path: the user can close the dialog (unmounting
+  // this component) while renderRoofSnapshot is still fetching/rendering. We
+  // must not setState or call onApply after unmount.
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const totalPanels = useMemo(() => areas.reduce((s, a) => s + a.panels.length, 0), [areas])
   const totalAreaM2 = useMemo(() => areas.reduce((s, a) => s + a.area_m2, 0), [areas])
@@ -103,6 +111,8 @@ export function RoofDesigner({
   const handleApply = useCallback(async () => {
     setSaving(true)
     const snapshot = await renderRoofSnapshot(areas, orientacion, { anchoM, altoM })
+    // Bail out if the dialog was closed while the snapshot was rendering.
+    if (!isMountedRef.current) return
     const design: RoofDesign = {
       areas,
       total_panels: totalPanels,
