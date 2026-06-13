@@ -23,6 +23,7 @@ import {
 import {
   GoogleMap, useJsApiLoader, Marker,
 } from '@react-google-maps/api'
+import { MAPS_LIBRARIES } from '@/components/maps-libraries'
 import type { QuotationData } from '@/lib/types'
 
 export default function PropuestaDetailPage({
@@ -310,12 +311,10 @@ export default function PropuestaDetailPage({
   )
 }
 
-const gmapLibraries: ('places' | 'maps')[] = ['places', 'maps']
-
 function ProposalMap({ lat, lon }: { lat: number; lon: number }) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
-    libraries: gmapLibraries,
+    libraries: MAPS_LIBRARIES,
   })
 
   const onLoad = useCallback((map: google.maps.Map) => {
