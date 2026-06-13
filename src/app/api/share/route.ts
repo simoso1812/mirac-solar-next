@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { getClientIp, rateLimit } from '@/lib/rate-limit'
+import { roofDesignSchema } from '@/lib/schemas'
 
 const EXPIRY_SECONDS = 60 * 60 * 24 * 90 // 90 days
 // Legit payloads carry inline base64 images and can reach ~4MB; cap just above that.
@@ -45,6 +46,9 @@ const singlePayloadSchema = z.object({
     op: z.number().nullish(),
     mp: z.string().max(100).optional(),
     mo: z.string().max(100).optional(),
+    an: z.number().min(0.3).max(3).optional(),
+    al: z.number().min(0.3).max(3).optional(),
+    dt: roofDesignSchema.nullable().optional(),
   }),
   a: z.record(z.string(), z.unknown()),
   d: z.record(z.string(), z.unknown()).nullish(),
