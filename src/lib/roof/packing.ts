@@ -58,7 +58,12 @@ export function packPanels(args: PackArgs): LatLng[] {
   const halfH = h / 2 - eps
   for (let cy = minY + cellH / 2; cy + cellH / 2 <= maxY + 1e-9; cy += cellH) {
     for (let cx = minX + cellW / 2; cx + cellW / 2 <= maxX + 1e-9; cx += cellW) {
-      // require all four panel corners inside the polygon (panel fully on roof)
+      // Conservative (Tier-C) acceptance: require all four panel corners inside
+      // the polygon so the panel sits fully on the roof. The polygon boundary is
+      // treated as outside (pointInPolygon is strict), so a panel grazing an edge
+      // is rejected. This deliberately under-counts rather than over-promises
+      // panels — especially under rotation, where the axis-aligned grid no longer
+      // lines up with the roof edges and edge cells fall partly off the polygon.
       const corners: PointM[] = [
         { x: cx - halfW, y: cy - halfH },
         { x: cx + halfW, y: cy - halfH },

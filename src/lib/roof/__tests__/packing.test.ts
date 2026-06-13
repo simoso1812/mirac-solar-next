@@ -41,6 +41,16 @@ describe('packPanels', () => {
     expect(spaced.length).toBeLessThan(flush.length)
   })
 
+  it('rotated packing fits some panels but no more than the unrotated grid', () => {
+    const straight = packPanels({ vertices: roof, anchoM: 1, altoM: 2, rowGapM: 0, orientacion: 'vertical', rotationDeg: 0 })
+    const rotated = packPanels({ vertices: roof, anchoM: 1, altoM: 2, rowGapM: 0, orientacion: 'vertical', rotationDeg: 45 })
+    // Rotating the grid 45 deg leaves edge cells partly off the square roof, so
+    // the conservative corner check drops them: still useful (>0) but never more
+    // panels than the axis-aligned fit (no over-quoting).
+    expect(rotated.length).toBeGreaterThan(0)
+    expect(rotated.length).toBeLessThanOrEqual(straight.length)
+  })
+
   it('returns [] for a degenerate polygon', () => {
     expect(packPanels({ vertices: roof.slice(0, 2), anchoM: 1, altoM: 2, rowGapM: 0, orientacion: 'vertical', rotationDeg: 0 })).toEqual([])
   })
