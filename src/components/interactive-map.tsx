@@ -10,8 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2, Navigation } from 'lucide-react'
-
-const libraries: ('places' | 'maps')[] = ['places', 'maps']
+import { MAPS_LIBRARIES } from '@/components/maps-libraries'
 
 const mapContainerStyle = {
   width: '100%',
@@ -53,7 +52,7 @@ export function InteractiveMap({
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey ?? '',
-    libraries,
+    libraries: MAPS_LIBRARIES,
   })
 
   const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(
