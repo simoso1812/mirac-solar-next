@@ -4,7 +4,7 @@
 export interface LatLng { lat: number; lng: number }
 export interface PointM { x: number; y: number } // local meters: x=east, y=north
 
-const M_PER_DEG_LAT = 110_540
+const M_PER_DEG_LAT = 111_133
 const M_PER_DEG_LNG_AT_EQUATOR = 111_320
 
 /** Equirectangular projection to local meters around an origin. */

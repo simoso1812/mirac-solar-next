@@ -29,8 +29,8 @@ describe('polygonAreaM2', () => {
       toLatLng({ x: 20, y: 10 }, origin),
       toLatLng({ x: 0, y: 10 }, origin),
     ]
-    expect(polygonAreaM2(corners)).toBeGreaterThan(195)
-    expect(polygonAreaM2(corners)).toBeLessThan(205)
+    expect(polygonAreaM2(corners)).toBeGreaterThan(199)
+    expect(polygonAreaM2(corners)).toBeLessThan(201)
   })
 })
 

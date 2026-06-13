@@ -49,14 +49,21 @@ export function packPanels(args: PackArgs): LatLng[] {
   const minY = Math.min(...ys), maxY = Math.max(...ys)
 
   const centers: LatLng[] = []
+  // Test corners are inset by 1 micron toward the panel center so a panel sitting
+  // flush against the roof edge is counted as inside regardless of sub-nanometer
+  // floating-point noise in the polygon projection (otherwise the outermost row
+  // is dropped non-deterministically).
+  const eps = 1e-6
+  const halfW = w / 2 - eps
+  const halfH = h / 2 - eps
   for (let cy = minY + cellH / 2; cy + cellH / 2 <= maxY + 1e-9; cy += cellH) {
     for (let cx = minX + cellW / 2; cx + cellW / 2 <= maxX + 1e-9; cx += cellW) {
       // require all four panel corners inside the polygon (panel fully on roof)
       const corners: PointM[] = [
-        { x: cx - w / 2, y: cy - h / 2 },
-        { x: cx + w / 2, y: cy - h / 2 },
-        { x: cx + w / 2, y: cy + h / 2 },
-        { x: cx - w / 2, y: cy + h / 2 },
+        { x: cx - halfW, y: cy - halfH },
+        { x: cx + halfW, y: cy - halfH },
+        { x: cx + halfW, y: cy + halfH },
+        { x: cx - halfW, y: cy + halfH },
       ]
       if (corners.every((c) => pointInPolygon(c, polyM))) {
         // rotate the center back to true orientation, convert to lat/lng
