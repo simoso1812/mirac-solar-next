@@ -46,3 +46,4 @@ next-env.d.ts
 # local reference materials (Excel/PDF sources used by the reference-docs MCP server)
 /reference-docs/*
 !/reference-docs/README.md
+.superpowers/

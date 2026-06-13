@@ -52,11 +52,13 @@ src/
 │           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
 ├── components/
 │   ├── quotation/                     # wizard steps (client, project, technical, advanced, review)
+│   │   ├── roof-designer.tsx          # fullscreen map roof designer (draw roofs, auto-fill panels → override_paneles)
 │   │   └── advanced/                  # extracted step-advanced sections (inverter-override, images)
 │   ├── virtual/                       # virtual web quotation sections + dialogs
 │   │   ├── virtual-quotation.tsx      # orchestrator; recomputes results live via cotizacion()
 │   │   ├── executive-summary.tsx
 │   │   ├── system-design-section.tsx
+│   │   ├── roof-design-section.tsx    # roof designer snapshot + área/paneles/kWp (web; null when no design)
 │   │   ├── battery-section.tsx
 │   │   ├── pricing-table.tsx
 │   │   ├── bill-simulation-section.tsx
@@ -91,6 +93,11 @@ src/
 │   │   ├── performance.ts             # PR adjustments by clima/cubierta
 │   │   ├── carbon.ts                  # CO2 metrics + equivalents
 │   │   └── __tests__/                 # golden-master suite — snapshot diffs are NEVER routine
+│   ├── roof/                          # roof designer pure math + snapshot (map-free, unit-tested)
+│   │   ├── geometry.ts                # local-meters projection, polygonAreaM2, pointInPolygon, latLngToWorldPixel
+│   │   ├── packing.ts                 # defaultRowGap + packPanels (cubierta-aware grid, 1µm corner inset)
+│   │   ├── snapshot.ts                # offscreen-canvas Static Maps + panel overlay → JPEG data URL (browser-only)
+│   │   └── __tests__/                 # geometry + packing unit tests
 │   ├── pdf/
 │   │   ├── proposal-pdf.tsx           # @react-pdf/renderer document
 │   │   ├── get-map-url.ts             # Google Static Maps URL builder
@@ -208,6 +215,20 @@ Annual savings (`ahorro_anual_cop`) and the cash flow are **capped by what the s
 - Form: "Imágenes del Proyecto" section in `step-advanced.tsx` — multi-file upload, thumbnail grid with caption inputs, soft warning if total > 4MB.
 - Virtual: `image-gallery-section.tsx`. PDF: "Imágenes del Proyecto" page(s), 4 per page (2×2), paginated.
 - Inline storage means images travel with the proposal everywhere (localStorage, `/s/` share links, PDF). Tradeoff: localStorage ~5MB and Upstash share-size limits cap practical count at ~6-10 photos.
+
+## Roof designer — "Diseño del techo" (Tier C: visual panel layout)
+
+A fullscreen map tool, launched from the **Técnico** step ("Diseñar en el mapa"), where the user draws one or more roof outlines on the satellite image and auto-fills each with panel rectangles. Spec: `docs/superpowers/specs/2026-06-13-roof-designer-design.md`; plan: `docs/superpowers/plans/2026-06-13-roof-designer.md`.
+
+- **Sizing seam (CRITICAL)**: the designer is purely additive to the engine. On "Aplicar" it writes the placed-panel total into the pre-existing `technical.override_paneles` and stores the geometry in `technical.diseno_techo`. `cotizacion()` already honors `override_paneles` (`index.ts:141`), so kWp/cost/generation/financials/carbon/MCP all follow with **no engine change**. Bidirectional: consumption proposes a count, the layout (when used) wins; skip the designer and today's consumption sizing stands.
+- **Data model**: `TechnicalData` gains `ancho_m`, `alto_m` (panel size in meters, defaults 1.13 × 2.38), and `diseno_techo: RoofDesign | null`. `RoofDesign` = `{ areas: RoofArea[], total_panels, total_area_m2, orientacion, snapshot_data_url, updated_at }`; `RoofArea` = `{ id, vertices[], area_m2, panels[], rotation_deg, row_gap_m }`. Vertices and panel centers are stored as **lat/lng** (projection-independent). Types in `types.ts`, zod (`roofAreaSchema`/`roofDesignSchema` + the three fields, with `.max()` caps) in `schemas.ts`, defaults in `defaults.ts`.
+- **Pure math** lives in `src/lib/roof/` (map-free, unit-tested): `geometry.ts` (equirectangular local-meters projection — `M_PER_DEG_LAT = 111_133` WGS-84 mean meridian; `polygonAreaM2`, `pointInPolygon`, Web-Mercator `latLngToWorldPixel`), `packing.ts` (`defaultRowGap(cubierta)` → losa 0.7 m vs flush 0.02 m; `packPanels()` packs an axis-aligned, optionally-rotated grid and keeps only cells whose four corners are **fully inside** the polygon — deliberately conservative, never over-quotes. A **1µm corner inset** keeps the count FP-stable on edge-flush panels).
+- **Snapshot** (`snapshot.ts`, browser-only): composites a Google **Static Maps** satellite image (`crossOrigin`, zoom clamped ≤ 20) with the roof polygons + oriented panel rectangles on an offscreen canvas → one JPEG data URL, reused verbatim in the web section and the PDF. `toDataURL` is wrapped to return `null` on a tainted canvas. This is the proven `@react-pdf` path (raster `<Image>` works; SVG/canvas-in-PDF render blank).
+- **Where it shows**: web `roof-design-section.tsx` (rendered after `SystemDesignSection`); PDF "Diseño del Techo" page in `proposal-pdf.tsx` (guarded on `technical.diseno_techo?.snapshot_data_url`).
+- **Maps libraries**: all `useJsApiLoader` mounts MUST import the shared `MAPS_LIBRARIES` (`src/components/maps-libraries.ts`, now `['places','maps','drawing','geometry']`) — divergent arrays make `@react-google-maps/api` refuse to reload. (There are 4 mounts; all share it.)
+- **Persistence/share**: the share codec (`share.ts` `toPayload`/`fromPayload`) round-trips the new fields via short-keys `an`/`al`/`dt`, and `/api/share`'s zod schema accepts them; old payloads backfill from `initialTechnicalData`. The inline snapshot adds to the localStorage/Upstash payload (capped, taint/quota-guarded) — same tradeoff as `imagenes`.
+- **Gotchas already handled**: unchecking the manual-override toggle clears `diseno_techo`; changing `ancho_m`/`alto_m` invalidates the stale layout (a saved design isn't wiped on first load); the designer renders **outside** the Técnico `<form>` (no Enter-submit); `handleApply` bails after the async snapshot if the component unmounted.
+- **Not modeled** (Tier D, out of scope): true tilt/azimuth 3D, inter-row shading, string grouping. Per-panel `<Polygon>` rendering was reviewed and judged acceptable at the realistic 150-250 panel scale.
 
 ## Zustand persist gotcha (already fixed — keep in mind for future schema additions)
 
@@ -402,3 +423,4 @@ CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on ever
 32. **X4 resolved — depreciation rule corrected** (Simon sign-off 2026-06): see "Depreciation modeling" domain rule. `engine.ts` now computes depreciation as `(CAPEX / 1.07) × tasa × 35%` with tasa 33.33%×3y (acelerada) or 10%×10y (normal lineal, applies to any renta payer with the toggle off). Previously the toggle credited `0.33 × CAPEX` raw per year (~99% of CAPEX as cash). Typical impact on a commercial quote with both benefits: TIR 56% → 40%, payback 1.5 → 2.2 años. 6 golden snapshots updated deliberately; 2 new tests pin the rule. **Regenerate any proposal quoted with the depreciation toggle on before this fix.** Toggle copy updated in `step-advanced.tsx` and `financial-section.tsx`.
 33. **Deducción de renta basis corrected to pre-IVA** (Simon sign-off 2026-06, follow-up to item 32): the Art. 11 deduction now computes on `baseSinIva` like depreciation — `(CAPEX / 1.07) × 1.05 × 0.175` in year 2 instead of the IVA-inclusive price (~6.5% smaller benefit). One shared `baseSinIva` drives both benefits in `engine.ts`. New golden test pins it; 4 snapshots updated deliberately. Toggle copy updated ("17.5% del valor sin IVA (50% × renta 35%)").
 34. **PDF "Deducibles del impuesto de renta" figure corrected**: the `costoSinIVA × 0.44` legacy constant (almost certainly 0.50 pre-divided by an old IVA factor, double-discounting the already pre-IVA base) is now `costoSinIVA × 0.5` — the Art. 11 deducción especial, consistent with the confirmed tax model. The background JPG (`info_financiera.jpg`) carries the label. This closes the last X4 sub-question; every tax figure in the app now derives from the Simon-confirmed model.
+35. **Roof designer added (branch `feat/roof-designer`)** — Tier-C visual panel layout (see "Roof designer" domain rule). Built and hardened via a multi-agent workflow chain: brainstorm → spec+plan → 12-task implementation workflow → adversarial design pre-mortem → two hardening/diff-review workflows (perspective-diverse verification). New `src/lib/roof/` pure modules (geometry/packing/snapshot) + `roof-designer.tsx` + web/PDF surfaces; `TechnicalData` gains `ancho_m`/`alto_m`/`diseno_techo`; panel count flows through the existing `override_paneles` seam (no engine change). The reviews caught and fixed: two divergent `useJsApiLoader` library arrays, a share-codec round-trip data-loss (designs dropped on `/s/` links) + the coupled `/api/share` 400, a `M_PER_DEG_LAT` ~0.5% error, a sub-nanometer FP boundary bug in packing (now a 1µm inset), an unmount-after-await setState, and array/quota guards. Typecheck + lint (0 errors) + 50 tests + build all green. **Still needs a real-browser e2e smoke** with live Google creds: drawing → auto-fill → Aplicar, the Static Maps snapshot/canvas-taint path (AGENTS.md open question #3), and the PDF "Diseño del Techo" page.
