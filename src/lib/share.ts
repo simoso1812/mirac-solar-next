@@ -37,12 +37,55 @@ type StoredData =
   | SharePayload                            // single (legacy)
   | { versions: StoredVersionEntry[] }      // multi
 
+/**
+ * Replace a non-finite number (NaN / ±Infinity) with a fallback.
+ *
+ * Why this matters for sharing: `JSON.stringify` serializes NaN/Infinity to
+ * `null`. The /api/share zod gate types these fields as `z.number()` (and
+ * `.optional()`, which accepts undefined but NOT null), so a single non-finite
+ * value anywhere in the payload makes the POST 400 ("Formato de propuesta
+ * inválido"). The most reachable source is `ancho_m`/`alto_m`: react-hook-form
+ * `valueAsNumber` yields NaN for an emptied field. We sanitize at this
+ * serialization boundary so the wire payload is always finite — this also
+ * covers the MCP create_quotation_link path, which reuses toPayload().
+ */
+const finiteOr = (v: number | null | undefined, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : fallback
+
+/** Drop non-finite numbers anywhere in a roof design so it survives JSON + the gate. */
+function sanitizeRoofDesign(d: RoofDesign | null): RoofDesign | null {
+  if (!d) return d
+  const n = (v: number) => (Number.isFinite(v) ? v : 0)
+  return {
+    ...d,
+    total_panels: n(d.total_panels),
+    total_area_m2: n(d.total_area_m2),
+    areas: d.areas.map((a) => ({
+      ...a,
+      area_m2: n(a.area_m2),
+      rotation_deg: n(a.rotation_deg),
+      row_gap_m: n(a.row_gap_m),
+      vertices: a.vertices.map((v) => ({ lat: n(v.lat), lng: n(v.lng) })),
+      panels: a.panels.map((p) => ({ lat: n(p.lat), lng: n(p.lng) })),
+    })),
+  }
+}
+
 export function toPayload(proposal: QuotationData): SharePayload {
   const { client: c, project: p, technical: t, advanced: a } = proposal
+  // `h` must be 12 finite numbers or null — a NaN element serializes to null and
+  // the gate rejects it, so collapse a malformed array back to null (fromPayload
+  // backfills it on read).
+  const hsp =
+    Array.isArray(p.hsp_mensual_pvgis) &&
+    p.hsp_mensual_pvgis.length === 12 &&
+    p.hsp_mensual_pvgis.every((v) => Number.isFinite(v))
+      ? p.hsp_mensual_pvgis
+      : null
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
-    p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: p.hsp_mensual_pvgis },
-    t: { co: t.consumo_mensual_kwh, pw: t.potencia_panel_w, fs: t.factor_seguridad, tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel, an: t.ancho_m, al: t.alto_m, dt: t.diseno_techo },
+    p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: hsp },
+    t: { co: finiteOr(t.consumo_mensual_kwh, 0), pw: finiteOr(t.potencia_panel_w, 615), fs: finiteOr(t.factor_seguridad, 1.1), tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel, an: finiteOr(t.ancho_m, 1.13), al: finiteOr(t.alto_m, 2.38), dt: sanitizeRoofDesign(t.diseno_techo) },
     a: a as unknown as Record<string, unknown>,
     d: proposal.docuseal as unknown as Record<string, unknown> | undefined,
   }

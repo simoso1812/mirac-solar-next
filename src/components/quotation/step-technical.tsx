@@ -39,8 +39,11 @@ export function StepTechnical() {
   const overridePaneles = watched.override_paneles
 
   const [designerOpen, setDesignerOpen] = useState(false)
-  const anchoM = watched.ancho_m ?? 1.13
-  const altoM = watched.alto_m ?? 2.38
+  // `??` only catches null/undefined; react-hook-form `valueAsNumber` yields NaN
+  // for an emptied field, so guard with Number.isFinite to avoid packing 0 panels
+  // (and persisting a NaN that later breaks share/PDF serialization).
+  const anchoM = typeof watched.ancho_m === 'number' && Number.isFinite(watched.ancho_m) ? watched.ancho_m : 1.13
+  const altoM = typeof watched.alto_m === 'number' && Number.isFinite(watched.alto_m) ? watched.alto_m : 2.38
   const disenoTecho = watched.diseno_techo as RoofDesign | null | undefined
   const cubierta = (watched.tipo_cubierta ?? 'metalica') as 'metalica' | 'teja' | 'losa'
 
