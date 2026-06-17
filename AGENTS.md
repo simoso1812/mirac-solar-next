@@ -104,7 +104,7 @@ src/
 │   │   └── render-chart.ts            # canvas-based chart PNG for PDF
 │   ├── contract/generator.ts          # docx contract generation
 │   ├── chargers.ts + chargers-pdf.ts  # EV charger calculator
-│   ├── share.ts                       # Upstash share-link helpers (POST + PATCH client)
+│   ├── share.ts                       # Upstash share-link helpers (POST + PATCH client); toPayload sanitizes non-finite numbers (NaN/Inf → safe) so JSON null can't trip the /api/share zod gate
 │   ├── rate-limit.ts                  # Redis fixed-window rateLimit() + getClientIp() (x-real-ip first, rightmost XFF fallback)
 │   ├── bill-scanner/constants.ts      # scanner limits + BILL_SCANNER_MODEL
 │   ├── proposal-drive-map.ts          # Upstash mapping: proposalId → Drive upload folder (used by webhook)
@@ -268,6 +268,7 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 - `src/lib/share.ts` writes to Upstash Redis with a short id
 - `/api/share` creates the Upstash Redis client lazily inside request handlers; do not instantiate Redis at module scope, or `next build` logs missing-env warnings.
 - `fromPayload()` must deep-merge `initialClientData`, `initialProjectData`, `initialTechnicalData`, and `initialAdvancedData` before returning a `QuotationData`, so old public links keep working after schema changes.
+- **`toPayload()` must emit only finite numbers.** `JSON.stringify` turns `NaN`/`Infinity` into `null`, and the `/api/share` gate types numeric fields as `z.number()` / `z.number().optional()` — both reject `null` (optional ≠ nullable) → `400 "Formato de propuesta inválido"`. `toPayload` sanitizes: `finiteOr()` for `co/pw/fs/an/al`, `sanitizeRoofDesign()` for roof geometry, and `hsp` collapses to `null` unless it's exactly 12 finite numbers. Keep this guard when adding new numeric fields; the gate is a security gate (size/length caps), not the place to relax types. See Recent context #36.
 - Public route: `src/app/s/[id]/page.tsx`
 - `PATCH /api/share` updates `c` (client short-keys) on the stored payload — used by the pre-sign data form so clients can fill missing email/cédula/teléfono from the shared link, and the change persists across reloads.
 - E-signature paths: `<CallToAction>` → either `<ESignDialog>` (legacy canvas signature, stored on `proposal.signature`) or `<DocusealSignDialog>` (DocuSeal embed). DocuSeal is the primary flow.
