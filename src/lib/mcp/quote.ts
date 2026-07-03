@@ -209,13 +209,28 @@ function inverterFields(a: QuoteArgs): Partial<AdvancedData> {
   else if (brandKey !== '') marcaInversor = brandKey
   else marcaInversor = 'Automatico'
 
+  // The web/PDF render the custom inverter as `marca modelo`, and the engine
+  // fills an EMPTY model slot with the auto-inferred power (`modelo || `${kw}kW``).
+  // To show a brand-less model label verbatim (e.g. "Deye 5kW Hibrido") with no
+  // trailing kW suffix and no "Personalizado" filler, split it across the two
+  // slots on the first space. An explicit brand keeps marca/modelo as given.
+  let customBrand = marca
+  let customModel = modelo
+  if (useCustom && marca === '' && modelo !== '') {
+    const sp = modelo.indexOf(' ')
+    if (sp > 0) {
+      customBrand = modelo.slice(0, sp)
+      customModel = modelo.slice(sp + 1).trim()
+    } else {
+      customBrand = modelo
+      customModel = ''
+    }
+  }
+
   return {
     marca_inversor: marcaInversor,
-    // Web/PDF render marca+modelo concatenated, so never put the same text in
-    // both. When only a model was given (no brand), use it as the brand label
-    // and let the model slot fall back to the kW rating.
-    marca_inversor_custom: useCustom ? (marca || modelo) : '',
-    modelo_inversor: useCustom ? (marca !== '' ? modelo : '') : '',
+    marca_inversor_custom: useCustom ? customBrand : '',
+    modelo_inversor: useCustom ? customModel : '',
     override_inversores: override,
   }
 }
