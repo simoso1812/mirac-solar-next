@@ -35,8 +35,9 @@ const handler = createMcpHandler(
           'Recibe el consumo mensual y la ciudad como minimo; devuelve tamano del sistema (kWp, paneles, inversores), ' +
           'generacion anual, inversion total, ahorro anual/mensual, payback, TIR, VPN, ROI y CO2 evitado. ' +
           'Soporta baterias, financiamiento (tasa EA, metodo frances), beneficios tributarios (Ley 1715), ' +
-          'precio manual del proyecto (precio_manual_cop, reemplaza la curva de costos) y opciones de PPA ' +
-          '"Opcion Cero Inversion" (ppa_opciones: precio por kWh y duracion del contrato).',
+          'precio manual del proyecto (precio_manual_cop, reemplaza la curva de costos), opciones de PPA ' +
+          '"Opcion Cero Inversion" (ppa_opciones: precio por kWh y duracion del contrato) y seleccion de inversor ' +
+          '(inversor_marca / inversor_modelo / inversor_potencia_kw / inversor_cantidad; omitir para seleccion automatica).',
         inputSchema: quoteInputShape,
         annotations: {
           readOnlyHint: true,

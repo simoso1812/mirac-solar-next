@@ -9,6 +9,7 @@ import { cotizacion, buildInputFromStore } from '@/lib/calculator'
 import { ppaMetrics } from '@/lib/calculator/derived'
 import { estimatePrice, estimatePricePerKwp } from '@/lib/calculator/cost'
 import { formatCOP } from '@/lib/formatting'
+import { INVERTER_DATABASE } from '@/lib/constants'
 import {
   deepMerge,
   initialAdvancedData,
@@ -126,6 +127,31 @@ export const quoteInputShape = {
     .describe(
       'Opciones de PPA "Opcion Cero Inversion" a presentar (ej [{precio_kwh: 600, duracion_anios: 12}]). El cliente no invierte: paga la energia generada a este precio. Vacio = sin PPA.',
     ),
+  inversor_marca: z
+    .string()
+    .optional()
+    .describe(
+      'Marca del inversor a mostrar en la propuesta (ej "Deye", "Huawei", "Growatt"). Si es una marca conocida, el modelo se resuelve automaticamente del catalogo; si no, se muestra tal cual. Omitir para seleccion automatica.',
+    ),
+  inversor_modelo: z
+    .string()
+    .optional()
+    .describe(
+      'Modelo especifico del inversor (texto libre, ej "SUN-5K-SG04LP1" o "5kW hibrido"). Se muestra en la propuesta tal cual se escribe.',
+    ),
+  inversor_potencia_kw: z
+    .coerce.number()
+    .positive()
+    .optional()
+    .describe(
+      'Potencia AC de cada inversor en kW a forzar (ej 5). Reemplaza la seleccion automatica por tamano del sistema. Omitir para que la calculadora elija.',
+    ),
+  inversor_cantidad: z
+    .coerce.number()
+    .int()
+    .positive()
+    .default(1)
+    .describe('Cantidad de inversores cuando se fuerza inversor_potencia_kw. Default 1.'),
 }
 
 export const quoteInputSchema = z.object(quoteInputShape)
@@ -145,6 +171,35 @@ export interface QuotationStores {
   project: ProjectData
   technical: TechnicalData
   advanced: AdvancedData
+}
+
+/**
+ * Map the friendly inverter args to the store's four inverter fields.
+ * - A known brand (in INVERTER_DATABASE) with no explicit model resolves its
+ *   model from the catalog (marca_inversor = brand).
+ * - Any explicit model, or an unknown brand, routes through the 'Otro' custom
+ *   path so the proposal shows exactly what was passed.
+ * - A forced power (inversor_potencia_kw) becomes a single override row; else
+ *   the calculator auto-picks by system size.
+ */
+function inverterFields(a: QuoteArgs): Partial<AdvancedData> {
+  const marca = a.inversor_marca?.trim() || ''
+  const modelo = a.inversor_modelo?.trim() || ''
+  const isKnownBrand =
+    marca !== '' && marca !== 'Automatico' && marca in INVERTER_DATABASE
+  const useCustom = marca !== '' && (modelo !== '' || !isKnownBrand)
+
+  const override =
+    a.inversor_potencia_kw && a.inversor_potencia_kw > 0
+      ? [{ potencia_kw: a.inversor_potencia_kw, cantidad: a.inversor_cantidad ?? 1 }]
+      : null
+
+  return {
+    marca_inversor: marca === '' ? 'Automatico' : useCustom ? 'Otro' : marca,
+    marca_inversor_custom: useCustom ? marca : '',
+    modelo_inversor: useCustom ? modelo : '',
+    override_inversores: override,
+  }
 }
 
 /**
@@ -189,6 +244,7 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
       habilitada: (a.ppa_opciones?.length ?? 0) > 0,
       opciones: a.ppa_opciones ?? [],
     },
+    ...inverterFields(a),
   }) as AdvancedData
 
   const client = deepMerge(initialClientData, {
@@ -218,7 +274,7 @@ export function summarize(stores: QuotationStores) {
       ? `**Precio manual aplicado:** ${formatCOP(stores.advanced.precio_manual)} (reemplaza el precio de la curva de costos)`
       : null,
     `**Sistema:** ${r.kwp.toFixed(2)} kWp · ${r.numero_paneles} paneles de ${r.potencia_panel_w}W`,
-    `**Inversores:** ${r.inversores.map((i) => `${i.cantidad}x ${i.potencia_kw}kW`).join(' + ') || 'n/d'}`,
+    `**Inversores:** ${r.inversores.map((i) => `${i.cantidad}x ${i.marca} ${i.modelo} (${i.potencia_kw}kW)`).join(' + ') || 'n/d'}`,
     `**Generacion anual:** ${Math.round(r.generacion_anual_kwh).toLocaleString('es-CO')} kWh (PR ${pct(r.performance_ratio)})`,
     r.bateria?.habilitada
       ? `**Bateria:** ${r.bateria.capacidad_nominal_kwh.toFixed(1)} kWh nominal · ${r.bateria.horas_autonomia.toFixed(1)}h autonomia`
