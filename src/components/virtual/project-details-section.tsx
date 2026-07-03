@@ -62,7 +62,12 @@ function TechTab({ proposal, results }: { proposal: QuotationData; results: Calc
     ['Número de Paneles', `${r.numero_paneles} unidades`],
     ['Potencia por Panel', `${r.potencia_panel_w}W`],
     ...(panelLabel ? [['Módulo FV', panelLabel]] : []),
-    ['Inversores', r.inversores.map((i) => `${i.cantidad}× ${i.marca} ${i.modelo} (${i.potencia_kw}kW)`).join(', ')],
+    ['Inversores', r.inversores.map((i) => {
+      // Skip the "(NkW)" suffix when the model label already states the power
+      // (e.g. a manual "Deye 5kW Hibrido"), so it isn't duplicated/mismatched.
+      const suffix = /kw/i.test(i.modelo) ? '' : ` (${i.potencia_kw}kW)`
+      return `${i.cantidad}× ${i.marca} ${i.modelo}${suffix}`
+    }).join(', ')],
     ...(r.bateria?.habilitada
       ? [
           ['Almacenamiento', `${r.bateria.capacidad_nominal_kwh.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kWh nominal`],
