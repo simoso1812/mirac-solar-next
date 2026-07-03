@@ -24,7 +24,7 @@ const CIUDADES = ['MEDELLIN', 'BOGOTA', 'CALI', 'BARRANQUILLA', 'BUCARAMANGA', '
 /** Input shape (ZodRawShape) for the quoting tools. */
 export const quoteInputShape = {
   consumo_mensual_kwh: z
-    .number()
+    .coerce.number()
     .positive()
     .describe('Consumo promedio mensual del cliente en kWh (de la factura de energia). Requerido.'),
   ciudad: z
@@ -32,7 +32,7 @@ export const quoteInputShape = {
     .default('MEDELLIN')
     .describe('Ciudad del proyecto. Determina la radiacion solar (HSP). Default MEDELLIN.'),
   costo_kwh: z
-    .number()
+    .coerce.number()
     .positive()
     .default(850)
     .describe('Tarifa actual de energia en COP por kWh. Default 850.'),
@@ -49,7 +49,7 @@ export const quoteInputShape = {
     .default('net_metering')
     .describe('net_metering: excedentes 1:1. net_billing: excedentes a precio reducido. autoconsumo: sin credito por excedentes.'),
   precio_excedentes: z
-    .number()
+    .coerce.number()
     .nonnegative()
     .default(300)
     .describe('Precio de excedentes en COP/kWh (solo aplica en net_billing). Default 300.'),
@@ -58,29 +58,29 @@ export const quoteInputShape = {
     .default(false)
     .describe('Si el sistema incluye almacenamiento en baterias.'),
   bateria_capacidad_kwh: z
-    .number()
+    .coerce.number()
     .nonnegative()
     .default(0)
     .describe('Capacidad nominal de bateria en kWh. Si > 0 es autoritativo; si 0 se auto-dimensiona.'),
   bateria_horas_autonomia: z
-    .number()
+    .coerce.number()
     .positive()
     .max(168)
     .default(48)
     .describe('Horas de autonomia deseadas cuando se auto-dimensiona la bateria. Default 48.'),
   financiamiento_porcentaje: z
-    .number()
+    .coerce.number()
     .min(0)
     .max(100)
     .default(0)
     .describe('Porcentaje del CAPEX financiado con credito (0 = pago de contado). Default 0.'),
   financiamiento_tasa_ea: z
-    .number()
+    .coerce.number()
     .min(0)
     .default(0.15)
     .describe('Tasa Efectiva Anual (EA) del credito, ej 0.15 = 15% EA. Default 0.15.'),
   financiamiento_plazo_anios: z
-    .number()
+    .coerce.number()
     .positive()
     .default(5)
     .describe('Plazo del credito en anios. Default 5.'),
@@ -93,17 +93,17 @@ export const quoteInputShape = {
     .default(false)
     .describe('Aplicar depreciacion acelerada (Ley 1715).'),
   factor_seguridad: z
-    .number()
+    .coerce.number()
     .positive()
     .default(1.1)
     .describe('Factor de sobredimensionamiento del sistema. Default 1.1.'),
   potencia_panel_w: z
-    .number()
+    .coerce.number()
     .positive()
     .default(615)
     .describe('Potencia de cada panel en W. Default 615.'),
   precio_manual_cop: z
-    .number()
+    .coerce.number()
     .positive()
     .optional()
     .describe(
@@ -113,11 +113,11 @@ export const quoteInputShape = {
     .array(
       z.object({
         precio_kwh: z
-          .number()
+          .coerce.number()
           .positive()
           .describe('Precio del PPA en COP por kWh que paga el cliente a Mirac.'),
         duracion_anios: z
-          .number()
+          .coerce.number()
           .positive()
           .describe('Duracion del contrato PPA en anios.'),
       }),
@@ -288,7 +288,7 @@ export function runQuote(args: QuoteArgs) {
 /** Input shape for the `estimate_price` tool. */
 export const priceInputShape = {
   kwp: z
-    .number()
+    .coerce.number()
     .positive()
     .describe('Tamano del sistema en kWp. Devuelve el precio estimado (sin ajuste por cubierta).'),
 }
