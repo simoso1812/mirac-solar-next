@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator'
+import { ppaMetrics } from '@/lib/calculator/derived'
 import { estimatePrice, estimatePricePerKwp } from '@/lib/calculator/cost'
 import { formatCOP } from '@/lib/formatting'
 import {
@@ -101,6 +102,30 @@ export const quoteInputShape = {
     .positive()
     .default(615)
     .describe('Potencia de cada panel en W. Default 615.'),
+  precio_manual_cop: z
+    .number()
+    .positive()
+    .optional()
+    .describe(
+      'Precio manual del proyecto en COP (IVA incluido). Si se indica, reemplaza el precio de la curva de costos y todos los indicadores financieros (ahorro, TIR, VPN, payback, financiamiento) se calculan sobre este valor. Omitir para usar el precio automatico.',
+    ),
+  ppa_opciones: z
+    .array(
+      z.object({
+        precio_kwh: z
+          .number()
+          .positive()
+          .describe('Precio del PPA en COP por kWh que paga el cliente a Mirac.'),
+        duracion_anios: z
+          .number()
+          .positive()
+          .describe('Duracion del contrato PPA en anios.'),
+      }),
+    )
+    .default([])
+    .describe(
+      'Opciones de PPA "Opcion Cero Inversion" a presentar (ej [{precio_kwh: 600, duracion_anios: 12}]). El cliente no invierte: paga la energia generada a este precio. Vacio = sin PPA.',
+    ),
 }
 
 export const quoteInputSchema = z.object(quoteInputShape)
@@ -159,6 +184,11 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
     beneficios_tributarios: a.beneficio_deduccion_renta || a.beneficio_depreciacion_acelerada,
     incluir_deduccion_renta: a.beneficio_deduccion_renta,
     incluir_depreciacion_acelerada: a.beneficio_depreciacion_acelerada,
+    precio_manual: a.precio_manual_cop ?? null,
+    ppa: {
+      habilitada: (a.ppa_opciones?.length ?? 0) > 0,
+      opciones: a.ppa_opciones ?? [],
+    },
   }) as AdvancedData
 
   const client = deepMerge(initialClientData, {
@@ -179,7 +209,14 @@ const yrs = (n: number) => `${n.toFixed(1)} años`
 export function summarize(stores: QuotationStores) {
   const r = cotizacion(buildInputFromStore(stores.technical, stores.project, stores.advanced))
 
+  const ppa = stores.advanced.ppa.habilitada
+    ? ppaMetrics(stores.advanced.costo_kwh, r.generacion_anual_kwh, stores.advanced.ppa.opciones)
+    : []
+
   const summary = [
+    stores.advanced.precio_manual !== null && stores.advanced.precio_manual > 0
+      ? `**Precio manual aplicado:** ${formatCOP(stores.advanced.precio_manual)} (reemplaza el precio de la curva de costos)`
+      : null,
     `**Sistema:** ${r.kwp.toFixed(2)} kWp · ${r.numero_paneles} paneles de ${r.potencia_panel_w}W`,
     `**Inversores:** ${r.inversores.map((i) => `${i.cantidad}x ${i.potencia_kw}kW`).join(' + ') || 'n/d'}`,
     `**Generacion anual:** ${Math.round(r.generacion_anual_kwh).toLocaleString('es-CO')} kWh (PR ${pct(r.performance_ratio)})`,
@@ -194,6 +231,17 @@ export function summarize(stores: QuotationStores) {
       ? `**Financiamiento:** cuota ${formatCOP(r.financiamiento.cuota_mensual_cop)}/mes · ${r.financiamiento.num_pagos} meses · anticipo ${formatCOP(r.financiamiento.desembolso_inicial_cop)} · tasa ${(r.financiamiento.tasa_ea * 100).toFixed(1)}% EA`
       : null,
     `**CO2 evitado (vida util):** ${Math.round(r.carbon.lifetime_co2_avoided_tons ?? 0)} t`,
+    ...(ppa.length > 0
+      ? [
+          '',
+          '**PPA — Opcion Cero Inversion** (el cliente no invierte, paga la energia generada):',
+          ...ppa.map(
+            (o) =>
+              `- ${formatCOP(o.precio_kwh, false)}/kWh x ${o.duracion_anios} anios: ahorro ${o.porcentajeAhorro}% vs tarifa · ` +
+              `ahorro anual ${formatCOP(o.ahorroAnual)} · ahorro total ${formatCOP(o.ahorroTotal)} · pago a Mirac ${formatCOP(o.pagoMiracMensual)}/mes`,
+          ),
+        ]
+      : []),
   ].filter(Boolean).join('\n')
 
   const structured = {
@@ -213,6 +261,15 @@ export function summarize(stores: QuotationStores) {
     financiamiento_cuota_mensual_cop: r.financiamiento?.cuota_mensual_cop ?? 0,
     financiamiento_num_pagos: r.financiamiento?.num_pagos ?? 0,
     financiamiento_anticipo_cop: r.financiamiento?.desembolso_inicial_cop ?? 0,
+    precio_manual_aplicado: stores.advanced.precio_manual !== null && stores.advanced.precio_manual > 0,
+    ppa_opciones: ppa.map((o) => ({
+      precio_kwh: o.precio_kwh,
+      duracion_anios: o.duracion_anios,
+      porcentaje_ahorro: o.porcentajeAhorro,
+      ahorro_anual_cop: o.ahorroAnual,
+      ahorro_total_cop: o.ahorroTotal,
+      pago_mirac_mensual_cop: o.pagoMiracMensual,
+    })),
   }
 
   return { summary, structured }

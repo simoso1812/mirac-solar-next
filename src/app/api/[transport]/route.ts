@@ -34,7 +34,9 @@ const handler = createMcpHandler(
           'Genera una cotizacion solar completa para un cliente en Colombia usando la calculadora de Mirac. ' +
           'Recibe el consumo mensual y la ciudad como minimo; devuelve tamano del sistema (kWp, paneles, inversores), ' +
           'generacion anual, inversion total, ahorro anual/mensual, payback, TIR, VPN, ROI y CO2 evitado. ' +
-          'Soporta baterias, financiamiento (tasa EA, metodo frances) y beneficios tributarios (Ley 1715).',
+          'Soporta baterias, financiamiento (tasa EA, metodo frances), beneficios tributarios (Ley 1715), ' +
+          'precio manual del proyecto (precio_manual_cop, reemplaza la curva de costos) y opciones de PPA ' +
+          '"Opcion Cero Inversion" (ppa_opciones: precio por kWh y duracion del contrato).',
         inputSchema: quoteInputShape,
         annotations: {
           readOnlyHint: true,
@@ -82,7 +84,7 @@ const handler = createMcpHandler(
         title: 'Crear link de cotizacion virtual',
         description:
           'Genera una propuesta solar y devuelve un LINK publico a la cotizacion virtual (pagina /s/<id>) que el cliente puede abrir, ver, descargar en PDF y firmar. ' +
-          'Recibe el nombre del cliente y los mismos parametros que quote_solar_system. ' +
+          'Recibe el nombre del cliente y los mismos parametros que quote_solar_system (incluye precio manual y opciones PPA, que se muestran en la pagina compartida). ' +
           'La propuesta se guarda 90 dias. Usa esta herramienta cuando el usuario pida un link, una propuesta para enviar al cliente, o una cotizacion compartible.',
         inputSchema: linkInputShape,
         annotations: {
