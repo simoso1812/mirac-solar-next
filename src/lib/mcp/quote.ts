@@ -175,29 +175,47 @@ export interface QuotationStores {
 
 /**
  * Map the friendly inverter args to the store's four inverter fields.
- * - A known brand (in INVERTER_DATABASE) with no explicit model resolves its
- *   model from the catalog (marca_inversor = brand).
+ * - A known brand (in INVERTER_DATABASE, case-insensitive) with no explicit
+ *   model resolves its model from the catalog (marca_inversor = brand).
  * - Any explicit model, or an unknown brand, routes through the 'Otro' custom
- *   path so the proposal shows exactly what was passed.
+ *   path so the proposal shows exactly what was passed. A model given WITHOUT a
+ *   brand also uses this path (previously it was silently dropped and the quote
+ *   fell back to auto-select).
  * - A forced power (inversor_potencia_kw) becomes a single override row; else
  *   the calculator auto-picks by system size.
  */
 function inverterFields(a: QuoteArgs): Partial<AdvancedData> {
   const marca = a.inversor_marca?.trim() || ''
   const modelo = a.inversor_modelo?.trim() || ''
-  const isKnownBrand =
-    marca !== '' && marca !== 'Automatico' && marca in INVERTER_DATABASE
-  const useCustom = marca !== '' && (modelo !== '' || !isKnownBrand)
+
+  // Case-insensitive catalog match ("deye" -> "Deye"); '' if not a known brand.
+  const brandKey =
+    marca === '' || marca.toLowerCase() === 'automatico'
+      ? ''
+      : Object.keys(INVERTER_DATABASE).find(
+          (k) => k !== 'Automatico' && k.toLowerCase() === marca.toLowerCase(),
+        ) ?? ''
+
+  // Custom path when an explicit model is given, or a brand not in the catalog.
+  const useCustom = modelo !== '' || (marca !== '' && brandKey === '')
 
   const override =
     a.inversor_potencia_kw && a.inversor_potencia_kw > 0
       ? [{ potencia_kw: a.inversor_potencia_kw, cantidad: a.inversor_cantidad ?? 1 }]
       : null
 
+  let marcaInversor: string
+  if (useCustom) marcaInversor = 'Otro'
+  else if (brandKey !== '') marcaInversor = brandKey
+  else marcaInversor = 'Automatico'
+
   return {
-    marca_inversor: marca === '' ? 'Automatico' : useCustom ? 'Otro' : marca,
-    marca_inversor_custom: useCustom ? marca : '',
-    modelo_inversor: useCustom ? modelo : '',
+    marca_inversor: marcaInversor,
+    // Web/PDF render marca+modelo concatenated, so never put the same text in
+    // both. When only a model was given (no brand), use it as the brand label
+    // and let the model slot fall back to the kW rating.
+    marca_inversor_custom: useCustom ? (marca || modelo) : '',
+    modelo_inversor: useCustom ? (marca !== '' ? modelo : '') : '',
     override_inversores: override,
   }
 }
