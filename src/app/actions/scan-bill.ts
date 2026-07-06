@@ -1,6 +1,9 @@
 'use server'
 
+import { headers } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { Redis } from '@upstash/redis'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   BILL_EXTRACTION_SYSTEM_PROMPT,
   BILL_EXTRACTION_USER_PROMPT,
@@ -56,6 +59,22 @@ async function convertWithMarkItDown(file: File): Promise<MarkItDownResult | nul
 function hasRelevantBillContent(markdown: string): boolean {
   const lower = markdown.toLowerCase()
   return BILL_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+/**
+ * Per-IP rate limit — every scan is a paid Anthropic call. Server actions
+ * don't get a Request object, so the IP comes from next/headers (same
+ * trusted-proxy rules as getClientIp). Skipped when Upstash is unset.
+ */
+async function withinScanRateLimit(): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return true
+  const h = await headers()
+  const forwarded = h.get('x-forwarded-for')?.split(',').map((p) => p.trim()).filter(Boolean)
+  const ip = h.get('x-real-ip')?.trim() || forwarded?.[forwarded.length - 1] || 'unknown'
+  const redis = new Redis({ url, token })
+  return rateLimit(redis, `rl:scan-bill:${ip}`, 10, 300)
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +164,14 @@ export async function scanBillAction(formData: FormData): Promise<BillScanResult
       return {
         success: false, data: null,
         error: 'ANTHROPIC_API_KEY no configurada',
+        processing_time_ms: Date.now() - startTime,
+      }
+    }
+
+    if (!(await withinScanRateLimit())) {
+      return {
+        success: false, data: null,
+        error: 'Demasiados escaneos en poco tiempo. Intenta de nuevo en unos minutos.',
         processing_time_ms: Date.now() - startTime,
       }
     }

@@ -19,21 +19,26 @@ export const linkInputShape = {
   cliente_nombre: z
     .string()
     .min(1)
+    .max(120)
     .describe('Nombre del cliente para la propuesta. Requerido.'),
   cliente_direccion: z
     .string()
+    .max(200)
     .default('')
     .describe('Direccion del cliente o del proyecto (opcional).'),
   cliente_email: z
     .string()
+    .max(254)
     .default('')
     .describe('Email del cliente (opcional; puede completarse luego al firmar).'),
   cliente_telefono: z
     .string()
+    .max(40)
     .default('')
     .describe('Telefono del cliente (opcional).'),
   cliente_cedula: z
     .string()
+    .max(40)
     .default('')
     .describe('Cedula o NIT del cliente (opcional).'),
   ...quoteInputShape,
@@ -88,7 +93,12 @@ export async function runCreateQuotationLink(args: LinkArgs) {
     drive_folder_link: null,
     drive_project_name: null,
   }
-  await getRedis().set(`share:${id}`, toPayload(proposal), { ex: SHARE_EXPIRY_SECONDS })
+  const payload = toPayload(proposal)
+  // Same cap POST /api/share enforces — keep the two write paths symmetric.
+  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 4_500_000) {
+    throw new Error('La propuesta es demasiado grande para compartir (maximo ~4.5MB).')
+  }
+  await getRedis().set(`share:${id}`, payload, { ex: SHARE_EXPIRY_SECONDS })
   const url = `${publicBaseUrl()}/s/${id}`
 
   const text = [

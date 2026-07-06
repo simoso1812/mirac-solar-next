@@ -27,6 +27,7 @@ export const quoteInputShape = {
   consumo_mensual_kwh: z
     .coerce.number()
     .positive()
+    .max(1_000_000)
     .describe('Consumo promedio mensual del cliente en kWh (de la factura de energia). Requerido.'),
   ciudad: z
     .enum(CIUDADES)
@@ -78,11 +79,13 @@ export const quoteInputShape = {
   financiamiento_tasa_ea: z
     .coerce.number()
     .min(0)
+    .max(1)
     .default(0.15)
-    .describe('Tasa Efectiva Anual (EA) del credito, ej 0.15 = 15% EA. Default 0.15.'),
+    .describe('Tasa Efectiva Anual (EA) del credito como fraccion, ej 0.15 = 15% EA (maximo 1 = 100%). Default 0.15.'),
   financiamiento_plazo_anios: z
     .coerce.number()
     .positive()
+    .max(30)
     .default(5)
     .describe('Plazo del credito en anios. Default 5.'),
   beneficio_deduccion_renta: z
@@ -106,6 +109,7 @@ export const quoteInputShape = {
   precio_manual_cop: z
     .coerce.number()
     .positive()
+    .max(1_000_000_000_000)
     .optional()
     .describe(
       'Precio manual del proyecto en COP (IVA incluido). Si se indica, reemplaza el precio de la curva de costos y todos los indicadores financieros (ahorro, TIR, VPN, payback, financiamiento) se calculan sobre este valor. Omitir para usar el precio automatico.',
@@ -116,25 +120,30 @@ export const quoteInputShape = {
         precio_kwh: z
           .coerce.number()
           .positive()
+          .max(100_000)
           .describe('Precio del PPA en COP por kWh que paga el cliente a Mirac.'),
         duracion_anios: z
           .coerce.number()
           .positive()
+          .max(30)
           .describe('Duracion del contrato PPA en anios.'),
       }),
     )
+    .max(20)
     .default([])
     .describe(
       'Opciones de PPA "Opcion Cero Inversion" a presentar (ej [{precio_kwh: 600, duracion_anios: 12}]). El cliente no invierte: paga la energia generada a este precio. Vacio = sin PPA.',
     ),
   inversor_marca: z
     .string()
+    .max(80)
     .optional()
     .describe(
       'Marca del inversor a mostrar en la propuesta (ej "Deye", "Huawei", "Growatt"). Si es una marca conocida, el modelo se resuelve automaticamente del catalogo; si no, se muestra tal cual. Omitir para seleccion automatica.',
     ),
   inversor_modelo: z
     .string()
+    .max(120)
     .optional()
     .describe(
       'Modelo especifico del inversor (texto libre, ej "SUN-5K-SG04LP1" o "5kW hibrido"). Se muestra en la propuesta tal cual se escribe.',
@@ -142,6 +151,7 @@ export const quoteInputShape = {
   inversor_potencia_kw: z
     .coerce.number()
     .positive()
+    .max(1000)
     .optional()
     .describe(
       'Potencia AC de cada inversor en kW a forzar (ej 5). Reemplaza la seleccion automatica por tamano del sistema. Omitir para que la calculadora elija.',
@@ -150,6 +160,7 @@ export const quoteInputShape = {
     .coerce.number()
     .int()
     .positive()
+    .max(50)
     .default(1)
     .describe('Cantidad de inversores cuando se fuerza inversor_potencia_kw. Default 1.'),
 }

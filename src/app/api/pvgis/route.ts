@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
+import { getClientIp, rateLimit } from '@/lib/rate-limit'
 
 const DIAS_POR_MES = [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -13,11 +15,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'lat and lon parameters required' }, { status: 400 })
   }
 
-  const latNum = parseFloat(lat)
-  const lonNum = parseFloat(lon)
+  // ~111m resolution: identical HSP for practical purposes, and rounding makes
+  // the Next fetch cache (revalidate 86400) actually hit for nearby requests.
+  const latNum = Math.round(parseFloat(lat) * 1000) / 1000
+  const lonNum = Math.round(parseFloat(lon) * 1000) / 1000
 
   if (isNaN(latNum) || isNaN(lonNum) || latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
+  }
+
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (redisUrl && redisToken) {
+    const redis = new Redis({ url: redisUrl, token: redisToken })
+    if (!(await rateLimit(redis, `rl:pvgis:${getClientIp(request)}`, 30, 60))) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes, intenta más tarde' }, { status: 429 })
+    }
   }
 
   try {

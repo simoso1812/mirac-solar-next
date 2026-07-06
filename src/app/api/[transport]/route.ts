@@ -13,6 +13,8 @@
  */
 import { createHash, timingSafeEqual } from 'crypto'
 import { createMcpHandler } from 'mcp-handler'
+import { Redis } from '@upstash/redis'
+import { getClientIp, rateLimit } from '@/lib/rate-limit'
 import {
   quoteInputShape,
   runQuote,
@@ -129,10 +131,23 @@ function authorized(req: Request): boolean {
   return safeEqual(req.headers.get('authorization') ?? '', `Bearer ${secret}`)
 }
 
+// Per-IP rate limit in front of the tools (covers create_quotation_link's
+// Upstash writes too). Skipped when Upstash is not configured (local dev).
+async function withinRateLimit(req: Request): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return true
+  const redis = new Redis({ url, token })
+  return rateLimit(redis, `rl:mcp:${getClientIp(req)}`, 60, 60)
+}
+
 async function guarded(req: Request): Promise<Response> {
   if (!authorized(req)) {
     // 404 (not 401) so the secret URL stays unguessable / hidden.
     return new Response('Not found', { status: 404 })
+  }
+  if (!(await withinRateLimit(req))) {
+    return new Response('Too many requests', { status: 429 })
   }
   return handler(req)
 }

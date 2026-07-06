@@ -67,6 +67,22 @@ function hasMissingClientData(client: ClientData): boolean {
   return !client.email?.trim() || !client.nit_cc?.trim()
 }
 
+/**
+ * The embed src can come from untrusted storage (shared payloads, imported
+ * JSON). Only ever feed the DocuSeal web component a docuseal.com URL.
+ */
+function isTrustedDocusealSrc(src: string): boolean {
+  try {
+    const url = new URL(src)
+    return (
+      url.protocol === 'https:' &&
+      (url.hostname === 'docuseal.com' || url.hostname.endsWith('.docuseal.com'))
+    )
+  } catch {
+    return false
+  }
+}
+
 type Stage = 'idle' | 'collect-data' | 'embed'
 
 export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disabled }: DocusealSignDialogProps) {
@@ -199,6 +215,10 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
 
   useEffect(() => {
     if (!open || stage !== 'embed' || !docuseal?.embed_src || !formHostRef.current) return
+    if (!isTrustedDocusealSrc(docuseal.embed_src)) {
+      toast.error('El enlace de firma no es válido.')
+      return
+    }
 
     let formEl: HTMLElement | null = null
     let cancelled = false
