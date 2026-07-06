@@ -40,6 +40,8 @@ async function docusealFetch<T>(path: string, init?: RequestInit): Promise<T> {
       'X-Auth-Token': apiKey,
       ...init?.headers,
     },
+    // A hung DocuSeal call must not stall the webhook / server actions forever.
+    signal: AbortSignal.timeout(15_000),
   })
 
   if (!res.ok) {

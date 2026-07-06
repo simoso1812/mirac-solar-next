@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useEffect, useState, useMemo } from 'react'
-import { fetchSharedData, updateSharedClient, type SharedVersion } from '@/lib/share'
+import { fetchSharedData, updateSharedClient, updateSharedDocuseal, type SharedVersion } from '@/lib/share'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { VersionSelector } from '@/components/virtual/version-selector'
@@ -48,6 +48,14 @@ export default function SharedShortPage({
   const activeProposal = versions?.[activeIndex]?.proposal ?? null
 
   const handleDocusealUpdate = (docuseal: DocusealSignatureData, accepted?: boolean) => {
+    // Persist on the share payload so a reload keeps the submission instead of
+    // minting a duplicate contract. Server-verified; best-effort from here.
+    if (docuseal.submission_id && docuseal.submitter_slug) {
+      updateSharedDocuseal(id, {
+        submission_id: docuseal.submission_id,
+        submitter_slug: docuseal.submitter_slug,
+      }).catch((err) => console.warn('No se pudo persistir el estado de la firma:', err))
+    }
     setState((current) => {
       if (!current.versions) return current
       return {

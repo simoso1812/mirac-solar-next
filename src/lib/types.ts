@@ -260,7 +260,14 @@ export interface QuotationData {
   results: CalculationResults | null
   signature?: SignatureData
   docuseal?: DocusealSignatureData
+  // Share link (Upstash) — set when a public /s/<id> link is generated.
+  // `s:<share_id>` is also the DocuSeal external_id for shared signing.
+  share_id?: string | null
+  shared_at?: string | null
   // Google Drive sync
   drive_folder_link: string | null
   drive_project_name: string | null
+  // Persisted so re-sync reuses the same folder instead of minting a new
+  // FVyyNNN consecutive + tree on every click.
+  drive_upload_folder_id?: string | null
 }

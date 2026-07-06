@@ -91,7 +91,7 @@ export function toPayload(proposal: QuotationData): SharePayload {
   }
 }
 
-export function fromPayload(payload: SharePayload): QuotationData {
+export function fromPayload(payload: SharePayload, shareId?: string): QuotationData {
   const client = deepMerge(initialClientData, {
     nombre: payload.c.n,
     direccion: payload.c.d,
@@ -123,18 +123,23 @@ export function fromPayload(payload: SharePayload): QuotationData {
     diseno_techo: (payload.t.dt as RoofDesign | null) ?? null,
   })
   const advanced = deepMerge(initialAdvancedData, payload.a)
+  const docuseal = payload.d as unknown as QuotationData['docuseal']
 
   return {
-    id: 'shared',
+    // `s:<shareId>` is a REAL id: it becomes the DocuSeal external_id, which
+    // the webhook uses to find the Drive mapping. The old constant 'shared'
+    // made every shared proposal collide on one external id.
+    id: shareId ? `s:${shareId}` : 'shared',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    status: 'sent',
+    status: docuseal?.status === 'completed' ? 'accepted' : 'sent',
     client,
     project,
     technical,
     advanced,
     results: null,
-    docuseal: payload.d as unknown as QuotationData['docuseal'],
+    docuseal,
+    share_id: shareId ?? null,
     drive_folder_link: null,
     drive_project_name: null,
   }
@@ -148,7 +153,12 @@ function isMultiVersion(data: StoredData): data is { versions: StoredVersionEntr
 // Single proposal sharing (backwards compatible)
 // ---------------------------------------------------------------------------
 
-export async function generateShareUrl(proposal: QuotationData): Promise<string> {
+export interface ShareResult {
+  url: string
+  id: string
+}
+
+export async function generateShareUrl(proposal: QuotationData): Promise<ShareResult> {
   const payload = toPayload(proposal)
 
   const res = await fetch('/api/share', {
@@ -160,7 +170,7 @@ export async function generateShareUrl(proposal: QuotationData): Promise<string>
   if (!res.ok) throw new Error('Error al guardar la propuesta')
 
   const { id } = await res.json()
-  return `${window.location.origin}/s/${id}`
+  return { url: `${window.location.origin}/s/${id}`, id }
 }
 
 export async function updateSharedClient(
@@ -178,12 +188,33 @@ export async function updateSharedClient(
   }
 }
 
+/**
+ * Persist DocuSeal signing state on the shared payload so a reload of /s/<id>
+ * does not forget the submission (and mint a duplicate contract). The server
+ * verifies the (submission_id, submitter_slug) pair against DocuSeal before
+ * storing anything, so the state cannot be forged from the link alone.
+ */
+export async function updateSharedDocuseal(
+  id: string,
+  docusealPatch: { submission_id: number; submitter_slug: string },
+): Promise<void> {
+  const res = await fetch('/api/share', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, docusealPatch }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error ?? 'No se pudo guardar el estado de la firma')
+  }
+}
+
 export async function fetchSharedProposal(id: string): Promise<QuotationData> {
   const res = await fetch(`/api/share?id=${id}`)
   if (!res.ok) throw new Error('Propuesta no encontrada o expirada')
 
   const { data } = await res.json()
-  return fromPayload(data as SharePayload)
+  return fromPayload(data as SharePayload, id)
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +223,7 @@ export async function fetchSharedProposal(id: string): Promise<QuotationData> {
 
 export async function generateMultiShareUrl(
   proposals: { label: string; proposal: QuotationData }[]
-): Promise<string> {
+): Promise<ShareResult> {
   const versions: StoredVersionEntry[] = proposals.map((v) => ({
     label: v.label,
     payload: toPayload(v.proposal),
@@ -207,7 +238,7 @@ export async function generateMultiShareUrl(
   if (!res.ok) throw new Error('Error al guardar las propuestas')
 
   const { id } = await res.json()
-  return `${window.location.origin}/s/${id}`
+  return { url: `${window.location.origin}/s/${id}`, id }
 }
 
 /**
@@ -222,13 +253,13 @@ export async function fetchSharedData(id: string): Promise<SharedVersion[]> {
   if (isMultiVersion(data)) {
     return data.versions.map((v) => ({
       label: v.label,
-      proposal: fromPayload(v.payload),
+      proposal: fromPayload(v.payload, id),
     }))
   }
 
   // Legacy single proposal
   return [{
     label: 'Propuesta',
-    proposal: fromPayload(data),
+    proposal: fromPayload(data, id),
   }]
 }

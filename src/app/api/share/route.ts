@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { getClientIp, rateLimit } from '@/lib/rate-limit'
 import { roofDesignSchema } from '@/lib/schemas'
+import { getDocusealSubmission, toDocusealSignatureData } from '@/lib/docuseal'
 
 const EXPIRY_SECONDS = 60 * 60 * 24 * 90 // 90 days
 // Legit payloads carry inline base64 images and can reach ~4MB; cap just above that.
@@ -132,10 +133,22 @@ const clientPatchSchema = z
     { message: 'Se requiere al menos un campo' },
   )
 
-const patchBodySchema = z.object({
-  id: z.string().regex(SHARE_ID_REGEX),
-  clientPatch: clientPatchSchema,
+// DocuSeal state is never trusted from the client: the pair below is only a
+// claim, verified against the DocuSeal API before anything is stored.
+const docusealPatchSchema = z.object({
+  submission_id: z.number().int().positive(),
+  submitter_slug: z.string().min(6).max(120),
 })
+
+const patchBodySchema = z
+  .object({
+    id: z.string().regex(SHARE_ID_REGEX),
+    clientPatch: clientPatchSchema.optional(),
+    docusealPatch: docusealPatchSchema.optional(),
+  })
+  .refine((b) => b.clientPatch !== undefined || b.docusealPatch !== undefined, {
+    message: 'Se requiere al menos un patch',
+  })
 
 /** PATCH — update client info on an existing shared proposal */
 export async function PATCH(request: NextRequest) {
@@ -151,7 +164,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
     }
-    const { id, clientPatch } = parsed.data
+    const { id, clientPatch, docusealPatch } = parsed.data
 
     const redis = getRedis()
     if (!(await rateLimit(redis, `rl:share:patch:${getClientIp(request)}`, 30, 60))) {
@@ -163,10 +176,28 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
     }
 
+    // Verify the docuseal claim against the DocuSeal API and rebuild the
+    // stored state server-side. Slug mismatch gets the same 404 as a missing
+    // share so submission ids can't be probed.
+    let verifiedDocuseal: Record<string, unknown> | null = null
+    if (docusealPatch) {
+      let submission
+      try {
+        submission = await getDocusealSubmission(docusealPatch.submission_id)
+      } catch {
+        return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
+      }
+      const slug = submission.submitters?.[0]?.slug
+      if (!slug || slug !== docusealPatch.submitter_slug) {
+        return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
+      }
+      verifiedDocuseal = toDocusealSignatureData(submission) as unknown as Record<string, unknown>
+    }
+
     const patch: ClientShortKeys = {}
-    if (clientPatch.email !== undefined) patch.e = clientPatch.email
-    if (clientPatch.telefono !== undefined) patch.t = clientPatch.telefono
-    if (clientPatch.nit_cc !== undefined) patch.a = clientPatch.nit_cc
+    if (clientPatch?.email !== undefined) patch.e = clientPatch.email
+    if (clientPatch?.telefono !== undefined) patch.t = clientPatch.telefono
+    if (clientPatch?.nit_cc !== undefined) patch.a = clientPatch.nit_cc
 
     const isRecord = (value: unknown): value is Record<string, unknown> =>
       typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -176,17 +207,21 @@ export async function PATCH(request: NextRequest) {
       ...patch,
     })
 
+    const applyToPayload = (payload: Record<string, unknown>) => {
+      if (clientPatch) payload.c = applyPatch(payload.c)
+      if (verifiedDocuseal) payload.d = verifiedDocuseal
+    }
+
     if (Array.isArray((data as { versions?: unknown }).versions)) {
       const versions = (data as { versions: unknown[] }).versions
       for (const v of versions) {
         if (!isRecord(v)) continue
         const payload = (v as { payload?: unknown }).payload
         if (!isRecord(payload)) continue
-        payload.c = applyPatch(payload.c)
+        applyToPayload(payload)
       }
     } else {
-      const single = data as { c?: unknown }
-      single.c = applyPatch(single.c)
+      applyToPayload(data)
     }
 
     // keepTtl preserves the remaining expiry instead of resetting it to 90 days;

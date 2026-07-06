@@ -69,8 +69,12 @@ export async function runCreateQuotationLink(args: LinkArgs) {
   const stores = buildStores(quoteArgs, clientArgs)
   const { summary, structured } = summarize(stores)
 
+  // Mint the share id first so the proposal carries its real id (`s:<id>`,
+  // the same id the /s page derives and DocuSeal uses as external_id).
+  const id = nanoid(8)
+
   const proposal: QuotationData = {
-    id: 'mcp',
+    id: `s:${id}`,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     status: 'sent',
@@ -80,11 +84,10 @@ export async function runCreateQuotationLink(args: LinkArgs) {
     advanced: stores.advanced,
     results: null,
     docuseal: undefined,
+    share_id: id,
     drive_folder_link: null,
     drive_project_name: null,
   }
-
-  const id = nanoid(8)
   await getRedis().set(`share:${id}`, toPayload(proposal), { ex: SHARE_EXPIRY_SECONDS })
   const url = `${publicBaseUrl()}/s/${id}`
 

@@ -110,28 +110,46 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
       const pdfName = `Propuesta_${safeClient}_${proposal.project.fecha}.pdf`
       const signedContractBaseName = `Contrato_Firmado_${safeClient}_${proposal.project.fecha}`
 
-      // 2. Server action: create folder structure (small payload, no PDF)
-      const driveResult = await prepareDriveUpload(
-        proposal.client.nombre,
-        proposal.project.ubicacion_label ?? '',
-      )
+      // 2. Reuse the folder from a previous sync when we have one — otherwise
+      // every re-sync mints a brand-new FVyyNNN consecutive + folder tree.
+      let uploadFolderId = proposal.drive_upload_folder_id ?? null
+      let folderLink = proposal.drive_folder_link
+      let projectName = proposal.drive_project_name
 
-      if (!driveResult.success || !driveResult.uploadFolderId) {
-        setError(driveResult.error ?? 'Error al preparar carpeta en Drive')
-        return
+      if (!uploadFolderId) {
+        const driveResult = await prepareDriveUpload(
+          proposal.client.nombre,
+          proposal.project.ubicacion_label ?? '',
+        )
+
+        if (!driveResult.success || !driveResult.uploadFolderId) {
+          setError(driveResult.error ?? 'Error al preparar carpeta en Drive')
+          return
+        }
+        uploadFolderId = driveResult.uploadFolderId
+        folderLink = driveResult.folderLink
+        projectName = driveResult.projectName
       }
 
       // 3. Upload PDF directly from browser to Google Drive via a
       // server-created resumable session (bypasses Vercel limit, no token in browser)
-      await uploadFileToDrive(blob, pdfName, driveResult.uploadFolderId)
+      await uploadFileToDrive(blob, pdfName, uploadFolderId)
 
-      // 4. Register webhook mapping so DocuSeal can deliver the signed
-      // contract to this folder later.
+      // 4. Register webhook mappings so DocuSeal can deliver the signed
+      // contract to this folder later. The shared link signs with external_id
+      // `s:<share_id>`, so register that id too when the proposal was shared.
       await registerProposalDriveMapping(
         proposal.id,
-        driveResult.uploadFolderId,
+        uploadFolderId,
         signedContractBaseName,
       )
+      if (proposal.share_id) {
+        await registerProposalDriveMapping(
+          `s:${proposal.share_id}`,
+          uploadFolderId,
+          signedContractBaseName,
+        )
+      }
 
       // 5. If the proposal was already signed before this sync, fetch the
       // signed PDF from DocuSeal and upload it now.
@@ -140,21 +158,25 @@ export function DriveSyncButton({ proposal, className }: DriveSyncButtonProps) {
         proposal.docuseal.submission_id
       ) {
         try {
-          await uploadSignedContractToDrive(
+          const signedResult = await uploadSignedContractToDrive(
             proposal.docuseal.submission_id,
-            driveResult.uploadFolderId,
+            uploadFolderId,
             signedContractBaseName,
           )
+          if (!signedResult.success) {
+            throw new Error(signedResult.error ?? 'Error al subir el contrato firmado')
+          }
         } catch (signedErr) {
           console.warn('Signed contract upload failed (proposal PDF was uploaded):', signedErr)
           toast.warning('El contrato firmado no se pudo subir a Drive. La propuesta sí se subió; intenta sincronizar de nuevo más tarde.')
         }
       }
 
-      // 6. Update proposal with Drive link
+      // 6. Update proposal with Drive link + folder id for future re-syncs
       updateProposal(proposal.id, {
-        drive_folder_link: driveResult.folderLink,
-        drive_project_name: driveResult.projectName,
+        drive_folder_link: folderLink,
+        drive_project_name: projectName,
+        drive_upload_folder_id: uploadFolderId,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error de conexión')

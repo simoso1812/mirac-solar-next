@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { toPayload } from '@/lib/share'
+import { toPayload, fromPayload } from '@/lib/share'
 import { roofDesignSchema } from '@/lib/schemas'
 import {
   initialAdvancedData,
@@ -83,5 +83,41 @@ describe('toPayload sanitizes non-finite numbers so the share gate accepts it', 
     expect(payload.t.al).toBe(2.0)
     expect(payload.p.h).toHaveLength(12)
     expect(singlePayloadSchema.safeParse(payload).success).toBe(true)
+  })
+})
+
+describe('fromPayload id + status derivation (signing loop, roadmap #10/#13)', () => {
+  it('derives a real s:<shareId> id and share_id', () => {
+    const payload = toPayload(proposalWith({}))
+    const restored = fromPayload(payload, 'abc123XY')
+    expect(restored.id).toBe('s:abc123XY')
+    expect(restored.share_id).toBe('abc123XY')
+    expect(restored.status).toBe('sent')
+  })
+
+  it('falls back to the legacy constant without a share id', () => {
+    const restored = fromPayload(toPayload(proposalWith({})))
+    expect(restored.id).toBe('shared')
+    expect(restored.share_id).toBeNull()
+  })
+
+  it('marks the proposal accepted when the stored docuseal state is completed', () => {
+    const proposal = proposalWith({})
+    proposal.docuseal = {
+      submission_id: 1,
+      submitter_id: 2,
+      submitter_slug: 'slug',
+      embed_src: 'https://docuseal.com/s/slug',
+      status: 'completed',
+      document_url: null,
+      audit_log_url: null,
+      completed_at: new Date().toISOString(),
+      declined_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    const restored = fromPayload(toPayload(proposal), 'zz11ZZ22')
+    expect(restored.status).toBe('accepted')
+    expect(restored.docuseal?.status).toBe('completed')
   })
 })

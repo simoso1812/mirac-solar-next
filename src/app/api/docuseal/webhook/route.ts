@@ -81,18 +81,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DocuSeal did not return a signed document' }, { status: 502 })
   }
 
-  const pdfRes = await fetch(docUrl, { cache: 'no-store' })
+  const pdfRes = await fetch(docUrl, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
   if (!pdfRes.ok) {
     return NextResponse.json({ error: `Could not download signed PDF (${pdfRes.status})` }, { status: 502 })
   }
   const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
 
-  const link = await uploadBytesToDriveFolder(
-    mapping.uploadFolderId,
-    `${mapping.fileBaseName}.pdf`,
-    pdfBuffer,
-    'application/pdf',
-  )
+  // Fail loudly: DocuSeal only retries non-2xx responses, so a swallowed
+  // Drive failure would silently drop the signed contract.
+  let link: string | null = null
+  try {
+    link = await uploadBytesToDriveFolder(
+      mapping.uploadFolderId,
+      `${mapping.fileBaseName}.pdf`,
+      pdfBuffer,
+      'application/pdf',
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Drive upload failed'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+  if (!link) {
+    return NextResponse.json({ error: 'Drive upload failed (no link returned)' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, link })
 }

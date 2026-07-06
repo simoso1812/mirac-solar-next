@@ -32,6 +32,17 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
   const [versions, setVersions] = useState<VersionEntry[]>([])
 
   const getProposalsByClient = useProposalsStore((s) => s.getProposalsByClient)
+  const updateProposal = useProposalsStore((s) => s.updateProposal)
+
+  // Record the link on the proposal (share_id drives the DocuSeal webhook
+  // mapping and future status checks) and auto-advance draft → sent.
+  const recordShare = (p: QuotationData, shareId: string) => {
+    updateProposal(p.id, {
+      share_id: shareId,
+      shared_at: new Date().toISOString(),
+      ...(p.status === 'draft' ? { status: 'sent' as const } : {}),
+    })
+  }
 
   const handleOpenChange = (next: boolean) => {
     if (next) {
@@ -61,14 +72,16 @@ export function ShareDialog({ proposal }: ShareDialogProps) {
 
       if (selected.length > 1) {
         // Multi-version share
-        const shareUrl = await generateMultiShareUrl(
+        const result = await generateMultiShareUrl(
           selected.map((v) => ({ label: v.label, proposal: v.proposal }))
         )
-        setUrl(shareUrl)
+        setUrl(result.url)
+        for (const v of selected) recordShare(v.proposal, result.id)
       } else {
         // Single share
-        const shareUrl = await generateShareUrl(proposal)
-        setUrl(shareUrl)
+        const result = await generateShareUrl(proposal)
+        setUrl(result.url)
+        recordShare(proposal, result.id)
       }
     } catch {
       toast.error('Error al generar el enlace')

@@ -111,6 +111,11 @@ export async function uploadSignedContractToDrive(
       pdfBuffer,
       'application/pdf',
     )
+    if (!link) {
+      // subirArchivo swallows Drive errors and returns null — that is a
+      // failure, not a success with a missing link.
+      return { success: false, link: null, error: 'No se pudo subir el contrato firmado a Drive' }
+    }
 
     return { success: true, link }
   } catch (error) {

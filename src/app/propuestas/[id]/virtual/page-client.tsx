@@ -1,9 +1,10 @@
 'use client'
 
-import { use } from 'react'
+import { use, useEffect } from 'react'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { VirtualQuotation } from '@/components/virtual/virtual-quotation'
 import { useHydrated } from '@/hooks/use-hydration'
+import { fetchSharedData } from '@/lib/share'
 import type { ClientData, DocusealSignatureData } from '@/lib/types'
 
 export default function VirtualPage({
@@ -28,6 +29,32 @@ export default function VirtualPage({
 function VirtualPageContent({ id }: { id: string }) {
   const proposal = useProposalsStore((s) => s.getProposal(id))
   const updateProposal = useProposalsStore((s) => s.updateProposal)
+
+  // If this proposal was shared, pull signing state back from the share
+  // payload (the client signs on /s/<id>, which persists via PATCH). This is
+  // how "firmado" reaches /propuestas without a manual status change.
+  const shareId = proposal?.share_id ?? null
+  const localDocusealUpdatedAt = proposal?.docuseal?.updated_at ?? null
+  const localDocusealStatus = proposal?.docuseal?.status ?? null
+  useEffect(() => {
+    if (!shareId || localDocusealStatus === 'completed') return
+    let cancelled = false
+    fetchSharedData(shareId)
+      .then((versions) => {
+        if (cancelled) return
+        const remote = versions[0]?.proposal.docuseal
+        if (!remote) return
+        if (remote.updated_at === localDocusealUpdatedAt && remote.status === localDocusealStatus) return
+        updateProposal(id, {
+          docuseal: remote,
+          ...(remote.status === 'completed' ? { status: 'accepted' as const } : {}),
+        })
+      })
+      .catch(() => {}) // expired/unreachable share — keep local state
+    return () => {
+      cancelled = true
+    }
+  }, [shareId, localDocusealStatus, localDocusealUpdatedAt, id, updateProposal])
 
   if (!proposal || !proposal.results) {
     return (
