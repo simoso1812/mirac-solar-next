@@ -49,9 +49,13 @@ async function convertWithMarkItDown(file: File): Promise<MarkItDownResult | nul
       signal: AbortSignal.timeout(MARKITDOWN_TIMEOUT),
     })
 
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn(`MarkItDown service responded ${res.status} — falling back to vision`)
+      return null
+    }
     return await res.json() as MarkItDownResult
-  } catch {
+  } catch (error) {
+    console.warn('MarkItDown service unreachable — falling back to vision:', error)
     return null
   }
 }

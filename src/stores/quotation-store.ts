@@ -4,13 +4,6 @@ import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { toast } from 'sonner'
 import type { ClientData, ProjectData, TechnicalData, AdvancedData, CalculationResults, QuotationData } from '@/lib/types'
-export {
-  initialClientData,
-  initialProjectData,
-  initialTechnicalData,
-  initialAdvancedData,
-  deepMerge,
-} from '@/lib/defaults'
 import {
   initialClientData,
   initialProjectData,

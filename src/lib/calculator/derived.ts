@@ -6,7 +6,7 @@
  * Each formula must exist exactly once — consumers destructure these
  * helpers instead of re-implementing the math inline.
  */
-import { PROMEDIOS_COSTO } from '@/lib/constants'
+import { DEFAULT_PARAMS, PROMEDIOS_COSTO } from '@/lib/constants'
 import type { CalculationResults, PpaOption } from '@/lib/types'
 
 export interface IvaBreakdown {
@@ -30,8 +30,8 @@ export interface IvaBreakdown {
 export function ivaBreakdown(r: CalculationResults): IvaBreakdown {
   const costoSinIVA = r.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)
   const valorIVA = r.costo_total_cop - costoSinIVA
-  // 2% of CAPEX — keep in sync with DEFAULT_PARAMS.porcentaje_om_anual in constants.ts
-  const omAnual = r.costo_total_cop * 0.02
+  // Annual O&M as a fraction of CAPEX (see DEFAULT_PARAMS in constants.ts)
+  const omAnual = r.costo_total_cop * DEFAULT_PARAMS.porcentaje_om_anual
   const costoBateria = r.bateria?.habilitada ? r.bateria.costo_cop : 0
   const bateriaSinIVA = costoBateria / (1 + PROMEDIOS_COSTO.iva_rate)
   const costoFvSinIVA = costoSinIVA - bateriaSinIVA

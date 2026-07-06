@@ -860,7 +860,8 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           </Pos>
           {/* Vida útil */}
           <Pos x={19} y={214} fontSize={15} fontFamily="Roboto" fontWeight="bold" align="center" width={50}>
-            {Math.floor(fin.num_pagos / 12)}
+            {/* Same rounding as the web financing card (financial-section.tsx) */}
+            {Math.round(fin.num_pagos / 12)}
           </Pos>
         </Page>
       )}
