@@ -22,6 +22,17 @@ import type { ClientData, ProjectData, TechnicalData, AdvancedData } from '@/lib
 // Cities present in HSP_MENSUAL_POR_CIUDAD (others fall back to MEDELLIN).
 const CIUDADES = ['MEDELLIN', 'BOGOTA', 'CALI', 'BARRANQUILLA', 'BUCARAMANGA', 'CARTAGENA', 'PEREIRA'] as const
 
+/**
+ * MCP clients (Cowork) sometimes serialize booleans as "true"/"false" strings —
+ * the exact bug class z.coerce.number() fixes for numbers. NOT z.coerce.boolean()
+ * (which treats any non-empty string, including "false", as true).
+ */
+const boolInput = (defaultValue: boolean) =>
+  z.preprocess(
+    (v) => (v === 'true' ? true : v === 'false' ? false : v),
+    z.boolean().default(defaultValue),
+  )
+
 /** Input shape (ZodRawShape) for the quoting tools. */
 export const quoteInputShape = {
   consumo_mensual_kwh: z
@@ -55,10 +66,8 @@ export const quoteInputShape = {
     .nonnegative()
     .default(300)
     .describe('Precio de excedentes en COP/kWh (solo aplica en net_billing). Default 300.'),
-  incluir_baterias: z
-    .boolean()
-    .default(false)
-    .describe('Si el sistema incluye almacenamiento en baterias.'),
+  incluir_baterias: boolInput(false)
+    .describe('Si el sistema incluye almacenamiento en baterias. Se activa solo si bateria_capacidad_kwh > 0.'),
   bateria_capacidad_kwh: z
     .coerce.number()
     .nonnegative()
@@ -88,14 +97,12 @@ export const quoteInputShape = {
     .max(30)
     .default(5)
     .describe('Plazo del credito en anios. Default 5.'),
-  beneficio_deduccion_renta: z
-    .boolean()
-    .default(false)
+  beneficio_deduccion_renta: boolInput(false)
     .describe('Aplicar deduccion de renta (Ley 1715).'),
-  beneficio_depreciacion_acelerada: z
-    .boolean()
-    .default(false)
+  beneficio_depreciacion_acelerada: boolInput(false)
     .describe('Aplicar depreciacion acelerada (Ley 1715).'),
+  demora_6_meses: boolInput(false)
+    .describe('Si la instalacion demora ~6 meses, el primer anio de ahorro se reduce a la mitad.'),
   factor_seguridad: z
     .coerce.number()
     .positive()
@@ -104,8 +111,63 @@ export const quoteInputShape = {
   potencia_panel_w: z
     .coerce.number()
     .positive()
+    .max(1000)
     .default(615)
     .describe('Potencia de cada panel en W. Default 615.'),
+  panel_marca: z
+    .string()
+    .max(80)
+    .optional()
+    .describe('Marca del panel a mostrar en la propuesta (texto libre, ej "Jinko"). Omitir para no especificar.'),
+  panel_modelo: z
+    .string()
+    .max(120)
+    .optional()
+    .describe('Modelo del panel a mostrar en la propuesta (texto libre). Omitir para no especificar.'),
+  numero_paneles: z
+    .coerce.number()
+    .int()
+    .positive()
+    .max(10_000)
+    .optional()
+    .describe('Numero de paneles a forzar (override manual). Reemplaza el dimensionamiento por consumo. Omitir para dimensionar automaticamente.'),
+  horizonte_anios: z
+    .coerce.number()
+    .int()
+    .min(5)
+    .max(40)
+    .default(25)
+    .describe('Horizonte de analisis financiero en anios. Default 25.'),
+  tasa_descuento: z
+    .coerce.number()
+    .min(0)
+    .max(1)
+    .default(0.10)
+    .describe('Tasa de descuento para el VPN como fraccion. Default 0.10.'),
+  indexacion_energia: z
+    .coerce.number()
+    .min(0)
+    .max(0.5)
+    .default(0.06)
+    .describe('Indexacion anual de la tarifa de energia como fraccion. Default 0.06.'),
+  porcentaje_mantenimiento: z
+    .coerce.number()
+    .min(0)
+    .max(0.5)
+    .default(0.05)
+    .describe('Mantenimiento anual como fraccion del ahorro. Default 0.05.'),
+  bateria_profundidad_descarga: z
+    .coerce.number()
+    .min(0.1)
+    .max(1)
+    .default(0.9)
+    .describe('Profundidad de descarga (DoD) de la bateria como fraccion. Default 0.9.'),
+  bateria_costo_kwh: z
+    .coerce.number()
+    .positive()
+    .max(10_000_000)
+    .default(400_000)
+    .describe('Costo de la bateria en COP por kWh nominal. Default 400000.'),
   precio_manual_cop: z
     .coerce.number()
     .positive()
@@ -258,6 +320,9 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
     factor_seguridad: a.factor_seguridad,
     tipo_cubierta: a.cubierta,
     clima: a.clima,
+    marca_panel: a.panel_marca?.trim() ?? '',
+    modelo_panel: a.panel_modelo?.trim() ?? '',
+    override_paneles: a.numero_paneles ?? null,
   }) as TechnicalData
 
   const project = deepMerge(initialProjectData, {
@@ -269,10 +334,18 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
     costo_kwh: a.costo_kwh,
     modo_conexion: a.modo_conexion,
     precio_excedentes: a.precio_excedentes,
+    horizonte_anios: a.horizonte_anios,
+    tasa_descuento: a.tasa_descuento,
+    indexacion_energia: a.indexacion_energia,
+    porcentaje_mantenimiento: a.porcentaje_mantenimiento,
+    demora_6_meses: a.demora_6_meses,
     bateria: {
-      habilitada: a.incluir_baterias,
+      // A capacity without the flag still means "quote a battery".
+      habilitada: a.incluir_baterias || a.bateria_capacidad_kwh > 0,
       capacidad_kwh: a.bateria_capacidad_kwh,
       horas_autonomia: a.bateria_horas_autonomia,
+      profundidad_descarga: a.bateria_profundidad_descarga,
+      costo_kwh_bateria: a.bateria_costo_kwh,
     },
     financiamiento: {
       habilitado: a.financiamiento_porcentaje > 0,

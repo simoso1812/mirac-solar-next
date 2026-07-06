@@ -184,6 +184,23 @@ export const useProposalsStore = create<ProposalsState>()(
       // Identity migrate: without it, zustand discards persisted state saved
       // before `version` existed (treated as version 0) and users lose data.
       migrate: (persisted) => persisted as ProposalsState,
+      // Rehydrate backfill (same defense quotation-store has): proposals saved
+      // before a schema change get nested defaults deep-merged in, so new
+      // required fields can never crash the list views on old localStorage.
+      merge: (persisted, current) => {
+        const p = persisted as Partial<ProposalsState> | undefined
+        const list = Array.isArray(p?.proposals) ? p.proposals : []
+        return {
+          ...current,
+          ...p,
+          proposals: list
+            .filter(
+              (item): item is QuotationData =>
+                typeof item === 'object' && item !== null && typeof item.id === 'string',
+            )
+            .map(backfillImportedProposal),
+        }
+      },
       storage: createJSONStorage(() => safeLocalStorage),
     }
   )

@@ -22,6 +22,34 @@ import {
   runEstimatePrice,
 } from '@/lib/mcp/quote'
 import { linkInputShape, runCreateQuotationLink } from '@/lib/mcp/create-link'
+import {
+  getQuotationInputShape,
+  runGetQuotation,
+  updateQuotationInputShape,
+  runUpdateQuotation,
+} from '@/lib/mcp/manage-link'
+
+/**
+ * Wrap a tool handler so failures come back as a Spanish isError result
+ * instead of a raw JSON-RPC error the agent can't relay to the user.
+ */
+function tool<A>(fn: (args: A) => Promise<{ summary: string; structured: Record<string, unknown> }> | { summary: string; structured: Record<string, unknown> }) {
+  return async (args: A) => {
+    try {
+      const { summary, structured } = await fn(args)
+      return {
+        content: [{ type: 'text' as const, text: summary }],
+        structuredContent: structured,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido'
+      return {
+        content: [{ type: 'text' as const, text: `Error al ejecutar la herramienta: ${message}` }],
+        isError: true,
+      }
+    }
+  }
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -48,13 +76,7 @@ const handler = createMcpHandler(
           openWorldHint: false,
         },
       },
-      async (args) => {
-        const { summary, structured } = runQuote(args)
-        return {
-          content: [{ type: 'text', text: summary }],
-          structuredContent: structured,
-        }
-      },
+      tool(async (args) => runQuote(args)),
     )
 
     server.registerTool(
@@ -72,13 +94,7 @@ const handler = createMcpHandler(
           openWorldHint: false,
         },
       },
-      async (args) => {
-        const { summary, structured } = runEstimatePrice(args)
-        return {
-          content: [{ type: 'text', text: summary }],
-          structuredContent: structured,
-        }
-      },
+      tool(async (args) => runEstimatePrice(args)),
     )
 
     server.registerTool(
@@ -97,13 +113,45 @@ const handler = createMcpHandler(
           openWorldHint: true,
         },
       },
-      async (args) => {
-        const { summary, structured } = await runCreateQuotationLink(args)
-        return {
-          content: [{ type: 'text', text: summary }],
-          structuredContent: structured,
-        }
+      tool(runCreateQuotationLink),
+    )
+
+    server.registerTool(
+      'get_quotation',
+      {
+        title: 'Leer cotizacion compartida',
+        description:
+          'Lee una propuesta compartida existente por su share_id (el segmento final de la URL /s/<id>) y devuelve sus numeros actuales, ' +
+          'incluyendo el estado de firma. Usa esta herramienta antes de update_quotation para ver que contiene el link.',
+        inputSchema: getQuotationInputShape,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
       },
+      tool(runGetQuotation),
+    )
+
+    server.registerTool(
+      'update_quotation',
+      {
+        title: 'Actualizar cotizacion compartida',
+        description:
+          'Regenera una propuesta compartida existente SIN cambiar el link /s/<id> ya enviado al cliente. ' +
+          'IMPORTANTE: los parametros no enviados vuelven a sus valores por defecto — envia el conjunto completo de parametros que quieres que tenga la propuesta ' +
+          '(usa get_quotation primero para conocer el estado actual). El nombre y datos del cliente se conservan salvo que se envie cliente_nombre. ' +
+          'Propuestas ya firmadas no se pueden modificar.',
+        inputSchema: updateQuotationInputShape,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      tool(runUpdateQuotation),
     )
   },
   {},
