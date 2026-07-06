@@ -6,7 +6,7 @@
  * TIR/VPN/payback/cuota values changed for clients.
  */
 import { describe, it, expect } from 'vitest'
-import { cotizacion, buildInputFromStore, pmt } from '@/lib/calculator'
+import { cotizacion, buildInputFromStore, pmt, recomendarInversor } from '@/lib/calculator'
 import type { CotizacionInput } from '@/lib/calculator'
 import { initialProjectData, initialTechnicalData, initialAdvancedData, deepMerge } from '@/lib/defaults'
 import { PROMEDIOS_COSTO } from '@/lib/constants'
@@ -344,6 +344,97 @@ describe('loan term in months (audit X3)', () => {
     const cuotaY3 = r.flujo_caja.find((row) => row.anio === 3)!.cuota_financiamiento_cop
     expect(cuotaY2).toBeCloseTo(cuota18 * 6, 0)
     expect(cuotaY3).toBe(0)
+  })
+})
+
+describe('phase 0 correctness fixes (2026-07-06 roadmap)', () => {
+  it('0% interest loan still charges cuotas (monto / plazo)', () => {
+    const r = cotizacion(
+      baseInput({
+        precioManual: 96_000_000,
+        percFinanciamiento: 80,
+        tasaInteresCredito: 0,
+        plazoCreditoMeses: 60,
+      })
+    )
+    const fin = r.financiamiento!
+    expect(fin).not.toBeNull()
+    expect(fin.cuota_mensual_cop).toBe(Math.ceil(76_800_000 / 60))
+    expect(fin.total_intereses_cop).toBeLessThanOrEqual(60) // ceil rounding only
+    const cuotaY1 = r.flujo_caja.find((row) => row.anio === 1)!.cuota_financiamiento_cop
+    expect(cuotaY1).toBe(fin.cuota_mensual_cop * 12)
+  })
+
+  it('100% financing does not report payback 0 when early flows are negative', () => {
+    // Short, expensive loan: year-1 cuotas dwarf savings, so the cumulative
+    // flow dips negative before recovering. The old code latched payback=0
+    // at the -0 year-0 row.
+    const r = cotizacion(
+      baseInput({
+        percFinanciamiento: 100,
+        tasaInteresCredito: 0.25,
+        plazoCreditoMeses: 24,
+      })
+    )
+    const y1 = r.flujo_caja.find((row) => row.anio === 1)!
+    expect(y1.flujo_neto_cop).toBeLessThan(0) // precondition for the scenario
+    expect(r.payback_anios).toBeGreaterThan(0)
+    // And it agrees with the table's own break-even year.
+    const breakEven = r.flujo_caja.find(
+      (row) => row.anio >= 1 && row.flujo_acumulado_cop >= 0
+    )?.anio ?? Infinity
+    expect(Math.abs(breakEven - r.payback_anios)).toBeLessThanOrEqual(1)
+  })
+
+  it('100% financing with always-positive flows reports payback 0 (no equity outlay)', () => {
+    const r = cotizacion(
+      baseInput({
+        percFinanciamiento: 100,
+        tasaInteresCredito: 0.05,
+        plazoCreditoMeses: 120,
+      })
+    )
+    const y1 = r.flujo_caja.find((row) => row.anio === 1)!
+    expect(y1.flujo_neto_cop).toBeGreaterThan(0) // precondition
+    expect(r.payback_anios).toBe(0)
+  })
+
+  it('consumo 0 does not throw (estimatePrice guard) and quotes a minimal system', () => {
+    const r = cotizacion(baseInput({ consumoMensualKwh: 0 }))
+    expect(r.numero_paneles).toBeGreaterThanOrEqual(2)
+    expect(r.kwp).toBeGreaterThan(0)
+    expect(r.costo_total_cop).toBeGreaterThan(0)
+  })
+
+  it('override_paneles 0 does not throw', () => {
+    const r = cotizacion(baseInput({ overridePaneles: 0 }))
+    expect(r.numero_paneles).toBeGreaterThanOrEqual(2)
+    expect(r.costo_total_cop).toBeGreaterThan(0)
+  })
+
+  it('sub-3 kWp systems floor at the smallest inverter instead of none', () => {
+    const result = recomendarInversor(2.4)
+    expect(result.totalPower).toBe(3)
+    expect(result.combo).toEqual({ 3: 1 })
+    // End to end: a tiny quote carries a real inverter and a real DC/AC ratio.
+    const r = cotizacion(baseInput({ overridePaneles: 4 })) // 4 x 615W = 2.46 kWp
+    expect(r.inversores.length).toBeGreaterThan(0)
+    expect(r.inversores[0].potencia_kw).toBe(3)
+  })
+
+  it('duplicate override_inversores rows merge quantities instead of collapsing', () => {
+    const r = cotizacion(
+      baseInput({
+        overrideInversores: [
+          { potencia_kw: 5, cantidad: 1 },
+          { potencia_kw: 5, cantidad: 1 },
+        ],
+      })
+    )
+    const cincoKw = r.inversores.filter((inv) => inv.potencia_kw === 5)
+    expect(cincoKw).toHaveLength(1)
+    expect(cincoKw[0].cantidad).toBe(2)
+    expect(cincoKw[0].potencia_total_kw).toBe(10)
   })
 })
 

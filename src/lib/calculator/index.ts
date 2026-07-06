@@ -138,7 +138,10 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const eficienciaEstimacion = DEFAULT_PARAMS.eficiencia_sistema_estimacion
   const kwpRaw = (consumoMensualKwh / (hspPromedio * 30 * eficienciaEstimacion)) * factorSeguridad
   const potenciaPanelKw = potenciaPanelW / 1000
-  const numeroPaneles = input.overridePaneles ?? redondearAPar(Math.ceil(kwpRaw / potenciaPanelKw))
+  // Clamp to at least 2 panels: consumo=0 or override_paneles<=0 payloads
+  // (shared links, imported JSON) must not reach estimatePrice(kwp<=0), which throws.
+  const panelesRaw = input.overridePaneles ?? redondearAPar(Math.ceil(kwpRaw / potenciaPanelKw))
+  const numeroPaneles = Number.isFinite(panelesRaw) && panelesRaw > 0 ? panelesRaw : 2
   const sizeKwp = numeroPaneles * potenciaPanelKw
 
   // Performance ratio & clipping
@@ -147,7 +150,10 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     ? {
         label: input.overrideInversores.map((i) => `${i.cantidad}x${i.potencia_kw}kW`).join(' + '),
         totalPower: input.overrideInversores.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0),
-        combo: Object.fromEntries(input.overrideInversores.map((i) => [i.potencia_kw, i.cantidad])),
+        combo: input.overrideInversores.reduce<Record<number, number>>((acc, i) => {
+          acc[i.potencia_kw] = (acc[i.potencia_kw] ?? 0) + i.cantidad
+          return acc
+        }, {}),
       }
     : recomendarInversor(sizeKwp)
   const potenciaAcInversor = inverterResult.totalPower
@@ -200,7 +206,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   const tasaMensualCredito = Math.pow(1 + tasaInteresCredito, 1 / 12) - 1
   const numPagosCredito = plazoCreditoMeses
   let cuotaMensualCredito = 0
-  if (montoAFinanciar > 0 && plazoCreditoMeses > 0 && tasaInteresCredito > 0) {
+  if (montoAFinanciar > 0 && plazoCreditoMeses > 0) {
     cuotaMensualCredito = Math.ceil(Math.abs(pmt(tasaMensualCredito, numPagosCredito, -montoAFinanciar)))
   }
   const desembolsoInicial = valorProyectoTotal - montoAFinanciar
@@ -265,22 +271,27 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   let tir = irr(cashflowFree)
   if (isNaN(tir)) tir = 0
 
-  // Payback
+  // Payback — first recovery AFTER the cumulative flow has been under water.
+  // A 100% financed project (desembolso 0) must not report 0 años just because
+  // the year-0 flow is -0; if the flow never dips negative, payback is 0.
   let payback = horizonteTiempo
   let cumulative = 0
+  let wasNegative = false
+  let paybackResolved = false
   for (let i = 0; i < cashflowFree.length; i++) {
+    const prev = cumulative
     cumulative += cashflowFree[i]
-    if (cumulative >= 0) {
-      if (i > 0) {
-        const prev = cumulative - cashflowFree[i]
-        const denom = cashflowFree[i]
-        payback = denom !== 0 ? (i - 1) + Math.abs(prev) / denom : i
-      } else {
-        payback = 0
-      }
-      break
+    if (cumulative < 0) {
+      wasNegative = true
+      continue
     }
+    if (!wasNegative) continue
+    const denom = cashflowFree[i]
+    payback = denom !== 0 ? (i - 1) + Math.abs(prev) / denom : i
+    paybackResolved = true
+    break
   }
+  if (!paybackResolved && !wasNegative) payback = 0
 
   // ROI
   const totalReturns = cashflowFree.slice(1).reduce((a, b) => a + b, 0)

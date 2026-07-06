@@ -39,8 +39,11 @@ export function recomendarInversor(sizeKwp: number): InverterResult {
   const minPower = sizeKwp * (1 - margen)
   const maxPower = Math.floor(sizeKwp)
 
-  if (maxPower <= 0) {
-    return { label: 'Potencia del sistema demasiado baja.', totalPower: 0, combo: {} }
+  // Sub-3 kWp systems: floor at the smallest available inverter instead of
+  // returning an empty combo (which silently forced dcAcRatio = 1.0 upstream).
+  const smallest = INVERTERS_DISPONIBLES[0]
+  if (maxPower < smallest) {
+    return { label: `1x${smallest}kW`, totalPower: smallest, combo: { [smallest]: 1 } }
   }
 
   let bestCombo: Record<number, number> | null = null
@@ -148,7 +151,7 @@ export function recomendarInversor(sizeKwp: number): InverterResult {
   if (!bestCombo) {
     const disponibles = INVERTERS_DISPONIBLES.filter((inv) => inv <= maxPower)
     if (disponibles.length === 0) {
-      return { label: 'No hay inversores disponibles.', totalPower: 0, combo: {} }
+      return { label: `1x${smallest}kW`, totalPower: smallest, combo: { [smallest]: 1 } }
     }
     const bestSingle = Math.max(...disponibles)
     return { label: `1x${bestSingle}kW`, totalPower: bestSingle, combo: { [bestSingle]: 1 } }

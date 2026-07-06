@@ -18,21 +18,25 @@ interface CostComparisonProps {
 export function CostComparisonSection({
   results, costoKwh, consumoMensualKwh, indexRate, horizonteAnios,
 }: CostComparisonProps) {
-  // Build year-by-year data
+  // Build year-by-year data. The con-solar line reads the engine's own
+  // accumulated cash flow (flujo_caja row i = year i; row 0 is the year-0
+  // investment) — no parallel savings math here, so the chart's break-even
+  // always matches payback_anios.
   const data: { anio: number; sinSolar: number; conSolar: number }[] = []
   let acumSinSolar = 0
-  let acumConSolar = -results.costo_total_cop // initial investment
   const gastoAnualBase = consumoMensualKwh * costoKwh * 12
-  const omAnual = results.costo_total_cop * 0.02
+
+  const rows = results.flujo_caja
+  let acumConSolar = rows[0]?.flujo_acumulado_cop ?? 0
+  const ultimoFlujoNeto = rows[rows.length - 1]?.flujo_neto_cop ?? 0
 
   for (let i = 1; i <= horizonteAnios; i++) {
     const gastoAnual = gastoAnualBase * Math.pow(1 + indexRate, i - 1)
     acumSinSolar += gastoAnual
 
-    const ahorroAnual = results.flujo_caja[i - 1]
-      ? results.flujo_caja[i - 1].ahorro_cop
-      : results.ahorro_anual_cop * Math.pow(1 + indexRate, i - 1)
-    acumConSolar += ahorroAnual - omAnual
+    // Beyond the engine's horizon (shouldn't normally happen — both come from
+    // horizonte_anios), extrapolate with the last known net flow.
+    acumConSolar = rows[i]?.flujo_acumulado_cop ?? acumConSolar + ultimoFlujoNeto
 
     data.push({
       anio: i,
