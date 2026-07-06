@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useRef, type ChangeEvent } from 'react'
+import { useState, useMemo, useRef, useEffect, type ChangeEvent } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp } from '@/lib/formatting'
 import { CIUDADES } from '@/lib/constants'
+import { fetchShareStats, type ShareStats } from '@/lib/share'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,9 +16,23 @@ import {
 } from '@/components/ui/table'
 import {
   FolderOpen, Plus, Search, ArrowUpDown, LayoutGrid, List,
-  ChevronLeft, ChevronRight, MapPin, Download, Upload,
+  ChevronLeft, ChevronRight, MapPin, Download, Upload, Eye, MessageCircle, BellRing,
 } from 'lucide-react'
 import type { QuotationData } from '@/lib/types'
+
+/** "hoy" / "ayer" / "hace N días" */
+function relativeDays(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return 'hoy'
+  if (days === 1) return 'ayer'
+  return `hace ${days} días`
+}
+
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+}
+
+const FOLLOW_UP_DAYS = 7
 
 type SortKey = 'date' | 'client' | 'kwp' | 'cost'
 type ViewMode = 'table' | 'cards'
@@ -146,6 +161,51 @@ export default function PropuestasPage() {
     return counts
   }, [proposals])
 
+  // View stats for shared proposals — one batched fetch per page load.
+  const [shareStats, setShareStats] = useState<Record<string, ShareStats>>({})
+  const shareIdsKey = useMemo(
+    () => proposals.map((p) => p.share_id).filter(Boolean).join(','),
+    [proposals]
+  )
+  useEffect(() => {
+    if (!shareIdsKey) return
+    let cancelled = false
+    fetchShareStats(shareIdsKey.split(','))
+      .then((stats) => {
+        if (!cancelled) setShareStats(stats)
+      })
+      .catch(() => {}) // stats are decorative
+    return () => {
+      cancelled = true
+    }
+  }, [shareIdsKey])
+
+  // Pipeline summary + follow-up nudges (item 21): who needs a WhatsApp ping.
+  const pipeline = useMemo(() => {
+    const sum = (status: QuotationData['status']) =>
+      proposals
+        .filter((p) => p.status === status)
+        .reduce((s, p) => s + (p.results?.costo_total_cop ?? 0), 0)
+    const sent = statusCounts['sent'] ?? 0
+    const accepted = statusCounts['accepted'] ?? 0
+    return {
+      sentValue: sum('sent'),
+      acceptedValue: sum('accepted'),
+      conversion: sent + accepted > 0 ? (accepted / (sent + accepted)) * 100 : null,
+    }
+  }, [proposals, statusCounts])
+
+  const followUps = useMemo(
+    () =>
+      proposals
+        .filter((p) => p.status === 'sent')
+        .map((p) => ({ p, days: daysSince(p.shared_at ?? p.created_at) }))
+        .filter((f) => f.days >= FOLLOW_UP_DAYS)
+        .sort((a, b) => b.days - a.days)
+        .slice(0, 6),
+    [proposals]
+  )
+
   const handleExport = () => {
     if (proposals.length === 0) {
       toast.info('No hay propuestas para exportar')
@@ -205,6 +265,76 @@ export default function PropuestasPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Pipeline summary */}
+      {((statusCounts['sent'] ?? 0) > 0 || (statusCounts['accepted'] ?? 0) > 0) && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Enviadas (valor)</p>
+              <p className="mt-1 font-mono text-lg font-bold tabular-nums">{formatCOP(pipeline.sentValue)}</p>
+              <p className="text-xs text-muted-foreground">{statusCounts['sent'] ?? 0} propuestas en juego</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Aceptadas (valor)</p>
+              <p className="mt-1 font-mono text-lg font-bold tabular-nums text-emerald-600">{formatCOP(pipeline.acceptedValue)}</p>
+              <p className="text-xs text-muted-foreground">{statusCounts['accepted'] ?? 0} propuestas ganadas</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Conversión</p>
+              <p className="mt-1 font-mono text-lg font-bold tabular-nums">
+                {pipeline.conversion != null ? `${pipeline.conversion.toFixed(0)}%` : '—'}
+              </p>
+              <p className="text-xs text-muted-foreground">aceptadas / enviadas</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Follow-up nudges */}
+      {followUps.length > 0 && (
+        <Card className="border-amber-300/60 bg-amber-50/50">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+              <BellRing className="size-4" />
+              Seguimiento pendiente
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {followUps.map(({ p, days }) => {
+                const telefono = p.client.telefono?.replace(/[^\d+]/g, '')
+                const waText = encodeURIComponent(
+                  `Hola ${p.client.nombre}, ¿pudiste revisar la propuesta solar que te enviamos?`
+                )
+                return (
+                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">
+                      <Link href={`/propuestas/${p.id}`} className="font-medium hover:underline">
+                        {p.client.nombre}
+                      </Link>
+                      <span className="text-muted-foreground"> · enviada hace {days} días sin firma</span>
+                    </span>
+                    {telefono && (
+                      <a
+                        href={`https://wa.me/${telefono}?text=${waText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 hover:bg-green-100"
+                      >
+                        <MessageCircle className="size-3" />
+                        WhatsApp
+                      </a>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status tabs */}
       <div className="flex flex-wrap items-center gap-3">
@@ -344,6 +474,18 @@ export default function PropuestasPage() {
                     <MapPin className="size-3" />
                     {ciudad}
                   </p>
+                  {p.share_id && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Eye className="size-3" />
+                      {(() => {
+                        const s = shareStats[p.share_id!]
+                        if (!s || s.views === 0) return 'Sin vistas aún'
+                        return `Visto ${s.views} ${s.views === 1 ? 'vez' : 'veces'}${
+                          s.last_viewed ? ` · ${relativeDays(s.last_viewed)}` : ''
+                        }`
+                      })()}
+                    </p>
+                  )}
                 </div>
 
                 {/* Technical data */}

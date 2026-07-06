@@ -237,8 +237,40 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-/** GET — retrieve proposal data by ID */
+const STATS_EXPIRY_SECONDS = EXPIRY_SECONDS // stats live as long as a fresh link
+
+/** GET — retrieve proposal data by ID, or view stats for a list of IDs */
 export async function GET(request: NextRequest) {
+  const statsParam = request.nextUrl.searchParams.get('stats')
+
+  // ?stats=<id1>,<id2>,... — view counters for the dashboard. Never increments.
+  if (statsParam) {
+    const ids = statsParam.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 60)
+    if (ids.length === 0 || !ids.every((i) => SHARE_ID_REGEX.test(i))) {
+      return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 })
+    }
+    try {
+      const redis = getRedis()
+      if (!(await rateLimit(redis, `rl:share:stats:${getClientIp(request)}`, 60, 60))) {
+        return rateLimited()
+      }
+      const viewKeys = ids.map((i) => `share_views:${i}`)
+      const lastKeys = ids.map((i) => `share_last_view:${i}`)
+      const values = await redis.mget<(number | string | null)[]>(...viewKeys, ...lastKeys)
+      const stats: Record<string, { views: number; last_viewed: string | null }> = {}
+      ids.forEach((shareId, i) => {
+        stats[shareId] = {
+          views: Number(values[i] ?? 0),
+          last_viewed: (values[ids.length + i] as string | null) ?? null,
+        }
+      })
+      return NextResponse.json({ stats })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error'
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+  }
+
   const id = request.nextUrl.searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'No ID provided' }, { status: 400 })
@@ -258,7 +290,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
     }
 
+    // View tracking — best effort, never blocks the response. Owner-side
+    // fetches (status sync from /propuestas) pass no_track=1 so Simon's own
+    // opens don't count as client views.
+    if (request.nextUrl.searchParams.get('no_track') === '1') {
+      return NextResponse.json({ data })
+    }
+    try {
+      await redis
+        .multi()
+        .incr(`share_views:${id}`)
+        .expire(`share_views:${id}`, STATS_EXPIRY_SECONDS)
+        .set(`share_last_view:${id}`, new Date().toISOString(), { ex: STATS_EXPIRY_SECONDS })
+        .exec()
+    } catch {
+      // stats are non-critical
+    }
+
     return NextResponse.json({ data })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE — revoke a share link. Possession of the (unguessable) id is the
+ * capability, same trust model as GET/PATCH in this single-operator tool.
+ */
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get('id')
+  if (!id || !SHARE_ID_REGEX.test(id)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+  }
+  try {
+    const redis = getRedis()
+    if (!(await rateLimit(redis, `rl:share:delete:${getClientIp(request)}`, 30, 60))) {
+      return rateLimited()
+    }
+    const removed = await redis.del(`share:${id}`, `share_views:${id}`, `share_last_view:${id}`)
+    if (removed === 0) {
+      return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
+    }
+    return NextResponse.json({ ok: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error'
     return NextResponse.json({ error: message }, { status: 500 })

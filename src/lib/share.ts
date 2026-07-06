@@ -209,6 +209,29 @@ export async function updateSharedDocuseal(
   }
 }
 
+export interface ShareStats {
+  views: number
+  last_viewed: string | null
+}
+
+/** View counters for the dashboard (never increments). Max 60 ids per call. */
+export async function fetchShareStats(ids: string[]): Promise<Record<string, ShareStats>> {
+  if (ids.length === 0) return {}
+  const res = await fetch(`/api/share?stats=${ids.slice(0, 60).join(',')}`)
+  if (!res.ok) throw new Error('No se pudieron cargar las estadísticas')
+  const { stats } = await res.json()
+  return stats as Record<string, ShareStats>
+}
+
+/** Revoke a share link. */
+export async function revokeShareLink(id: string): Promise<void> {
+  const res = await fetch(`/api/share?id=${id}`, { method: 'DELETE' })
+  if (!res.ok && res.status !== 404) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error ?? 'No se pudo revocar el enlace')
+  }
+}
+
 export async function fetchSharedProposal(id: string): Promise<QuotationData> {
   const res = await fetch(`/api/share?id=${id}`)
   if (!res.ok) throw new Error('Propuesta no encontrada o expirada')
@@ -243,9 +266,15 @@ export async function generateMultiShareUrl(
 
 /**
  * Fetch shared data — returns either a single proposal or multiple versions.
+ * Pass `{ track: false }` for owner-side fetches (status sync) so they don't
+ * count as client views.
  */
-export async function fetchSharedData(id: string): Promise<SharedVersion[]> {
-  const res = await fetch(`/api/share?id=${id}`)
+export async function fetchSharedData(
+  id: string,
+  opts?: { track?: boolean },
+): Promise<SharedVersion[]> {
+  const suffix = opts?.track === false ? '&no_track=1' : ''
+  const res = await fetch(`/api/share?id=${id}${suffix}`)
   if (!res.ok) throw new Error('Propuesta no encontrada o expirada')
 
   const { data } = await res.json() as { data: StoredData }

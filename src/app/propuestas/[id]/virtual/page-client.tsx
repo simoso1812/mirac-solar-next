@@ -39,7 +39,7 @@ function VirtualPageContent({ id }: { id: string }) {
   useEffect(() => {
     if (!shareId || localDocusealStatus === 'completed') return
     let cancelled = false
-    fetchSharedData(shareId)
+    fetchSharedData(shareId, { track: false })
       .then((versions) => {
         if (cancelled) return
         const remote = versions[0]?.proposal.docuseal

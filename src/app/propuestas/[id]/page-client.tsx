@@ -1,11 +1,15 @@
 'use client'
 
-import { use, useCallback } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useProposalsStore } from '@/stores/proposals-store'
 import { useHydrated } from '@/hooks/use-hydration'
 import { formatCOP, formatKWp, formatKWh, formatPercent } from '@/lib/formatting'
 import { CIUDADES, MESES } from '@/lib/constants'
+import {
+  fetchShareStats, generateShareUrl, revokeShareLink, type ShareStats,
+} from '@/lib/share'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +18,7 @@ import { DriveSyncButton } from '@/components/drive-sync-button'
 import Link from 'next/link'
 import {
   ArrowLeft, Copy, Trash2, Pencil, GitBranch, DollarSign, Zap, Sun, TreePine,
-  TrendingUp, Clock, BarChart3, User, MapPin, ExternalLink,
+  TrendingUp, Clock, BarChart3, User, MapPin, ExternalLink, Share2, Eye, RefreshCw, Ban,
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -207,6 +211,14 @@ export default function PropuestaDetailPage({
             </Card>
           </div>
 
+          {/* Shared link management */}
+          {proposal.share_id && (
+            <ShareLinkCard
+              proposal={proposal}
+              onUpdate={(patch) => updateProposal(id, patch)}
+            />
+          )}
+
           {/* Location map */}
           {proposal.project.lat != null && proposal.project.lon != null && (
             <Card>
@@ -308,6 +320,102 @@ export default function PropuestaDetailPage({
         </>
       )}
     </div>
+  )
+}
+
+function ShareLinkCard({
+  proposal,
+  onUpdate,
+}: {
+  proposal: QuotationData
+  onUpdate: (patch: Partial<QuotationData>) => void
+}) {
+  const shareId = proposal.share_id!
+  const [stats, setStats] = useState<ShareStats | null>(null)
+  const [busy, setBusy] = useState(false)
+  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/s/${shareId}`
+
+  useEffect(() => {
+    let cancelled = false
+    fetchShareStats([shareId])
+      .then((s) => {
+        if (!cancelled) setStats(s[shareId] ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [shareId])
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(url)
+    toast.success('Enlace copiado al portapapeles')
+  }
+
+  const handleRegenerate = async () => {
+    setBusy(true)
+    try {
+      const result = await generateShareUrl(proposal)
+      onUpdate({ share_id: result.id, shared_at: new Date().toISOString() })
+      toast.success('Nuevo enlace generado (el anterior sigue activo hasta expirar)')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo regenerar el enlace')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRevoke = async () => {
+    if (!confirm('¿Revocar este enlace? El cliente ya no podrá abrirlo.')) return
+    setBusy(true)
+    try {
+      await revokeShareLink(shareId)
+      onUpdate({ share_id: null, shared_at: null })
+      toast.success('Enlace revocado')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo revocar el enlace')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Share2 className="size-4" /> Enlace compartido
+        </CardTitle>
+        <p className="flex items-center gap-3 text-xs text-muted-foreground">
+          {proposal.shared_at && (
+            <span>Enviado el {new Date(proposal.shared_at).toLocaleDateString('es-CO')}</span>
+          )}
+          <span className="flex items-center gap-1">
+            <Eye className="size-3" />
+            {stats == null
+              ? '…'
+              : stats.views === 0
+                ? 'Sin vistas aún'
+                : `Visto ${stats.views} ${stats.views === 1 ? 'vez' : 'veces'}${
+                    stats.last_viewed
+                      ? ` · última ${new Date(stats.last_viewed).toLocaleDateString('es-CO')}`
+                      : ''
+                  }`}
+          </span>
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-md border bg-muted/40 px-3 py-2 text-xs">{url}</code>
+        <Button variant="outline" size="sm" onClick={handleCopy} disabled={busy}>
+          <Copy className="mr-1 size-3" /> Copiar
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={busy}>
+          <RefreshCw className="mr-1 size-3" /> Regenerar
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleRevoke} disabled={busy} className="text-destructive">
+          <Ban className="mr-1 size-3" /> Revocar
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 
