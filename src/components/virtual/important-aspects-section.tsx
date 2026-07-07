@@ -75,7 +75,7 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
         </svg>
       </button>
       {open && (
-        <div className="mt-2 space-y-8 rounded-2xl border border-white/10 bg-white/5 px-6 py-6">
+        <div className="mt-2 space-y-8 rounded-2xl border border-white/10 bg-white/5 p-6">
           <div>
             <GroupTitle>Condiciones del sistema</GroupTitle>
             <ul className="space-y-2">
@@ -94,7 +94,7 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
               {GARANTIAS.map((g) => (
                 <div
                   key={g.concepto}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-center"
+                  className="rounded-xl border border-white/10 bg-white/5 p-4 text-center"
                 >
                   <p className="text-xl font-bold text-[#BFFF00]">{g.anios}</p>
                   <p className="mt-1 text-xs text-[#9CA3AF]">{g.concepto}</p>
