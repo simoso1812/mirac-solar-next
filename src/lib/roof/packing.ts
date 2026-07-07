@@ -2,7 +2,7 @@
 // Pure panel-packing. Projects the roof polygon to local meters, packs an
 // axis-aligned grid (optionally rotated), keeps cells fully inside the polygon,
 // and returns panel centers as lat/lng.
-import { toLocalMeters, toLatLng, pointInPolygon, type LatLng, type PointM } from './geometry'
+import { toLocalMeters, toLatLng, pointInPolygon, polygonAreaM2, type LatLng, type PointM } from './geometry'
 
 const COL_GAP_M = 0.02 // small frame gap between side-by-side panels
 
@@ -77,4 +77,13 @@ export function packPanels(args: PackArgs): LatLng[] {
     }
   }
   return centers
+}
+
+// Recompute an area's derived geometry (area + a fresh full pack) after any
+// edit to its vertices or packing parameters. Manual panel deletions are
+// intentionally discarded: deleted slots are only meaningful for one exact
+// (vertices, rotation, gap, orientation) tuple.
+export function repack(args: PackArgs): { areaM2: number; panels: LatLng[] } {
+  if (args.vertices.length < 3) return { areaM2: 0, panels: [] }
+  return { areaM2: polygonAreaM2(args.vertices), panels: packPanels(args) }
 }
