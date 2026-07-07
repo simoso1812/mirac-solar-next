@@ -5,7 +5,7 @@
  */
 import { z } from 'zod'
 import { Redis } from '@upstash/redis'
-import { quoteInputShape, buildStores, summarize, type QuoteArgs } from './quote'
+import { quoteInputShape, buildStores, resolveHsp, summarize, type QuoteArgs } from './quote'
 import { toPayload, fromPayload, type SharePayload } from '@/lib/share'
 
 const SHARE_ID_REGEX = /^[A-Za-z0-9_-]{4,30}$/
@@ -108,22 +108,26 @@ export async function runUpdateQuotation(args: UpdateQuotationArgs) {
   // Full regeneration semantics: unspecified quote args return to their
   // defaults (same as quote_solar_system). Client identity and signing state
   // are preserved from the stored payload unless overridden.
+  const loc = await resolveHsp(args as unknown as QuoteArgs)
   const stores = buildStores(args as unknown as QuoteArgs, {
     cliente_nombre: args.cliente_nombre ?? current.client.nombre,
     cliente_direccion: current.client.direccion,
     cliente_email: current.client.email,
     cliente_telefono: current.client.telefono,
     cliente_cedula: current.client.nit_cc,
-  })
-  // Preserve location + PVGIS data BEFORE summarizing, so the numbers the
-  // agent quotes are the same ones /s/<id> recomputes from the stored payload.
-  stores.project = {
-    ...stores.project,
-    lat: current.project.lat,
-    lon: current.project.lon,
-    hsp_mensual_pvgis: current.project.hsp_mensual_pvgis,
+  }, loc)
+  // When the update did not send its own location/HSP, preserve the stored
+  // location + PVGIS data BEFORE summarizing, so the numbers the agent quotes
+  // are the same ones /s/<id> recomputes from the stored payload.
+  if (loc.fuente === 'ciudad') {
+    stores.project = {
+      ...stores.project,
+      lat: current.project.lat,
+      lon: current.project.lon,
+      hsp_mensual_pvgis: current.project.hsp_mensual_pvgis,
+    }
   }
-  const { summary, structured } = summarize(stores)
+  const { summary, structured } = summarize(stores, loc.fuente === 'ciudad' ? {} : { hsp: loc })
 
   const payload = toPayload({
     ...current,

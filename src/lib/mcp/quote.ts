@@ -8,8 +8,9 @@ import { z } from 'zod'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator'
 import { ppaMetrics } from '@/lib/calculator/derived'
 import { estimatePrice, estimatePricePerKwp } from '@/lib/calculator/cost'
+import { fetchPVGIS, getHSPEstimado } from '@/lib/pvgis'
 import { formatCOP } from '@/lib/formatting'
-import { INVERTER_DATABASE } from '@/lib/constants'
+import { DEFAULT_PARAMS, HSP_MENSUAL_POR_CIUDAD, INVERTER_DATABASE } from '@/lib/constants'
 import {
   deepMerge,
   initialAdvancedData,
@@ -43,7 +44,24 @@ export const quoteInputShape = {
   ciudad: z
     .enum(CIUDADES)
     .default('MEDELLIN')
-    .describe('Ciudad del proyecto. Determina la radiacion solar (HSP). Default MEDELLIN.'),
+    .describe('Ciudad del proyecto. Determina la radiacion solar (HSP) cuando no se envian lat/lon ni hsp_personalizado. Default MEDELLIN.'),
+  lat: z
+    .coerce.number()
+    .min(-4.5)
+    .max(13.5)
+    .optional()
+    .describe('Latitud del proyecto (Colombia, aprox -4.5 a 13.5). Con lon, consulta la radiacion real en PVGIS para ese punto (municipios fuera de las 7 ciudades del enum). Omitir para usar la ciudad.'),
+  lon: z
+    .coerce.number()
+    .min(-82)
+    .max(-66)
+    .optional()
+    .describe('Longitud del proyecto (Colombia, aprox -82 a -66). Requiere lat.'),
+  hsp_personalizado: z
+    .array(z.coerce.number().positive().max(8))
+    .length(12)
+    .optional()
+    .describe('12 valores de HSP diario por mes (ene-dic) para usar radiacion propia. Tiene prioridad sobre lat/lon y ciudad.'),
   costo_kwh: z
     .coerce.number()
     .positive()
@@ -77,8 +95,8 @@ export const quoteInputShape = {
     .coerce.number()
     .positive()
     .max(168)
-    .default(48)
-    .describe('Horas de autonomia deseadas cuando se auto-dimensiona la bateria. Default 48.'),
+    .default(8)
+    .describe('Horas de autonomia deseadas cuando se auto-dimensiona la bateria (cubre la noche, no dias completos). Default 8.'),
   financiamiento_porcentaje: z
     .coerce.number()
     .min(0)
@@ -246,6 +264,50 @@ export interface QuotationStores {
   advanced: AdvancedData
 }
 
+export type HspFuente = 'ciudad' | 'pvgis' | 'estimada' | 'personalizada'
+
+export interface HspResolution {
+  lat: number | null
+  lon: number | null
+  /** null means "use the city table" (buildInputFromStore falls back). */
+  hsp: number[] | null
+  fuente: HspFuente
+  /** true when lat/lon asked for PVGIS but the climate estimate was used. */
+  fallbackRadiacion: boolean
+}
+
+/**
+ * Resolve the radiation source for a quote. Precedence:
+ * hsp_personalizado > lat/lon (PVGIS, climate-estimate fallback) > ciudad.
+ * The result is stored on project.hsp_mensual_pvgis so the shared /s/<id>
+ * page recomputes with the exact same HSP the agent quoted.
+ */
+export async function resolveHsp(a: QuoteArgs): Promise<HspResolution> {
+  if (a.hsp_personalizado && a.hsp_personalizado.length === 12) {
+    return {
+      lat: a.lat ?? null,
+      lon: a.lon ?? null,
+      hsp: a.hsp_personalizado,
+      fuente: 'personalizada',
+      fallbackRadiacion: false,
+    }
+  }
+  if (a.lat !== undefined && a.lon !== undefined) {
+    // Same rounding as /api/pvgis so the fetch cache hits for nearby points.
+    const lat = Math.round(a.lat * 1000) / 1000
+    const lon = Math.round(a.lon * 1000) / 1000
+    let hsp: number[] | null = null
+    try {
+      hsp = await fetchPVGIS(lat, lon)
+    } catch {
+      hsp = null
+    }
+    if (hsp) return { lat, lon, hsp, fuente: 'pvgis', fallbackRadiacion: false }
+    return { lat, lon, hsp: getHSPEstimado(lat, lon), fuente: 'estimada', fallbackRadiacion: true }
+  }
+  return { lat: null, lon: null, hsp: null, fuente: 'ciudad', fallbackRadiacion: false }
+}
+
 /**
  * Map the friendly inverter args to the store's four inverter fields.
  * - A known brand (in INVERTER_DATABASE, case-insensitive) with no explicit
@@ -313,7 +375,7 @@ function inverterFields(a: QuoteArgs): Partial<AdvancedData> {
  * (and then buildInputFromStore) keeps the calculator result identical to
  * what the shared `/s/[id]` page recomputes from the stored payload.
  */
-export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
+export function buildStores(a: QuoteArgs, c: ClientArgs = {}, loc?: HspResolution): QuotationStores {
   const technical = deepMerge(initialTechnicalData, {
     consumo_mensual_kwh: a.consumo_mensual_kwh,
     potencia_panel_w: a.potencia_panel_w,
@@ -328,6 +390,9 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
   const project = deepMerge(initialProjectData, {
     ciudad: a.ciudad,
     fecha: new Date().toISOString().split('T')[0],
+    lat: loc?.lat ?? null,
+    lon: loc?.lon ?? null,
+    hsp_mensual_pvgis: loc?.hsp ?? null,
   }) as ProjectData
 
   const advanced = deepMerge(initialAdvancedData, {
@@ -378,9 +443,15 @@ export function buildStores(a: QuoteArgs, c: ClientArgs = {}): QuotationStores {
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 const yrs = (n: number) => `${n.toFixed(1)} años`
 
+export interface SummarizeMeta {
+  /** Radiation resolution used to build the stores (default: ciudad/pvgis inferred). */
+  hsp?: Pick<HspResolution, 'fuente' | 'fallbackRadiacion'>
+}
+
 /** Build the Spanish markdown summary + structured data from a result. */
-export function summarize(stores: QuotationStores) {
-  const r = cotizacion(buildInputFromStore(stores.technical, stores.project, stores.advanced))
+export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
+  const input = buildInputFromStore(stores.technical, stores.project, stores.advanced)
+  const r = cotizacion(input)
 
   const ppa = stores.advanced.ppa.habilitada
     ? ppaMetrics(stores.advanced.costo_kwh, r.generacion_anual_kwh, stores.advanced.ppa.opciones)
@@ -399,7 +470,10 @@ export function summarize(stores: QuotationStores) {
     `**Inversion total:** ${formatCOP(r.costo_total_cop)} (${formatCOP(r.costo_por_kwp_cop)}/kWp)`,
     `**Ahorro anual:** ${formatCOP(r.ahorro_anual_cop)} · **mensual:** ${formatCOP(r.ahorro_mensual_cop)}`,
     // r.tir and r.roi_porcentaje are already x100 (percentages) — print directly.
-    `**Payback:** ${yrs(r.payback_anios)} · **TIR:** ${r.tir.toFixed(1)}% · **VPN:** ${formatCOP(r.vpn)} · **ROI:** ${r.roi_porcentaje.toFixed(1)}%`,
+    `**Payback:** ${yrs(r.payback_anios)} · **TIR:** ${r.tir.toFixed(1)}% · **VPN:** ${formatCOP(r.vpn)} · ` +
+      (r.financiamiento
+        ? `**ROI proyecto:** ${(r.roi_proyecto_porcentaje ?? r.roi_porcentaje).toFixed(1)}% · **ROI inversionista:** ${r.roi_porcentaje.toFixed(1)}%`
+        : `**ROI:** ${r.roi_porcentaje.toFixed(1)}%`),
     r.financiamiento
       ? `**Financiamiento:** cuota ${formatCOP(r.financiamiento.cuota_mensual_cop)}/mes · ${r.financiamiento.num_pagos} meses · anticipo ${formatCOP(r.financiamiento.desembolso_inicial_cop)} · tasa ${(r.financiamiento.tasa_ea * 100).toFixed(1)}% EA`
       : null,
@@ -417,6 +491,14 @@ export function summarize(stores: QuotationStores) {
       : []),
   ].filter(Boolean).join('\n')
 
+  // Radiation actually used by the calculator (custom/PVGIS or the city table).
+  const hspUsado = (input.hspMensualPVGIS && input.hspMensualPVGIS.length === 12)
+    ? input.hspMensualPVGIS
+    : (HSP_MENSUAL_POR_CIUDAD[stores.project.ciudad.toUpperCase()] ?? HSP_MENSUAL_POR_CIUDAD['MEDELLIN'])
+  const hspPromedio = hspUsado.reduce((a, b) => a + b, 0) / 12
+  const hspFuente: HspFuente =
+    meta.hsp?.fuente ?? (input.hspMensualPVGIS ? 'pvgis' : 'ciudad')
+
   const structured = {
     kwp: r.kwp,
     numero_paneles: r.numero_paneles,
@@ -429,6 +511,27 @@ export function summarize(stores: QuotationStores) {
     tir_porcentaje: Number(r.tir.toFixed(2)),
     vpn_cop: Math.round(r.vpn),
     roi_porcentaje: Number(r.roi_porcentaje.toFixed(2)),
+    roi_proyecto_porcentaje: Number((r.roi_proyecto_porcentaje ?? r.roi_porcentaje).toFixed(2)),
+    co2_ton_anio: Number((r.carbon.annual_co2_avoided_tons ?? 0).toFixed(2)),
+    co2_ton_vida_util: Number((r.carbon.lifetime_co2_avoided_tons ?? 0).toFixed(1)),
+    inversores: r.inversores.map((i) => ({
+      marca: i.marca,
+      modelo: i.modelo,
+      potencia_kw: i.potencia_kw,
+      cantidad: i.cantidad,
+    })),
+    supuestos: {
+      hsp_promedio_dia: Number(hspPromedio.toFixed(2)),
+      hsp_fuente: hspFuente,
+      fallback_radiacion: meta.hsp?.fallbackRadiacion ?? false,
+      ciudad_hsp_usada: stores.project.ciudad,
+      performance_ratio: Number(r.performance_ratio.toFixed(3)),
+      tasa_degradacion: input.tasaDegradacion,
+      indexacion_energia: input.indexRate,
+      horizonte_anios: input.horizonteTiempo,
+      precio_excedentes: input.precioExcedentes,
+      tasa_descuento: input.discountRate,
+    },
     bateria_incluida: !!r.bateria?.habilitada,
     bateria_capacidad_kwh: r.bateria?.capacidad_nominal_kwh ?? 0,
     financiamiento_cuota_mensual_cop: r.financiamiento?.cuota_mensual_cop ?? 0,
@@ -449,11 +552,23 @@ export function summarize(stores: QuotationStores) {
 }
 
 /** Run a full quote and return both a markdown summary and structured data. */
-export function runQuote(args: QuoteArgs) {
-  const stores = buildStores(args)
-  const { summary, structured } = summarize(stores)
+export async function runQuote(args: QuoteArgs) {
+  const loc = await resolveHsp(args)
+  const stores = buildStores(args, {}, loc)
+  const { summary, structured } = summarize(stores, { hsp: loc })
+  const lugar = loc.lat !== null && loc.lon !== null ? `${loc.lat}, ${loc.lon}` : args.ciudad
+  const fuenteNota =
+    loc.fuente === 'pvgis'
+      ? 'Radiacion: PVGIS (datos satelitales para las coordenadas).'
+      : loc.fuente === 'estimada'
+        ? 'Radiacion: estimacion climatica (PVGIS no respondio para las coordenadas).'
+        : loc.fuente === 'personalizada'
+          ? 'Radiacion: HSP personalizado enviado en la solicitud.'
+          : null
   return {
-    summary: `## Cotizacion solar — ${args.ciudad}\n\n${summary}`,
+    summary: [`## Cotizacion solar — ${lugar}`, '', summary, fuenteNota ? `\n_${fuenteNota}_` : null]
+      .filter((l) => l !== null)
+      .join('\n'),
     structured,
   }
 }
@@ -463,24 +578,104 @@ export const priceInputShape = {
   kwp: z
     .coerce.number()
     .positive()
-    .describe('Tamano del sistema en kWp. Devuelve el precio estimado (sin ajuste por cubierta).'),
+    .describe('Tamano del sistema en kWp. Devuelve el precio estimado del sistema FV.'),
+  cubierta: z
+    .enum(['metalica', 'teja', 'losa'])
+    .default('metalica')
+    .describe('Tipo de cubierta. teja aplica el sobrecosto de instalacion. Default metalica.'),
+  bateria_capacidad_kwh: z
+    .coerce.number()
+    .nonnegative()
+    .max(10_000)
+    .default(0)
+    .describe('Capacidad nominal de bateria en kWh a incluir en el precio (0 = sin bateria). Default 0.'),
 }
 export const priceInputSchema = z.object(priceInputShape)
 export type PriceArgs = z.infer<typeof priceInputSchema>
 
 /** Quick CAPEX estimate from system size, using the empirical cost curve. */
 export function runEstimatePrice(args: PriceArgs) {
-  const total = estimatePrice(args.kwp)
-  const perKwp = estimatePricePerKwp(args.kwp)
-  const summary =
-    `Sistema de ${args.kwp.toFixed(2)} kWp · precio estimado **${formatCOP(total)}** ` +
-    `(${formatCOP(perKwp)}/kWp). Estimacion base, sin ajuste por tipo de cubierta ni baterias.`
+  let costoFV = estimatePrice(args.kwp)
+  if (args.cubierta === 'teja') {
+    costoFV = Math.ceil(costoFV * DEFAULT_PARAMS.ajuste_cubierta_teja)
+  }
+  // Same default battery cost as initialAdvancedData.bateria.costo_kwh_bateria.
+  const costoBateria = args.bateria_capacidad_kwh > 0
+    ? args.bateria_capacidad_kwh * 400_000
+    : 0
+  const total = costoFV + costoBateria
+  const perKwp = args.cubierta === 'teja'
+    ? costoFV / args.kwp
+    : estimatePricePerKwp(args.kwp)
+  const summary = [
+    `Sistema de ${args.kwp.toFixed(2)} kWp · precio estimado **${formatCOP(total)}** (${formatCOP(perKwp)}/kWp sistema FV).`,
+    args.cubierta === 'teja' ? 'Incluye el sobrecosto de instalacion en teja.' : null,
+    costoBateria > 0
+      ? `Incluye bateria de ${args.bateria_capacidad_kwh} kWh (${formatCOP(costoBateria)}).`
+      : 'Sin baterias.',
+  ].filter(Boolean).join(' ')
   return {
     summary,
     structured: {
       kwp: args.kwp,
+      cubierta: args.cubierta,
       precio_total_cop: Math.round(total),
+      precio_fv_cop: Math.round(costoFV),
+      precio_bateria_cop: Math.round(costoBateria),
       precio_por_kwp_cop: Math.round(perKwp),
+    },
+  }
+}
+
+/** `list_inverters` — expose the inverter catalog so agents pick valid models. */
+export const listInvertersInputShape = {
+  marca: z
+    .string()
+    .max(80)
+    .optional()
+    .describe('Filtrar por marca (ej "Deye"). Omitir para ver el catalogo completo.'),
+}
+export const listInvertersInputSchema = z.object(listInvertersInputShape)
+export type ListInvertersArgs = z.infer<typeof listInvertersInputSchema>
+
+export function runListInverters(args: ListInvertersArgs) {
+  const filtro = args.marca?.trim().toLowerCase() ?? ''
+  const brands = Object.entries(INVERTER_DATABASE)
+    .filter(([name, b]) => name !== 'Automatico' && name !== 'Otro' && b.models.length > 0)
+    .filter(([name]) => filtro === '' || name.toLowerCase() === filtro)
+
+  if (brands.length === 0) {
+    throw new Error(
+      `No hay inversores de la marca "${args.marca}" en el catalogo. Marcas disponibles: ` +
+        Object.keys(INVERTER_DATABASE).filter((k) => k !== 'Automatico' && k !== 'Otro').join(', ') +
+        '. Para otra marca usa inversor_marca + inversor_modelo (texto libre).',
+    )
+  }
+
+  const lines = brands.flatMap(([name, b]) => [
+    `### ${name} (${b.type})`,
+    '',
+    '| Modelo | Potencia (kW) |',
+    '| --- | --- |',
+    ...b.models.map((m) => `| ${m.modelo} | ${m.potencia_kw} |`),
+    '',
+  ])
+
+  return {
+    summary: [
+      '## Catalogo de inversores Mirac',
+      '',
+      ...lines,
+      'Para usar uno en una cotizacion: `inversor_marca` + `inversor_potencia_kw` (el modelo se resuelve del catalogo) ',
+      'y `inversor_cantidad` si se necesita mas de uno. Marcas o modelos fuera del catalogo: `inversor_marca` + `inversor_modelo` (texto libre). ',
+      'Omitir todo para seleccion automatica por tamano del sistema.',
+    ].join('\n'),
+    structured: {
+      marcas: brands.map(([name, b]) => ({
+        marca: name,
+        tipo: b.type,
+        modelos: b.models.map((m) => ({ modelo: m.modelo, potencia_kw: m.potencia_kw })),
+      })),
     },
   }
 }

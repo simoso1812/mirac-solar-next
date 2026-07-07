@@ -8,7 +8,7 @@
 import { z } from 'zod'
 import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
-import { quoteInputShape, buildStores, summarize, type QuoteArgs, type ClientArgs } from './quote'
+import { quoteInputShape, buildStores, resolveHsp, summarize, type QuoteArgs, type ClientArgs } from './quote'
 import { toPayload } from '@/lib/share'
 import type { QuotationData } from '@/lib/types'
 
@@ -71,8 +71,9 @@ export async function runCreateQuotationLink(args: LinkArgs) {
     cliente_cedula: args.cliente_cedula,
   }
 
-  const stores = buildStores(quoteArgs, clientArgs)
-  const { summary, structured } = summarize(stores)
+  const loc = await resolveHsp(quoteArgs)
+  const stores = buildStores(quoteArgs, clientArgs, loc)
+  const { summary, structured } = summarize(stores, { hsp: loc })
 
   // Mint the share id first so the proposal carries its real id (`s:<id>`,
   // the same id the /s page derives and DocuSeal uses as external_id).

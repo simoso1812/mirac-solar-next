@@ -20,6 +20,8 @@ import {
   runQuote,
   priceInputShape,
   runEstimatePrice,
+  listInvertersInputShape,
+  runListInverters,
 } from '@/lib/mcp/quote'
 import { linkInputShape, runCreateQuotationLink } from '@/lib/mcp/create-link'
 import {
@@ -65,9 +67,13 @@ const handler = createMcpHandler(
           'Recibe el consumo mensual y la ciudad como minimo; devuelve tamano del sistema (kWp, paneles, inversores), ' +
           'generacion anual, inversion total, ahorro anual/mensual, payback, TIR, VPN, ROI y CO2 evitado. ' +
           'Soporta baterias, financiamiento (tasa EA, metodo frances), beneficios tributarios (Ley 1715), ' +
-          'precio manual del proyecto (precio_manual_cop, reemplaza la curva de costos), opciones de PPA ' +
-          '"Opcion Cero Inversion" (ppa_opciones: precio por kWh y duracion del contrato) y seleccion de inversor ' +
-          '(inversor_marca / inversor_modelo / inversor_potencia_kw / inversor_cantidad; omitir para seleccion automatica).',
+          'precio manual del proyecto (precio_manual_cop, reemplaza la curva de costos) y seleccion de inversor ' +
+          '(inversor_marca / inversor_potencia_kw; ver list_inverters; omitir para seleccion automatica). ' +
+          'Ubicacion: usa ciudad para las 7 ciudades del enum, o lat/lon para cualquier municipio de Colombia ' +
+          '(consulta radiacion real PVGIS), o hsp_personalizado para radiacion propia. ' +
+          'PPA "Opcion Cero Inversion" (ppa_opciones): ofrecela como alternativa sin inversion para clientes comerciales ' +
+          'con buen consumo — el cliente no compra el sistema, paga la energia generada a un precio menor que la tarifa; ' +
+          'ejemplo tipico: [{precio_kwh: 600, duracion_anios: 12}]. Los totales PPA indexan la tarifa al Indice Mirac (4.25% anual) con precio PPA fijo.',
         inputSchema: quoteInputShape,
         annotations: {
           readOnlyHint: true,
@@ -85,7 +91,8 @@ const handler = createMcpHandler(
         title: 'Estimar precio por tamano',
         description:
           'Estimacion rapida del CAPEX de un sistema solar a partir del tamano en kWp, usando la curva de costos empirica. ' +
-          'Util cuando ya se conoce el tamano y solo se quiere un precio aproximado (sin ajuste por cubierta ni baterias).',
+          'Acepta cubierta (teja aplica sobrecosto) y bateria_capacidad_kwh opcionales. ' +
+          'Util cuando ya se conoce el tamano y solo se quiere un precio aproximado.',
         inputSchema: priceInputShape,
         annotations: {
           readOnlyHint: true,
@@ -98,12 +105,33 @@ const handler = createMcpHandler(
     )
 
     server.registerTool(
+      'list_inverters',
+      {
+        title: 'Listar catalogo de inversores',
+        description:
+          'Devuelve el catalogo de inversores de Mirac (marca, tipo y modelos con su potencia en kW). ' +
+          'Usalo antes de forzar un inversor en quote_solar_system / create_quotation_link: ' +
+          'con inversor_marca + inversor_potencia_kw el modelo se resuelve de este catalogo. ' +
+          'Acepta un filtro opcional por marca.',
+        inputSchema: listInvertersInputShape,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+      },
+      tool(async (args) => runListInverters(args)),
+    )
+
+    server.registerTool(
       'create_quotation_link',
       {
         title: 'Crear link de cotizacion virtual',
         description:
           'Genera una propuesta solar y devuelve un LINK publico a la cotizacion virtual (pagina /s/<id>) que el cliente puede abrir, ver, descargar en PDF y firmar. ' +
-          'Recibe el nombre del cliente y los mismos parametros que quote_solar_system (incluye precio manual y opciones PPA, que se muestran en la pagina compartida). ' +
+          'Recibe el nombre del cliente y los mismos parametros que quote_solar_system (incluye lat/lon o hsp_personalizado ' +
+          'para la radiacion, precio manual y opciones PPA, que se muestran en la pagina compartida con su mapa). ' +
           'La propuesta se guarda 90 dias. Usa esta herramienta cuando el usuario pida un link, una propuesta para enviar al cliente, o una cotizacion compartible.',
         inputSchema: linkInputShape,
         annotations: {
