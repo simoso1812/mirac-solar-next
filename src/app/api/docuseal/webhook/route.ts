@@ -23,7 +23,12 @@ interface DocusealWebhookEvent {
 
 function verifySignature(rawBody: string, header: string | null): boolean {
   const secret = process.env.DOCUSEAL_WEBHOOK_SECRET
-  if (!secret) return true // verification disabled
+  if (!secret) {
+    // Fail closed in production: an unsigned webhook can trigger Drive
+    // uploads, so DOCUSEAL_WEBHOOK_SECRET is required there. Local dev
+    // (and preview builds without the var) stays open for testing.
+    return process.env.NODE_ENV !== 'production'
+  }
   if (!header) return false
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
   const a = Buffer.from(expected)
