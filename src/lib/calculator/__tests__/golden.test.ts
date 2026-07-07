@@ -464,3 +464,48 @@ describe('buildInputFromStore', () => {
     expect(input.incluirDepreciacionAcelerada).toBe(false)
   })
 })
+
+describe('battery autonomy default (8 h, decision 2026-07-06)', () => {
+  it('buildInputFromStore falls back to 8 h when horas_autonomia is missing', () => {
+    const advanced = deepMerge(initialAdvancedData, {
+      bateria: { habilitada: true, capacidad_kwh: 0 },
+    })
+    // Simulate an old persisted payload without the field.
+    ;(advanced.bateria as { horas_autonomia?: number }).horas_autonomia = undefined
+    const input = buildInputFromStore(initialTechnicalData, initialProjectData, advanced)
+    expect(input.horasAutonomia).toBe(8)
+  })
+
+  it('auto-sizes a night-coverage battery for 800 kWh/mes at 8 h', () => {
+    const r = cotizacion(baseInput({
+      incluirBaterias: true,
+      capacidadBateriaKwh: 0,
+      horasAutonomia: 8,
+    }))
+    // consumoHorario = 800/30/24 = 1.1111 kWh; util = 8.889; nominal = util/0.9
+    expect(r.bateria?.capacidad_util_kwh).toBeCloseTo(8.8889, 3)
+    expect(r.bateria?.capacidad_nominal_kwh).toBeCloseTo(9.8765, 3)
+    expect(r.bateria?.horas_autonomia).toBe(8)
+  })
+})
+
+describe('dual ROI: proyecto (unlevered) vs inversionista (equity)', () => {
+  it('both ROIs are equal without financing', () => {
+    const r = cotizacion(baseInput())
+    expect(r.roi_proyecto_porcentaje).toBeCloseTo(r.roi_porcentaje, 6)
+  })
+
+  it('with financing the equity ROI leverages above the project ROI', () => {
+    const r = cotizacion(baseInput({
+      percFinanciamiento: 70,
+      tasaInteresCredito: 0.15,
+      plazoCreditoMeses: 60,
+    }))
+    expect(r.roi_proyecto_porcentaje).toBeDefined()
+    // Project ROI ignores the credit entirely, so it matches the unfinanced run.
+    const unfinanced = cotizacion(baseInput())
+    expect(r.roi_proyecto_porcentaje!).toBeCloseTo(unfinanced.roi_porcentaje, 6)
+    // Equity ROI is computed on the 30% down payment: levered above the project ROI.
+    expect(r.roi_porcentaje).toBeGreaterThan(r.roi_proyecto_porcentaje!)
+  })
+})

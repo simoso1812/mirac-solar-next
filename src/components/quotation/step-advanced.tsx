@@ -293,16 +293,6 @@ export function StepAdvanced() {
             )}
           </div>
 
-          {/* Smart meter */}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="medidor_inteligente">Medidor Inteligente</Label>
-            <Switch
-              id="medidor_inteligente"
-              checked={watch('medidor_inteligente')}
-              onCheckedChange={(checked) => setValue('medidor_inteligente', checked)}
-            />
-          </div>
-
           {/* Bidirectional meter */}
           <div className="flex items-center justify-between">
             <div>

@@ -79,7 +79,9 @@ describe('ppaMetrics', () => {
     expect(a.ahorroPorKwh).toBe(250) // 850 - 600
     expect(a.porcentajeAhorro).toBe(29) // round(250/850 * 100) = round(29.41)
     expect(a.ahorroAnual).toBe(3_000_000) // round(12_000 * 250)
-    expect(a.ahorroTotal).toBe(36_000_000) // 3M * 12
+    // Total indexes the tariff at INDICE_MIRAC (4.25%/yr), PPA price fixed:
+    // sum_{t=0}^{11} 12_000 * max(0, 850*1.0425^t - 600)
+    expect(a.ahorroTotal).toBe(69_079_526)
     expect(a.pagoMiracAnual).toBe(7_200_000) // round(12_000 * 600)
     expect(a.pagoMiracMensual).toBe(600_000) // round(7.2M / 12)
 
@@ -89,18 +91,21 @@ describe('ppaMetrics', () => {
     expect(b.ahorroPorKwh).toBe(300) // 850 - 550
     expect(b.porcentajeAhorro).toBe(35) // round(300/850 * 100) = round(35.29)
     expect(b.ahorroAnual).toBe(3_600_000) // round(12_000 * 300)
-    expect(b.ahorroTotal).toBe(54_000_000) // 3.6M * 15
+    // sum_{t=0}^{14} 12_000 * max(0, 850*1.0425^t - 550)
+    expect(b.ahorroTotal).toBe(109_076_530)
     expect(b.pagoMiracAnual).toBe(6_600_000) // round(12_000 * 550)
     expect(b.pagoMiracMensual).toBe(550_000) // round(6.6M / 12)
   })
 
-  it('clamps savings at zero when the PPA price exceeds the tariff', () => {
+  it('clamps year-1 savings at zero when the PPA price exceeds the tariff', () => {
     const [m] = ppaMetrics(850, 12_000, [{ precio_kwh: 900, duracion_anios: 10 }])
 
     expect(m.ahorroPorKwh).toBe(0) // max(0, 850 - 900)
     expect(m.porcentajeAhorro).toBe(0)
     expect(m.ahorroAnual).toBe(0)
-    expect(m.ahorroTotal).toBe(0)
+    // The indexed tariff crosses 900 COP/kWh around year 2, so the total is
+    // positive even though year 1 saves nothing (per-year clamp at 0).
+    expect(m.ahorroTotal).toBe(16_657_972)
     expect(m.pagoMiracAnual).toBe(10_800_000) // round(12_000 * 900)
     expect(m.pagoMiracMensual).toBe(900_000)
   })

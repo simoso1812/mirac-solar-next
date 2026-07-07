@@ -37,6 +37,10 @@ export const CIUDADES = [
 ] as const
 
 // Cost distribution percentages
+// Indice Mirac: escalador anual de la tarifa de energia usado para proyectar
+// los totales de un contrato PPA (la tarifa sube, el precio PPA queda fijo).
+export const INDICE_MIRAC = 0.0425
+
 export const PROMEDIOS_COSTO = {
   equipos: 24.33,
   materiales: 16.67,

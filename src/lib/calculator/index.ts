@@ -87,7 +87,7 @@ export function buildInputFromStore(
     capacidadBateriaKwh: advanced.bateria.capacidad_kwh ?? 0,
     profundidadDescarga: advanced.bateria.profundidad_descarga,
     eficienciaBateria: advanced.bateria.eficiencia,
-    horasAutonomia: advanced.bateria.horas_autonomia ?? 48,
+    horasAutonomia: advanced.bateria.horas_autonomia ?? 8,
     horizonteTiempo: advanced.horizonte_anios ?? 25,
     incluirBeneficiosTributarios: advanced.beneficios_tributarios && (
       advanced.incluir_deduccion_renta || advanced.incluir_depreciacion_acelerada
@@ -293,9 +293,14 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   }
   if (!paybackResolved && !wasNegative) payback = 0
 
-  // ROI
+  // ROI inversionista (equity): levered flows against the down payment
   const totalReturns = cashflowFree.slice(1).reduce((a, b) => a + b, 0)
   const roi = desembolsoInicial > 0 ? totalReturns / desembolsoInicial : 0
+
+  // ROI proyecto (unlevered): flows before financing against the full CAPEX.
+  // Equal to ROI inversionista when there is no credit.
+  const unleveredReturns = yearSims.reduce((a, y) => a + y.flujoNeto + y.cuotasCredito, 0)
+  const roiProyecto = valorProyectoTotal > 0 ? unleveredReturns / valorProyectoTotal : 0
 
   // Cost breakdown
   const desgloseCostos = {
@@ -333,6 +338,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     ahorro_mensual_cop: Math.ceil(ahorroAnualAnio1 / 12),
     ahorro_anual_cop: Math.ceil(ahorroAnualAnio1),
     roi_porcentaje: roi * 100,
+    roi_proyecto_porcentaje: roiProyecto * 100,
     payback_anios: payback,
     tir: tir * 100,
     vpn,

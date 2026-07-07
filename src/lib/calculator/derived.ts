@@ -6,7 +6,7 @@
  * Each formula must exist exactly once — consumers destructure these
  * helpers instead of re-implementing the math inline.
  */
-import { DEFAULT_PARAMS, PROMEDIOS_COSTO } from '@/lib/constants'
+import { DEFAULT_PARAMS, INDICE_MIRAC, PROMEDIOS_COSTO } from '@/lib/constants'
 import type { CalculationResults, PpaOption } from '@/lib/types'
 
 export interface IvaBreakdown {
@@ -53,9 +53,12 @@ export interface PpaOptionMetrics {
   ahorroPorKwh: number
   /** Savings vs the utility tariff, rounded percentage (0-100) */
   porcentajeAhorro: number
-  /** Annual savings in COP */
+  /** Year-1 savings in COP */
   ahorroAnual: number
-  /** Total savings over the contract duration in COP */
+  /**
+   * Total savings over the contract in COP, with the utility tariff indexed
+   * at INDICE_MIRAC per year while the PPA price stays fixed.
+   */
   ahorroTotal: number
   /** Annual payment to Mirac in COP */
   pagoMiracAnual: number
@@ -76,7 +79,15 @@ export function ppaMetrics(
     const ahorroPorKwh = Math.max(0, costoKwh - opt.precio_kwh)
     const porcentajeAhorro = costoKwh > 0 ? Math.round((ahorroPorKwh / costoKwh) * 100) : 0
     const ahorroAnual = Math.round(generacionAnualKwh * ahorroPorKwh)
-    const ahorroTotal = ahorroAnual * opt.duracion_anios
+    // Tariff escalates at INDICE_MIRAC each year; the PPA price is fixed for
+    // the whole contract, so the yearly saving widens over time.
+    let ahorroTotal = 0
+    for (let t = 0; t < opt.duracion_anios; t++) {
+      const fraccionAnio = Math.min(1, opt.duracion_anios - t)
+      const tarifaAnio = costoKwh * Math.pow(1 + INDICE_MIRAC, t)
+      ahorroTotal += fraccionAnio * generacionAnualKwh * Math.max(0, tarifaAnio - opt.precio_kwh)
+    }
+    ahorroTotal = Math.round(ahorroTotal)
     const pagoMiracAnual = Math.round(generacionAnualKwh * opt.precio_kwh)
     const pagoMiracMensual = Math.round(pagoMiracAnual / 12)
     return {

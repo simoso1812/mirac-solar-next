@@ -313,9 +313,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         <Pos x={90} y={64} fontSize={14} fontFamily="Roboto" align="right" width={88}>
           {Math.ceil(r.numero_paneles * 2.3 * 1.3)} m²
         </Pos>
-        {/* Potencia módulos */}
+        {/* Potencia módulos (con marca/modelo cuando el cotizador los indicó) */}
         <Pos x={90} y={108} fontSize={14} fontFamily="Roboto" align="right" width={88}>
-          {r.potencia_panel_w} Wp
+          {[[r.marca_panel, r.modelo_panel].filter(Boolean).join(' ').trim(), `${r.potencia_panel_w} Wp`]
+            .filter(Boolean)
+            .join(' · ')}
         </Pos>
         {/* Cantidad módulos */}
         <Pos x={90} y={117} fontSize={14} fontFamily="Roboto" align="right" width={88}>
@@ -325,9 +327,14 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         <Pos x={90} y={126} fontSize={14} fontFamily="Roboto" align="right" width={88}>
           {fmtNumber(r.kwp, 1)} kWp
         </Pos>
-        {/* Inversores */}
+        {/* Inversores — marca y modelo; kW solo cuando el modelo no lo dice ya */}
         <Pos x={90} y={135} fontSize={14} fontFamily="Roboto" align="right" width={88}>
-          {r.inversores.map((i) => `${i.cantidad}x${i.potencia_kw}kW`).join(' + ')}
+          {r.inversores
+            .map((i) => {
+              const suffix = /kw/i.test(i.modelo) ? '' : ` (${i.potencia_kw}kW)`
+              return `${i.cantidad}× ${i.marca} ${i.modelo}${suffix}`
+            })
+            .join(' + ')}
         </Pos>
         {/* Potencia AC */}
         <Pos x={90} y={153} fontSize={14} fontFamily="Roboto" align="right" width={88}>
@@ -684,7 +691,9 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           <Pos x={20} y={245} fontSize={9} fontFamily="Roboto" color="#888888" width={170}>
             Con el modelo PPA (Power Purchase Agreement), Mirac instala, opera y mantiene el sistema solar sin
             inversión inicial del cliente. El cliente paga únicamente por la energía generada a una tarifa fija
-            durante la vigencia del contrato, garantizando ahorros desde el primer mes.
+            durante la vigencia del contrato, garantizando ahorros desde el primer mes. El ahorro total se
+            proyecta con la tarifa de energía indexada al Índice Mirac (4.25% anual); el precio del PPA
+            permanece fijo durante todo el contrato.
           </Pos>
         </Page>
         )

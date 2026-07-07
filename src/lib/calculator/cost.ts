@@ -19,23 +19,44 @@ export interface PriceEstimate {
   r2: number
 }
 
+// Raw per-segment predictions (uncapped domain) used for edge blending.
+function priceSmall(kwp: number): number {
+  // Segment 1 — Small: power law on COP/kWp
+  const copPerKwp = 15_021_515.41 * Math.pow(kwp, -0.9522841) + 1_852_798.36
+  return copPerKwp * kwp
+}
+function priceMedium(kwp: number): number {
+  // Segment 2 — Medium: linear on price
+  return 2_841_579.58 * kwp + 7_854_609.55
+}
+function priceLarge(kwp: number): number {
+  // Segment 3 — Large: linear on price
+  return 2_458_941.57 * kwp + 36_121_590.48
+}
+
+// Blend bands around the segment boundaries. The calibrated segments meet
+// with a jump (~9.2M COP at 50 kWp); inside each band the price is a linear
+// interpolation between the two adjacent segment predictions so a client
+// asking for 49 vs 51 kWp never sees a discontinuous quote.
+const BLEND_SMALL_MEDIUM: [number, number] = [9, 11]
+const BLEND_MEDIUM_LARGE: [number, number] = [45, 55]
+
+function blend(kwp: number, [lo, hi]: [number, number], fLo: (k: number) => number, fHi: (k: number) => number): number {
+  const w = (kwp - lo) / (hi - lo)
+  return (1 - w) * fLo(kwp) + w * fHi(kwp)
+}
+
 /**
  * Estimate total project price in COP for a given system size.
  */
 export function estimatePrice(kwp: number): number {
   if (kwp <= 0) throw new Error('kWp debe ser mayor a 0')
 
-  if (kwp < 10) {
-    // Segment 1 — Small: power law on COP/kWp
-    const copPerKwp = 15_021_515.41 * Math.pow(kwp, -0.9522841) + 1_852_798.36
-    return Math.ceil(copPerKwp * kwp)
-  } else if (kwp <= 50) {
-    // Segment 2 — Medium: linear on price
-    return Math.ceil(2_841_579.58 * kwp + 7_854_609.55)
-  } else {
-    // Segment 3 — Large: linear on price
-    return Math.ceil(2_458_941.57 * kwp + 36_121_590.48)
-  }
+  if (kwp < BLEND_SMALL_MEDIUM[0]) return Math.ceil(priceSmall(kwp))
+  if (kwp <= BLEND_SMALL_MEDIUM[1]) return Math.ceil(blend(kwp, BLEND_SMALL_MEDIUM, priceSmall, priceMedium))
+  if (kwp < BLEND_MEDIUM_LARGE[0]) return Math.ceil(priceMedium(kwp))
+  if (kwp <= BLEND_MEDIUM_LARGE[1]) return Math.ceil(blend(kwp, BLEND_MEDIUM_LARGE, priceMedium, priceLarge))
+  return Math.ceil(priceLarge(kwp))
 }
 
 /**

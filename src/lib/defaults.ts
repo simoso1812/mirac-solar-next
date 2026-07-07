@@ -38,7 +38,6 @@ export const initialAdvancedData: AdvancedData = {
   marca_inversor_custom: '',
   modelo_inversor: '',
   override_inversores: null,
-  medidor_inteligente: false,
   medidor_bidireccional: false,
   modo_conexion: 'net_metering',
   financiamiento: {
@@ -52,7 +51,7 @@ export const initialAdvancedData: AdvancedData = {
     capacidad_kwh: 5,
     profundidad_descarga: 0.9,
     eficiencia: 0.95,
-    horas_autonomia: 48,
+    horas_autonomia: 8,
     costo_kwh_bateria: 400000,
   },
   ppa: {

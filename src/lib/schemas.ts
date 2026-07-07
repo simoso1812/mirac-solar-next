@@ -61,7 +61,6 @@ export const advancedSchema = z.object({
   marca_inversor_custom: z.string(),
   modelo_inversor: z.string(),
   override_inversores: z.array(inverterOverrideSchema).nullable(),
-  medidor_inteligente: z.boolean(),
   medidor_bidireccional: z.boolean(),
   modo_conexion: z.enum(['net_metering', 'net_billing', 'autoconsumo']),
   financiamiento: z.object({

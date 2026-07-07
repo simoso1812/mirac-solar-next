@@ -81,7 +81,6 @@ export interface AdvancedData {
   marca_inversor_custom: string
   modelo_inversor: string
   override_inversores: InverterOverride[] | null
-  medidor_inteligente: boolean
   medidor_bidireccional: boolean
   modo_conexion: ConnectionMode
   financiamiento: {
@@ -198,6 +197,9 @@ export interface CalculationResults {
   ahorro_mensual_cop: number
   ahorro_anual_cop: number
   roi_porcentaje: number
+  // Unlevered ROI (full CAPEX, flows before financing). Equals roi_porcentaje
+  // without credit. Absent on results persisted before this field existed.
+  roi_proyecto_porcentaje?: number
   payback_anios: number
   tir: number
   vpn: number

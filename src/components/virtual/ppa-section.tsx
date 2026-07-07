@@ -154,6 +154,10 @@ export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
           </div>
         ))}
       </div>
+      <p className="mt-4 text-[10px] text-[#6B7280]">
+        Ahorro total proyectado con la tarifa de energía indexada al Índice Mirac (4.25% anual);
+        el precio del PPA permanece fijo durante todo el contrato.
+      </p>
     </section>
   )
 }
