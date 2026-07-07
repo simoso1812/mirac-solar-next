@@ -27,17 +27,24 @@ function CotizacionContent() {
   const lastEditId = useRef<string | null>(null)
 
   useEffect(() => {
-    // Skip if we already initialized for this same editId
-    if (lastEditId.current === (editId ?? '__new__')) return
-    lastEditId.current = editId ?? '__new__'
-
+    // The guard distinguishes "initialized without the proposal" (bare editId)
+    // from "proposal loaded" (`<editId>:loaded`): on a direct URL load the
+    // effect can run before the persisted proposals store rehydrates, so
+    // proposalToEdit arrives late and the effect must upgrade to loadProposal.
+    // Once loaded, never re-load — a later proposalToEdit identity change
+    // (e.g. updateProposal) must not clobber an in-progress edit.
     if (editId) {
+      if (lastEditId.current === `${editId}:loaded`) return
       if (proposalToEdit) {
+        lastEditId.current = `${editId}:loaded`
         loadProposal(proposalToEdit)
-      } else {
+      } else if (lastEditId.current !== editId) {
+        lastEditId.current = editId
         reset()
       }
     } else {
+      if (lastEditId.current === '__new__') return
+      lastEditId.current = '__new__'
       reset()
     }
   }, [editId, proposalToEdit, loadProposal, reset])
