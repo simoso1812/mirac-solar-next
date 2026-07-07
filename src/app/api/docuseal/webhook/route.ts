@@ -30,11 +30,21 @@ function verifySignature(rawBody: string, header: string | null): boolean {
     return process.env.NODE_ENV !== 'production'
   }
   if (!header) return false
-  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
-  const a = Buffer.from(expected)
-  const b = Buffer.from(header)
-  if (a.length !== b.length) return false
-  return crypto.timingSafeEqual(a, b)
+  // DocuSeal Cloud signs Stripe-style: the header is `<timestamp>.<hex sig>`
+  // and the HMAC-SHA256 is computed over `<timestamp>.<raw body>` with the
+  // whsec_ signing secret from the console's HMAC tab.
+  const dot = header.indexOf('.')
+  if (dot <= 0) return false
+  const timestamp = header.slice(0, dot)
+  const signature = header.slice(dot + 1)
+  if (!/^\d+$/.test(timestamp) || !/^[0-9a-f]{64}$/.test(signature)) return false
+  // Replay protection: reject signatures outside a 5-minute window.
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest('hex')
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
 }
 
 export async function POST(request: NextRequest) {
