@@ -332,7 +332,7 @@ export function RoofDesigner({
                     />
                     {area.panels.map((p, i) => (
                       <Polygon
-                        key={`${area.id}-p-${i}`}
+                        key={`${area.id}-p-${p.lat}-${p.lng}`}
                         paths={panelCorners(p, w, h, area.rotation_deg)}
                         onClick={selected ? () => deletePanel(area.id, i) : undefined}
                         options={{ fillColor: '#2563eb', fillOpacity: 0.85, strokeColor: '#93c5fd', strokeWeight: 0.5, clickable: selected }}
