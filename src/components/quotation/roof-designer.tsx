@@ -7,7 +7,7 @@ import { MAPS_LIBRARIES } from '@/components/maps-libraries'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Loader2, Trash2, Zap, Undo2 } from 'lucide-react'
-import { packPanels, defaultRowGap, type Cubierta, type Orientacion } from '@/lib/roof/packing'
+import { packPanels, repack, defaultRowGap, type Cubierta, type Orientacion } from '@/lib/roof/packing'
 import { polygonAreaM2 } from '@/lib/roof/geometry'
 import { toLatLng } from '@/lib/roof/geometry'
 import { renderRoofSnapshot } from '@/lib/roof/snapshot'
@@ -54,9 +54,11 @@ export function RoofDesigner({
 
   const [areas, setAreas] = useState<RoofArea[]>(initialDesign?.areas ?? [])
   const [orientacion, setOrientacion] = useState<Orientacion>(initialDesign?.orientacion ?? 'vertical')
-  const [rowGap, setRowGap] = useState<number>(
-    initialDesign?.areas[0]?.row_gap_m ?? defaultRowGap(tipoCubierta)
-  )
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null)
+  // Underlying google.maps.Polygon instances, keyed by area id. Needed to read
+  // the edited path back after a vertex drag (only written in onLoad/onUnmount,
+  // never read during render).
+  const polygonRefs = useRef(new Map<string, google.maps.Polygon>())
   // Drawing mode + the vertices the user has clicked for the in-progress roof.
   // google.maps.drawing.DrawingManager was removed from the Maps JS API at
   // v3.65, so we collect polygon vertices from map clicks ourselves.
@@ -78,8 +80,11 @@ export function RoofDesigner({
   const totalPanels = useMemo(() => areas.reduce((s, a) => s + a.panels.length, 0), [areas])
   const totalAreaM2 = useMemo(() => areas.reduce((s, a) => s + a.area_m2, 0), [areas])
   const kwp = (totalPanels * potenciaPanelW) / 1000
+  const selectedIndex = useMemo(() => areas.findIndex((a) => a.id === selectedAreaId), [areas, selectedAreaId])
+  const selectedArea = selectedIndex >= 0 ? areas[selectedIndex] : null
 
   const startDrawing = useCallback(() => {
+    setSelectedAreaId(null)
     setDrawingVertices([])
     setDrawing(true)
   }, [])
@@ -110,27 +115,95 @@ export function RoofDesigner({
         area_m2: polygonAreaM2(vertices),
         panels: [],
         rotation_deg: 0,
-        row_gap_m: rowGap,
+        row_gap_m: defaultRowGap(tipoCubierta),
       },
     ])
     setDrawingVertices([])
     setDrawing(false)
-  }, [drawingVertices, rowGap])
+  }, [drawingVertices, tipoCubierta])
 
   const autoFill = useCallback(() => {
     setAreas((prev) => prev.map((a) => ({
       ...a,
-      row_gap_m: rowGap,
       panels: packPanels({
         vertices: a.vertices,
-        anchoM, altoM, rowGapM: rowGap, orientacion, rotationDeg: a.rotation_deg,
+        anchoM, altoM, rowGapM: a.row_gap_m, orientacion, rotationDeg: a.rotation_deg,
       }),
     })))
-  }, [anchoM, altoM, rowGap, orientacion])
+  }, [anchoM, altoM, orientacion])
 
   const deleteArea = useCallback((id: string) => {
     setAreas((prev) => prev.filter((a) => a.id !== id))
+    setSelectedAreaId((sel) => (sel === id ? null : sel))
   }, [])
+
+  // Re-pack the selected area with a changed rotation or row gap. Manual panel
+  // deletions are discarded on any re-pack (the grid is regenerated).
+  const setAreaRotation = useCallback((id: string, deg: number) => {
+    setAreas((prev) => prev.map((a) => {
+      if (a.id !== id) return a
+      const { areaM2, panels } = repack({ vertices: a.vertices, anchoM, altoM, rowGapM: a.row_gap_m, orientacion, rotationDeg: deg })
+      return { ...a, rotation_deg: deg, area_m2: areaM2, panels }
+    }))
+  }, [anchoM, altoM, orientacion])
+
+  const setAreaRowGap = useCallback((id: string, gap: number) => {
+    setAreas((prev) => prev.map((a) => {
+      if (a.id !== id) return a
+      const { areaM2, panels } = repack({ vertices: a.vertices, anchoM, altoM, rowGapM: gap, orientacion, rotationDeg: a.rotation_deg })
+      return { ...a, row_gap_m: gap, area_m2: areaM2, panels }
+    }))
+  }, [anchoM, altoM, orientacion])
+
+  const refillArea = useCallback((id: string) => {
+    setAreas((prev) => prev.map((a) => {
+      if (a.id !== id) return a
+      const { areaM2, panels } = repack({ vertices: a.vertices, anchoM, altoM, rowGapM: a.row_gap_m, orientacion, rotationDeg: a.rotation_deg })
+      return { ...a, area_m2: areaM2, panels }
+    }))
+  }, [anchoM, altoM, orientacion])
+
+  const deletePanel = useCallback((areaId: string, index: number) => {
+    setAreas((prev) => prev.map((a) => (
+      a.id === areaId ? { ...a, panels: a.panels.filter((_, j) => j !== index) } : a
+    )))
+  }, [])
+
+  // Read the edited polygon path back after a vertex drag (fires on mouseup on
+  // the editable polygon) and commit it if it actually changed. Reading on
+  // mouseup instead of listening to the MVCArray set_at/insert_at events avoids
+  // the feedback loop those events create when React pushes the paths prop back.
+  const syncAreaPath = useCallback((id: string) => {
+    const poly = polygonRefs.current.get(id)
+    if (!poly) return
+    const vertices = poly.getPath().getArray().map((ll) => ({ lat: ll.lat(), lng: ll.lng() }))
+    if (vertices.length < 3) return
+    setAreas((prev) => prev.map((a) => {
+      if (a.id !== id) return a
+      const same = a.vertices.length === vertices.length
+        && a.vertices.every((v, i) => v.lat === vertices[i].lat && v.lng === vertices[i].lng)
+      if (same) return a
+      // Only re-pack roofs that already have panels; a never-filled roof stays empty.
+      if (a.panels.length > 0) {
+        const { areaM2, panels } = repack({ vertices, anchoM, altoM, rowGapM: a.row_gap_m, orientacion, rotationDeg: a.rotation_deg })
+        return { ...a, vertices, area_m2: areaM2, panels }
+      }
+      return { ...a, vertices, area_m2: polygonAreaM2(vertices) }
+    }))
+  }, [anchoM, altoM, orientacion])
+
+  // Orientation is design-level: changing it re-packs every filled roof with
+  // the new value (passed explicitly; state would be stale inside the updater).
+  const changeOrientacion = useCallback((v: Orientacion) => {
+    setOrientacion(v)
+    setAreas((prev) => prev.map((a) => {
+      if (a.panels.length === 0) return a
+      const { areaM2, panels } = repack({ vertices: a.vertices, anchoM, altoM, rowGapM: a.row_gap_m, orientacion: v, rotationDeg: a.rotation_deg })
+      return { ...a, area_m2: areaM2, panels }
+    }))
+  }, [anchoM, altoM])
+
+  const deselect = useCallback(() => setSelectedAreaId(null), [])
 
   const handleApply = useCallback(async () => {
     setSaving(true)
@@ -181,19 +254,11 @@ export function RoofDesigner({
           <select
             className="h-8 rounded-md border px-2 text-sm"
             value={orientacion}
-            onChange={(e) => setOrientacion(e.target.value as Orientacion)}
+            onChange={(e) => changeOrientacion(e.target.value as Orientacion)}
           >
             <option value="vertical">Vertical</option>
             <option value="horizontal">Horizontal</option>
           </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs">Separación filas: {rowGap.toFixed(2)} m</Label>
-          <input
-            type="range" min={0} max={2} step={0.05} value={rowGap}
-            aria-label="Separación entre filas"
-            onChange={(e) => setRowGap(Number(e.target.value))}
-          />
         </div>
         <div className="ml-auto flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={onClose}>Cancelar</Button>
@@ -204,11 +269,17 @@ export function RoofDesigner({
         </div>
       </div>
 
-      {drawing && (
+      {drawing ? (
         <div className="border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
           Haz clic en el mapa para marcar las esquinas del techo. Con 3 o más puntos, pulsa &quot;Terminar techo&quot;.
         </div>
-      )}
+      ) : areas.length > 0 ? (
+        <div className="border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
+          {selectedArea
+            ? 'Arrastra los puntos del techo para ajustarlo. Haz clic en un panel para quitarlo. Cambiar el techo, la rotación o la separación vuelve a colocar todos los paneles.'
+            : 'Haz clic en un techo para editarlo.'}
+        </div>
+      ) : null}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
@@ -223,7 +294,7 @@ export function RoofDesigner({
               center={{ lat, lng }}
               zoom={20}
               onLoad={(m) => { mapRef.current = m }}
-              onClick={drawing ? addVertex : undefined}
+              onClick={drawing ? addVertex : deselect}
               options={{ mapTypeId: 'satellite', tilt: 0, disableDefaultUI: false, zoomControl: true, draggableCursor: drawing ? 'crosshair' : undefined }}
             >
               {/* In-progress roof being drawn */}
@@ -240,21 +311,36 @@ export function RoofDesigner({
                 />
               )}
               {/* Committed roofs + their panels */}
-              {areas.map((area) => (
-                <div key={area.id}>
-                  <Polygon
-                    paths={area.vertices}
-                    options={{ fillColor: '#facc15', fillOpacity: 0.08, strokeColor: '#facc15', strokeWeight: 2, clickable: false }}
-                  />
-                  {area.panels.map((p, i) => (
+              {areas.map((area) => {
+                const selected = area.id === selectedAreaId && !drawing
+                return (
+                  <div key={area.id}>
                     <Polygon
-                      key={`${area.id}-p-${i}`}
-                      paths={panelCorners(p, w, h, area.rotation_deg)}
-                      options={{ fillColor: '#2563eb', fillOpacity: 0.85, strokeColor: '#93c5fd', strokeWeight: 0.5, clickable: false }}
+                      paths={area.vertices}
+                      onLoad={(poly) => polygonRefs.current.set(area.id, poly)}
+                      onUnmount={() => polygonRefs.current.delete(area.id)}
+                      onClick={() => { if (!drawing) setSelectedAreaId(area.id) }}
+                      onMouseUp={() => { if (selected) syncAreaPath(area.id) }}
+                      options={{
+                        fillColor: '#facc15',
+                        fillOpacity: selected ? 0.18 : 0.08,
+                        strokeColor: '#facc15',
+                        strokeWeight: selected ? 4 : 2,
+                        clickable: !drawing,
+                        editable: selected,
+                      }}
                     />
-                  ))}
-                </div>
-              ))}
+                    {area.panels.map((p, i) => (
+                      <Polygon
+                        key={`${area.id}-p-${p.lat}-${p.lng}`}
+                        paths={panelCorners(p, w, h, area.rotation_deg)}
+                        onClick={selected ? () => deletePanel(area.id, i) : undefined}
+                        options={{ fillColor: '#2563eb', fillOpacity: 0.85, strokeColor: '#93c5fd', strokeWeight: 0.5, clickable: selected }}
+                      />
+                    ))}
+                  </div>
+                )
+              })}
             </GoogleMap>
           )}
         </div>
@@ -277,11 +363,46 @@ export function RoofDesigner({
             <p className="text-xs text-muted-foreground">Sugerido por consumo</p>
             <p className="text-sm text-muted-foreground">{panelesSugeridos} paneles</p>
           </div>
+          {selectedArea && (
+            <div className="space-y-3 rounded-md border border-mirac-yellow-dark/40 bg-muted/40 p-3">
+              <p className="text-xs font-medium">Techo {selectedIndex + 1} seleccionado</p>
+              <div className="space-y-1">
+                <Label className="text-xs">Rotación de filas: {selectedArea.rotation_deg}°</Label>
+                <input
+                  type="range" min={-90} max={90} step={5} value={selectedArea.rotation_deg}
+                  aria-label="Rotación de filas"
+                  className="w-full"
+                  onChange={(e) => setAreaRotation(selectedArea.id, Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Separación filas: {selectedArea.row_gap_m.toFixed(2)} m</Label>
+                <input
+                  type="range" min={0} max={2} step={0.05} value={selectedArea.row_gap_m}
+                  aria-label="Separación entre filas"
+                  className="w-full"
+                  onChange={(e) => setAreaRowGap(selectedArea.id, Number(e.target.value))}
+                />
+              </div>
+              <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => refillArea(selectedArea.id)}>
+                <Zap className="mr-1 size-4" /> Rellenar paneles
+              </Button>
+            </div>
+          )}
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-medium">Techos ({areas.length})</p>
             {areas.map((a, i) => (
-              <div key={a.id} className="flex items-center justify-between text-xs">
-                <span>Techo {i + 1}: {a.panels.length}p · {Math.round(a.area_m2)} m²</span>
+              <div
+                key={a.id}
+                className={`flex items-center justify-between rounded-sm px-1 text-xs ${a.id === selectedAreaId ? 'bg-muted font-medium' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="flex-1 py-0.5 text-left"
+                  onClick={() => { if (!drawing) setSelectedAreaId(a.id) }}
+                >
+                  Techo {i + 1}: {a.panels.length}p · {Math.round(a.area_m2)} m²
+                </button>
                 <button type="button" aria-label="Borrar techo" onClick={() => deleteArea(a.id)}>
                   <Trash2 className="size-3.5 text-destructive" />
                 </button>
