@@ -9,6 +9,7 @@ import { SystemDesignSection } from './system-design-section'
 import { RoofDesignSection } from './roof-design-section'
 import { BatterySection } from './battery-section'
 import { PricingTable } from './pricing-table'
+import { PaymentScheduleSection } from './payment-schedule-section'
 import { BillSimulationSection } from './bill-simulation-section'
 import { FinancialSection } from './financial-section'
 import { CostComparisonSection } from './cost-comparison-section'
@@ -123,6 +124,9 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
         />
         <BatterySection results={whatIfResults} />
         <PricingTable results={whatIfResults} />
+        {!proposal.advanced.financiamiento?.habilitado && (
+          <PaymentScheduleSection total={whatIfResults.costo_total_cop} />
+        )}
         <BillSimulationSection
           results={whatIfResults}
           costoKwh={overrides.costoKwh}
