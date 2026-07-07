@@ -64,11 +64,16 @@ export const OFERTA_VALIDEZ_DIAS = 30
 
 /** Offer expiry date: fecha de emisión + 30 días. Null when the date is invalid. */
 export function ofertaValidezHasta(fechaIso: string): Date | null {
-  const fecha = new Date(fechaIso)
+  // project.fecha is a date-only string (YYYY-MM-DD); parse it as a local
+  // calendar date — new Date('YYYY-MM-DD') is UTC midnight and shifts a day
+  // back in Colombia (UTC-5).
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fechaIso)
+  const fecha = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(fechaIso)
   if (isNaN(fecha.getTime())) return null
-  const validez = new Date(fecha)
-  validez.setDate(validez.getDate() + OFERTA_VALIDEZ_DIAS)
-  return validez
+  fecha.setDate(fecha.getDate() + OFERTA_VALIDEZ_DIAS)
+  return fecha
 }
 
 /** Long-form Spanish date, e.g. "5 de agosto de 2026" */
