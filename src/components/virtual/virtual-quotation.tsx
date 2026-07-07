@@ -15,7 +15,10 @@ import { CostComparisonSection } from './cost-comparison-section'
 import { PpaSection } from './ppa-section'
 import { ImageGallerySection } from './image-gallery-section'
 import { ProjectDetailsSection } from './project-details-section'
+import { ImportantAspectsSection } from './important-aspects-section'
+import { FaqSection } from './faq-section'
 import { CallToAction } from './call-to-action'
+import { ofertaValidezHasta, formatFechaLarga, OFERTA_VALIDEZ_DIAS } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface VirtualQuotationProps {
@@ -23,6 +26,30 @@ interface VirtualQuotationProps {
   isShared?: boolean
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
   onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
+}
+
+function ValidityNotice({ validezHasta }: { validezHasta: Date | null }) {
+  const [now] = useState(() => Date.now())
+  if (!validezHasta) {
+    return (
+      <p className="text-center text-xs text-[#9CA3AF]">
+        Oferta válida por {OFERTA_VALIDEZ_DIAS} días a partir de la fecha de emisión.
+      </p>
+    )
+  }
+  const vencida = validezHasta.getTime() < now
+  if (vencida) {
+    return (
+      <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-xs text-amber-200">
+        Esta oferta venció el {formatFechaLarga(validezHasta)}. Contáctanos para actualizar tu cotización.
+      </div>
+    )
+  }
+  return (
+    <p className="text-center text-xs text-[#9CA3AF]">
+      Oferta válida hasta el {formatFechaLarga(validezHasta)}.
+    </p>
+  )
 }
 
 function NotesSection({ notas }: { notas: string }) {
@@ -81,10 +108,13 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
     return cotizacion(input)
   }, [baseInput, overrides])
 
+  const validezHasta = ofertaValidezHasta(proposal.project.fecha)
+
   return (
     <>
       <VirtualHeader proposal={proposal} />
       <main className="mx-auto max-w-6xl space-y-12 px-6 py-8">
+        <ValidityNotice validezHasta={validezHasta} />
         <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
         <RoofDesignSection
@@ -122,6 +152,11 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           <ImageGallerySection imagenes={proposal.advanced.imagenes} />
         )}
         <ProjectDetailsSection proposal={proposal} results={whatIfResults} />
+        <ImportantAspectsSection
+          bateriaHabilitada={!!whatIfResults.bateria?.habilitada}
+          mostrarIncentivos={!!proposal.advanced.beneficios_tributarios}
+        />
+        <FaqSection />
         {proposal.advanced.notas?.trim() && (
           <NotesSection notas={proposal.advanced.notas} />
         )}
@@ -130,6 +165,7 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           isShared={isShared}
           onDocusealUpdate={onDocusealUpdate}
           onClientUpdate={onClientUpdate}
+          validezHasta={validezHasta}
         />
       </main>
       <VirtualFooter />

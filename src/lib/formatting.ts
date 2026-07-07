@@ -58,3 +58,20 @@ export function formatCarbon(value: number, unit: 'kg' | 'ton' = 'kg', decimals 
 export function formatNumber(value: number, decimals = 0): string {
   return value.toLocaleString('es-CO', { maximumFractionDigits: decimals })
 }
+
+/** Days an offer stays valid after its emission date */
+export const OFERTA_VALIDEZ_DIAS = 30
+
+/** Offer expiry date: fecha de emisión + 30 días. Null when the date is invalid. */
+export function ofertaValidezHasta(fechaIso: string): Date | null {
+  const fecha = new Date(fechaIso)
+  if (isNaN(fecha.getTime())) return null
+  const validez = new Date(fecha)
+  validez.setDate(validez.getDate() + OFERTA_VALIDEZ_DIAS)
+  return validez
+}
+
+/** Long-form Spanish date, e.g. "5 de agosto de 2026" */
+export function formatFechaLarga(date: Date): string {
+  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)
+}
