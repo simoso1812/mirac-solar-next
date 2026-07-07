@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { ShareDialog } from './share-dialog'
 import { DocusealSignDialog } from './docuseal-sign-dialog'
+import { formatFechaLarga } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
 interface CallToActionProps {
@@ -10,10 +12,13 @@ interface CallToActionProps {
   isShared?: boolean
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
   onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
+  validezHasta?: Date | null
 }
 
-export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpdate }: CallToActionProps) {
+export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpdate, validezHasta }: CallToActionProps) {
+  const [now] = useState(() => Date.now())
   const isSigned = proposal.status === 'accepted' || proposal.docuseal?.status === 'completed' || !!proposal.signature
+  const ofertaVencida = !!validezHasta && validezHasta.getTime() < now
 
   return (
     <section>
@@ -26,6 +31,13 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
             ? 'Esta propuesta ha sido firmada y aceptada. Nuestro equipo se pondrá en contacto contigo.'
             : 'Descarga el PDF, comparte con tu equipo o firma el contrato para confirmar.'}
         </p>
+        {!isSigned && validezHasta && (
+          <p className={`mb-4 text-xs ${ofertaVencida ? 'text-amber-300' : 'text-[#9CA3AF]'}`}>
+            {ofertaVencida
+              ? `Esta oferta venció el ${formatFechaLarga(validezHasta)}. Contáctanos para actualizar tu cotización.`
+              : `Oferta válida hasta el ${formatFechaLarga(validezHasta)}.`}
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-center gap-3">
           <PdfDownloadButton
             proposal={proposal}

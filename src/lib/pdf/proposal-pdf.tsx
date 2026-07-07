@@ -207,6 +207,9 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
         <Pos x={147} y={260} fontSize={12} color={BRAND_RED}>
           {fechaStr}
         </Pos>
+        <Pos x={147} y={266} fontSize={8} color={BRAND_RED}>
+          Oferta válida por 30 días
+        </Pos>
       </Page>
 
       {/* 2. RESUMEN EJECUTIVO */}
