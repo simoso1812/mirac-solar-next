@@ -9,7 +9,6 @@ interface ImportantAspectsSectionProps {
 
 const ASPECTOS_SIN_BATERIA = [
   'Este sistema está diseñado para funcionar solo con conexión a la red eléctrica y no operará en ausencias de energía.',
-  'Como es un sistema conectado a la red (on grid), no está preparado para incluir baterías.',
 ]
 
 const ASPECTOS_CON_BATERIA = [
@@ -25,8 +24,8 @@ const ASPECTOS_COMUNES = [
 ]
 
 const GARANTIAS = [
-  { anios: '3 años', concepto: 'Instalación' },
-  { anios: '12 años', concepto: 'Paneles' },
+  { anios: '1.5 años', concepto: 'Instalación' },
+  { anios: '15 años', concepto: 'Paneles' },
   { anios: '5 años', concepto: 'Inversores' },
 ]
 

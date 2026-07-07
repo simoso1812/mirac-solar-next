@@ -5,8 +5,7 @@ import { useState } from 'react'
 const PREGUNTAS = [
   {
     pregunta: '¿Qué mantenimiento requiere el sistema?',
-    respuesta:
-      'Muy poco: una limpieza periódica de los paneles (cada 4 a 6 meses según el entorno) y una revisión general anual. La plataforma de monitoreo permite detectar a tiempo cualquier caída de generación.',
+    respuesta: 'El sistema requiere un mantenimiento anual; su precio está incluido en esta propuesta.',
   },
   {
     pregunta: '¿Qué pasa en días nublados o de lluvia?',
