@@ -34,12 +34,19 @@ CI (`.github/workflows/ci.yml`) runs typecheck + lint + test + build on every PR
 src/lib/calculator/   financial engine (pure functions; engine.ts is the single savings loop)
 src/components/       wizard steps, virtual proposal sections, PDF button, Drive sync
 src/lib/pdf/          @react-pdf proposal document
-src/app/api/          share links, DocuSeal submission + webhook, PVGIS, remote MCP server
+src/app/api/          share links, DocuSeal submission + webhook, PVGIS, ETER/EPM grid capacity, remote MCP server
+src/lib/eter/         EPM ETER client (CREG 030 transformer traffic-light: capacity + FV feasibility)
 src/stores/           Zustand persisted stores (wizard state + proposals book)
 skills/               Claude Cowork skill for the MCP quoting connector
 ```
 
 Key architectural rule: stored `results` are never trusted — every consumer (web proposal, PDF, Drive sync, share page, MCP tools) re-runs `cotizacion(buildInputFromStore(...))` live.
+
+### ETER / EPM grid capacity (`src/lib/eter/`)
+
+Queries the public ArcGIS service behind EPM's ETER viewer (CREG 030 transformer traffic-light) to answer "does this transformer have autogeneración hosting capacity?". Exposed as REST (`GET /api/eter/trafo/[nro]`, `/api/eter/trafos?municipio=&semaforo=&minKva=`, `/api/eter/capacidad?lat=&lon=&radio=&kwp=`) and as MCP tools (`epm_capacidad_trafo`, `epm_trafos_cercanos`).
+
+Service gotchas (verified 2026-07-23): field names must be fully qualified (`SIGMAENERGIA.MOV_VETRANSFO_PT.*` / `CREG030.C30_CALCULO_SEMAFORO.*`); no pagination (`resultRecordCount` → 400) with an implicit 2000-record cap; `MUNICIPIO` values carry accents (accent-insensitive matching uses `LIKE` with `_` wildcards since `TRANSLATE` is unsupported); `CARGABILIDAD` is sometimes a fraction. Available headroom heuristic: CREG 030 caps aggregate autogeneración at 50% of nominal kVA, so `cupo ≈ 0.5·CAPACIDAD_NOMINAL − SUMATORIA_POTENCIA`; the semaphore color is the authoritative datum. Best-effort public service — the official source is the viewer at https://maps.epm.com.co/ETER/Visor/Visor.
 
 ## Environment variables
 
