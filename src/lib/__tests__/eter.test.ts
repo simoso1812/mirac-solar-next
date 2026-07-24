@@ -62,7 +62,7 @@ describe('parseTrafo', () => {
     expect(t.semaforo).toEqual({ potencia: 'VERDE', energia: 'VERDE', mixto: 'VERDE-VERDE' })
     // Cupo CREG 030: 50% de 75 kVA sin nada comprometido.
     expect(t.cupoEstimadoKva).toBeCloseTo(37.5)
-    expect(t.ocupacionCupoPct).toBe(0)
+    expect(t.ocupacionPotenciaPct).toBe(0)
     expect(t.municipio).toBe('ITAGÜÍ')
     expect(t.ubicacion).toEqual({ lat: 6.17, lon: -75.61 })
   })
@@ -73,8 +73,8 @@ describe('parseTrafo', () => {
     expect(t.ubicacion).toBeUndefined()
     // 0.5·50 − 27 = −2 → clampeado a 0.
     expect(t.cupoEstimadoKva).toBe(0)
-    // 27 / 25 = 108% del cupo CREG 030 ocupado.
-    expect(t.ocupacionCupoPct).toBeCloseTo(108)
+    // VALOR_POTENCIA es el % oficial EPM: 27 kW / 50 kVA = 54% (>50 → ROJO).
+    expect(t.ocupacionPotenciaPct).toBe(54)
     expect(t.semaforo.potencia).toBe('ROJO')
   })
 
@@ -130,6 +130,20 @@ describe('evaluarViabilidad', () => {
       attributes: { ...fixtureVerde.attributes, [`${S}.COLOR_POTENCIA`]: 'AMARILLO' },
     })
     expect(evaluarViabilidad(amarillo).viable).toBe('condicionado')
+  })
+
+  it('naranja (umbral EPM 40–50%) → condicionado, no DESCONOCIDO', () => {
+    const naranja = parseTrafo({
+      attributes: {
+        ...fixtureVerde.attributes,
+        [`${S}.COLOR_POTENCIA`]: 'NARANJA',
+        [`${S}.VALOR_POTENCIA`]: 45.0,
+      },
+    })
+    expect(naranja.semaforo.potencia).toBe('NARANJA')
+    const v = evaluarViabilidad(naranja)
+    expect(v.viable).toBe('condicionado')
+    expect(v.notas.join(' ')).toContain('45.0%')
   })
 })
 

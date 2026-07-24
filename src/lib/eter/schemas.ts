@@ -4,7 +4,7 @@
  */
 import { z } from 'zod'
 
-export type SemaforoColor = 'VERDE' | 'AMARILLO' | 'ROJO' | 'DESCONOCIDO'
+export type SemaforoColor = 'VERDE' | 'AMARILLO' | 'NARANJA' | 'ROJO' | 'DESCONOCIDO'
 
 export interface TrafoCapacidad {
   nroTransformador: number | null
@@ -15,22 +15,23 @@ export interface TrafoCapacidad {
     energia: SemaforoColor
     mixto: string | null
   }
-  /** Potencia solicitada/instalada agregada reportada por EPM (VALOR_POTENCIA). */
-  potenciaSolicitadaKw: number | null
-  energiaSolicitada: number | null
-  /** Suma ponderada ya comprometida contra el límite CREG 030 (SUMATORIA_*). */
+  /**
+   * % de ocupación OFICIAL EPM sobre la capacidad nominal (VALOR_POTENCIA /
+   * VALOR_ENERGIA son porcentajes, no kW — es el número que muestra el popup
+   * "Disponibilidad según potencia/energía" del visor, antes de sumar lo
+   * simulado). Umbrales EPM: VERDE ≤30 · AMARILLO 30–40 · NARANJA 40–50 ·
+   * ROJO >50.
+   */
+  ocupacionPotenciaPct: number | null
+  ocupacionEnergiaPct: number | null
+  /** Potencia/energía agregada ya comprometida en kW (SUMATORIA_*). */
   comprometido: { potenciaKw: number | null; energia: number | null }
   /**
-   * Cupo restante estimado bajo la regla CREG 030 (autogeneración agregada
-   * ≤ 50% de la capacidad nominal): 0.5·kVA_nominal − SUMATORIA_POTENCIA.
-   * Heurístico — el dato autoritativo es el color del semáforo.
+   * Cupo restante estimado hasta el umbral ROJO (50% de la capacidad
+   * nominal): 0.5·kVA_nominal − SUMATORIA_POTENCIA. Heurístico — el dato
+   * autoritativo es el color del semáforo.
    */
   cupoEstimadoKva: number | null
-  /**
-   * % del cupo CREG 030 ya comprometido por autogeneradores:
-   * SUMATORIA_POTENCIA / (0.5·kVA_nominal) × 100 (puede superar 100 en rojos).
-   */
-  ocupacionCupoPct: number | null
   municipio: string | null
   subestacion: string | null
   circuito: string | null

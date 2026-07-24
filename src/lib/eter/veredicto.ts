@@ -46,18 +46,18 @@ export function evaluarViabilidad(trafo: TrafoCapacidad, kwpPropuesto?: number):
     return { viable: 'no', kvaDisponiblesEstimados: cupo !== null ? Math.max(0, cupo) : 0, notas }
   }
 
+  const parcial = trafo.semaforo.potencia === 'AMARILLO' || trafo.semaforo.potencia === 'NARANJA'
   if (kvaNecesarios !== null && cupo !== null) {
     if (kvaNecesarios <= cupo) {
       notas.push(
         `Cupo estimado ${cupo.toFixed(1)} kVA ≥ ${kvaNecesarios.toFixed(1)} kVA requeridos (${kwpPropuesto} kWp @ FP ${FP}).`,
       )
       return {
-        viable: trafo.semaforo.potencia === 'AMARILLO' ? 'condicionado' : 'si',
+        viable: parcial ? 'condicionado' : 'si',
         kvaDisponiblesEstimados: cupo,
-        notas:
-          trafo.semaforo.potencia === 'AMARILLO'
-            ? [...notas, 'Semáforo AMARILLO: cupo parcialmente comprometido; confirmar con EPM antes de firmar.']
-            : notas,
+        notas: parcial
+          ? [...notas, `Semáforo ${trafo.semaforo.potencia}: cupo parcialmente comprometido (ocupación ${trafo.ocupacionPotenciaPct?.toFixed(1) ?? '?'}%); confirmar con EPM antes de firmar.`]
+          : notas,
       }
     }
     notas.push(
@@ -67,8 +67,10 @@ export function evaluarViabilidad(trafo: TrafoCapacidad, kwpPropuesto?: number):
   }
 
   // Sin kWp propuesto: reportar el cupo y el color.
-  if (trafo.semaforo.potencia === 'AMARILLO') {
-    notas.push('Semáforo AMARILLO: hay cupo pero parcialmente comprometido; confirmar con EPM.')
+  if (parcial) {
+    notas.push(
+      `Semáforo ${trafo.semaforo.potencia}: hay cupo pero parcialmente comprometido (ocupación ${trafo.ocupacionPotenciaPct?.toFixed(1) ?? '?'}%); confirmar con EPM.`,
+    )
     return { viable: 'condicionado', kvaDisponiblesEstimados: cupo, notas }
   }
   notas.push('Semáforo VERDE: hay cupo de autogeneración disponible en el trafo.')

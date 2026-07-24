@@ -43,7 +43,7 @@ function resumenTrafo({ trafo, veredicto, distanciaM }: TrafoConVeredicto): stri
     `Trafo ${trafo.nroTransformador ?? '?'} (${trafo.municipio ?? 'municipio ?'}): ${trafo.capacidadNominalKva ?? '?'} kVA`,
     `semáforo potencia ${trafo.semaforo.potencia}`,
     `cargabilidad ${trafo.cargabilidadPct !== null ? trafo.cargabilidadPct.toFixed(0) + '%' : 'n/d'}`,
-    `cupo AGPE ocupado ${trafo.ocupacionCupoPct !== null ? trafo.ocupacionCupoPct.toFixed(0) + '%' : 'n/d'}`,
+    `ocupación AGPE ${trafo.ocupacionPotenciaPct !== null ? trafo.ocupacionPotenciaPct.toFixed(1) + '%' : 'n/d'} (rojo >50%)`,
     `cupo estimado ${veredicto.kvaDisponiblesEstimados !== null ? veredicto.kvaDisponiblesEstimados.toFixed(1) + ' kVA' : 'n/d'}`,
     `veredicto: ${veredicto.viable.toUpperCase()}`,
   ]

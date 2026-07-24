@@ -2,13 +2,16 @@
  * Mapea los atributos crudos del servicio ArcGIS de EPM al tipo limpio
  * TrafoCapacidad.
  *
- * Semántica CREG 030 observada en datos reales (2026-07-23):
- * - COLOR_POTENCIA/COLOR_ENERGIA: 'VERDE' | 'AMARILLO' | 'ROJO';
+ * Semántica CREG 030 confirmada contra el widget DisponibilidadRed del visor
+ * (2026-07-23):
+ * - COLOR_POTENCIA/COLOR_ENERGIA: 'VERDE' | 'AMARILLO' | 'NARANJA' | 'ROJO';
  *   COLOR_MIXTO los concatena ("VERDE-VERDE").
- * - VALOR_POTENCIA: potencia solicitada/instalada agregada (kW bruto).
- * - SUMATORIA_POTENCIA: suma ponderada que EPM compara contra el límite
- *   CREG 030 del 50% de la capacidad nominal — en todos los trafos ROJOS
- *   muestreados, SUMATORIA_POTENCIA ≥ 0.5·CAPACIDAD_NOMINAL.
+ * - VALOR_POTENCIA / VALOR_ENERGIA: PORCENTAJE de ocupación sobre la
+ *   capacidad nominal (el mismo "Disponibilidad según potencia/energía" que
+ *   muestra el popup del visor). Umbrales EPM: VERDE ≤30%, AMARILLO 30–40%,
+ *   NARANJA 40–50%, ROJO >50%.
+ * - SUMATORIA_POTENCIA: kW agregados ya comprometidos
+ *   (VALOR_POTENCIA = SUMATORIA_POTENCIA / CAPACIDAD_NOMINAL × 100).
  */
 import { F_TRAFO, F_SEMAFORO, type ArcgisFeature } from './client'
 import type { SemaforoColor, TrafoCapacidad } from './schemas'
@@ -24,7 +27,7 @@ function str(attrs: Record<string, unknown>, field: string): string | null {
 }
 
 function color(raw: string | null): SemaforoColor {
-  if (raw === 'VERDE' || raw === 'AMARILLO' || raw === 'ROJO') return raw
+  if (raw === 'VERDE' || raw === 'AMARILLO' || raw === 'NARANJA' || raw === 'ROJO') return raw
   return 'DESCONOCIDO'
 }
 
@@ -38,12 +41,6 @@ export function parseTrafo(feature: ArcgisFeature): TrafoCapacidad {
   const cupoEstimadoKva =
     capacidadNominalKva !== null
       ? Math.max(0, 0.5 * capacidadNominalKva - (comprometidoPotencia ?? 0))
-      : null
-
-  // % del cupo CREG 030 ya comprometido (>100% en trafos rojos).
-  const ocupacionCupoPct =
-    capacidadNominalKva !== null && capacidadNominalKva > 0
-      ? Math.round(((comprometidoPotencia ?? 0) / (0.5 * capacidadNominalKva)) * 1000) / 10
       : null
 
   // CARGABILIDAD llega a veces como fracción (0.18 = 18%) y a veces como
@@ -61,14 +58,13 @@ export function parseTrafo(feature: ArcgisFeature): TrafoCapacidad {
       energia: color(str(a, `${F_SEMAFORO}.COLOR_ENERGIA`)),
       mixto: str(a, `${F_SEMAFORO}.COLOR_MIXTO`),
     },
-    potenciaSolicitadaKw: num(a, `${F_SEMAFORO}.VALOR_POTENCIA`),
-    energiaSolicitada: num(a, `${F_SEMAFORO}.VALOR_ENERGIA`),
+    ocupacionPotenciaPct: num(a, `${F_SEMAFORO}.VALOR_POTENCIA`),
+    ocupacionEnergiaPct: num(a, `${F_SEMAFORO}.VALOR_ENERGIA`),
     comprometido: {
       potenciaKw: comprometidoPotencia,
       energia: num(a, `${F_SEMAFORO}.SUMATORIA_ENERGIA`),
     },
     cupoEstimadoKva,
-    ocupacionCupoPct,
     municipio: str(a, `${F_TRAFO}.MUNICIPIO`),
     subestacion: str(a, `${F_TRAFO}.SUBESTACION_CONN`),
     circuito: str(a, `${F_TRAFO}.CIRCUITO_CONN`),
