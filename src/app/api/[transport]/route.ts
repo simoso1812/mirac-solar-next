@@ -30,6 +30,12 @@ import {
   updateQuotationInputShape,
   runUpdateQuotation,
 } from '@/lib/mcp/manage-link'
+import {
+  capacidadTrafoInputShape,
+  runCapacidadTrafo,
+  trafosCercanosInputShape,
+  runTrafosCercanos,
+} from '@/lib/mcp/eter'
 
 /**
  * Wrap a tool handler so failures come back as a Spanish isError result
@@ -180,6 +186,47 @@ const handler = createMcpHandler(
         },
       },
       tool(runUpdateQuotation),
+    )
+
+    server.registerTool(
+      'epm_capacidad_trafo',
+      {
+        title: 'Capacidad de trafo EPM (CREG 030)',
+        description:
+          'Consulta el semaforo CREG 030 de EPM (visor ETER) para un transformador por su numero: capacidad nominal (kVA), ' +
+          'cargabilidad, color del semaforo de potencia/energia, cupo estimado de autogeneracion (regla del 50% de la capacidad nominal), ' +
+          'subestacion/circuito y veredicto Mirac de viabilidad. Si se envia kwp_propuesto evalua si el sistema FV cabe en el cupo. ' +
+          'Usala ANTES de cotizar un FV conectado a red EPM para detectar trafos en rojo y la trampa de medida indirecta (~50M COP). ' +
+          'Dato best-effort: el oficial es el visor ETER de EPM.',
+        inputSchema: capacidadTrafoInputShape,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
+      },
+      tool(runCapacidadTrafo),
+    )
+
+    server.registerTool(
+      'epm_trafos_cercanos',
+      {
+        title: 'Trafos EPM cercanos a un punto',
+        description:
+          'Lista los transformadores EPM alrededor de una coordenada (lat/lon, radio en metros), ordenados por distancia, ' +
+          'con su semaforo CREG 030, capacidad, cupo estimado de autogeneracion y veredicto de viabilidad FV ' +
+          '(si se envia kwp_propuesto). Usala cuando no se conoce el numero del trafo del cliente: ubica el proyecto ' +
+          'y revisa los trafos candidatos antes de cotizar la conexion.',
+        inputSchema: trafosCercanosInputShape,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
+      },
+      tool(runTrafosCercanos),
     )
   },
   {},
