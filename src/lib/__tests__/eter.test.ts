@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { parseTrafo, distanceM } from '@/lib/eter/parse'
-import { evaluarViabilidad } from '@/lib/eter/veredicto'
+import { evaluarViabilidad, simularConexion, colorPorOcupacion } from '@/lib/eter/veredicto'
 import type { ArcgisFeature } from '@/lib/eter/client'
 
 const T = 'SIGMAENERGIA.MOV_VETRANSFO_PT'
@@ -144,6 +144,54 @@ describe('evaluarViabilidad', () => {
     const v = evaluarViabilidad(naranja)
     expect(v.viable).toBe('condicionado')
     expect(v.notas.join(' ')).toContain('45.0%')
+  })
+})
+
+describe('simularConexion (reproduce el popup del visor)', () => {
+  // Trafo 42776 real: 37.5 kVA, 0 comprometido (fixtureVerde es de 75 kVA).
+  const trafo42776 = parseTrafo({
+    attributes: { ...fixtureVerde.attributes, [`${T}.CAPACIDAD_NOMINAL`]: 37.5 },
+  })
+
+  it('42776 + 10 kW → 26.667% (dato real del visor)', () => {
+    const sim = simularConexion(trafo42776, 10)!
+    // (0 comprometido + 10) / 37.5 × 100 = 26.667%, verde (≤30%).
+    expect(sim.ocupacionResultantePotenciaPct).toBeCloseTo(26.667, 2)
+    expect(sim.colorResultante).toBe('VERDE')
+    expect(sim.dentroDelLimite).toBe(true)
+  })
+
+  it('suma el comprometido existente', () => {
+    // Trafo de 50 kVA con 10 kW ya comprometidos + 8 propuestos = 36%.
+    const t = parseTrafo({
+      attributes: {
+        ...fixtureVerde.attributes,
+        [`${T}.CAPACIDAD_NOMINAL`]: 50,
+        [`${S}.SUMATORIA_POTENCIA`]: 10,
+      },
+    })
+    const sim = simularConexion(t, 8)!
+    expect(sim.ocupacionResultantePotenciaPct).toBeCloseTo(36, 3)
+    expect(sim.colorResultante).toBe('AMARILLO')
+  })
+
+  it('propuesta que cruza el 50% → ROJO y fuera de límite', () => {
+    const sim = simularConexion(trafo42776, 20)! // 20/37.5 = 53.3%
+    expect(sim.colorResultante).toBe('ROJO')
+    expect(sim.dentroDelLimite).toBe(false)
+  })
+
+  it('umbrales EPM', () => {
+    expect(colorPorOcupacion(30)).toBe('VERDE')
+    expect(colorPorOcupacion(35)).toBe('AMARILLO')
+    expect(colorPorOcupacion(45)).toBe('NARANJA')
+    expect(colorPorOcupacion(51)).toBe('ROJO')
+  })
+
+  it('el veredicto adjunta la simulación', () => {
+    const v = evaluarViabilidad(trafo42776, 10)
+    expect(v.simulacion?.ocupacionResultantePotenciaPct).toBeCloseTo(26.667, 2)
+    expect(v.viable).toBe('si')
   })
 })
 

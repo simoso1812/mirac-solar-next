@@ -59,9 +59,13 @@ export async function runCapacidadTrafo(args: {
   if (!result) {
     throw new Error(`Transformador ${args.nro_transformador} no encontrado en el servicio de EPM.`)
   }
+  const sim = result.veredicto.simulacion
   const summary = [
     resumenTrafo(result),
     `Subestación ${result.trafo.subestacion ?? 'n/d'}, circuito ${result.trafo.circuito ?? 'n/d'}, ${result.trafo.tensionKv ?? '?'} kV.`,
+    ...(sim
+      ? [`Disponibilidad según potencia al conectar ${sim.potenciaPropuestaKw} kW: ${sim.ocupacionResultantePotenciaPct}% → ${sim.colorResultante} (igual al "Disponibilidad según potencia" del visor).`]
+      : []),
     ...result.veredicto.notas,
   ].join('\n')
   return { summary, structured: { ...result } }

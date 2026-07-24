@@ -42,10 +42,23 @@ export interface TrafoCapacidad {
   ubicacion?: { lat: number; lon: number }
 }
 
+export interface Simulacion {
+  potenciaPropuestaKw: number
+  /** Ocupación de potencia actual del trafo (sin la propuesta), % EPM. */
+  ocupacionActualPotenciaPct: number | null
+  /** Ocupación que reportaría el visor al simular la propuesta ("Disponibilidad según potencia"). */
+  ocupacionResultantePotenciaPct: number | null
+  colorResultante: SemaforoColor
+  /** true si la ocupación resultante ≤ 50% (límite CREG 030). */
+  dentroDelLimite: boolean
+}
+
 export interface Veredicto {
   viable: 'si' | 'condicionado' | 'no' | 'indeterminado'
   kvaDisponiblesEstimados: number | null
   notas: string[]
+  /** Simulación de la conexión propuesta (solo cuando se envía kwp). */
+  simulacion: Simulacion | null
 }
 
 export const trafoParamsSchema = z.object({
