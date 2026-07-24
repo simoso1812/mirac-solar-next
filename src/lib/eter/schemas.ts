@@ -26,6 +26,11 @@ export interface TrafoCapacidad {
    * Heurístico — el dato autoritativo es el color del semáforo.
    */
   cupoEstimadoKva: number | null
+  /**
+   * % del cupo CREG 030 ya comprometido por autogeneradores:
+   * SUMATORIA_POTENCIA / (0.5·kVA_nominal) × 100 (puede superar 100 en rojos).
+   */
+  ocupacionCupoPct: number | null
   municipio: string | null
   subestacion: string | null
   circuito: string | null

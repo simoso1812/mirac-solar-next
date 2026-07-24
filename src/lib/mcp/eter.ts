@@ -42,6 +42,8 @@ function resumenTrafo({ trafo, veredicto, distanciaM }: TrafoConVeredicto): stri
   const partes = [
     `Trafo ${trafo.nroTransformador ?? '?'} (${trafo.municipio ?? 'municipio ?'}): ${trafo.capacidadNominalKva ?? '?'} kVA`,
     `semáforo potencia ${trafo.semaforo.potencia}`,
+    `cargabilidad ${trafo.cargabilidadPct !== null ? trafo.cargabilidadPct.toFixed(0) + '%' : 'n/d'}`,
+    `cupo AGPE ocupado ${trafo.ocupacionCupoPct !== null ? trafo.ocupacionCupoPct.toFixed(0) + '%' : 'n/d'}`,
     `cupo estimado ${veredicto.kvaDisponiblesEstimados !== null ? veredicto.kvaDisponiblesEstimados.toFixed(1) + ' kVA' : 'n/d'}`,
     `veredicto: ${veredicto.viable.toUpperCase()}`,
   ]

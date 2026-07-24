@@ -62,6 +62,7 @@ describe('parseTrafo', () => {
     expect(t.semaforo).toEqual({ potencia: 'VERDE', energia: 'VERDE', mixto: 'VERDE-VERDE' })
     // Cupo CREG 030: 50% de 75 kVA sin nada comprometido.
     expect(t.cupoEstimadoKva).toBeCloseTo(37.5)
+    expect(t.ocupacionCupoPct).toBe(0)
     expect(t.municipio).toBe('ITAGÜÍ')
     expect(t.ubicacion).toEqual({ lat: 6.17, lon: -75.61 })
   })
@@ -72,6 +73,8 @@ describe('parseTrafo', () => {
     expect(t.ubicacion).toBeUndefined()
     // 0.5·50 − 27 = −2 → clampeado a 0.
     expect(t.cupoEstimadoKva).toBe(0)
+    // 27 / 25 = 108% del cupo CREG 030 ocupado.
+    expect(t.ocupacionCupoPct).toBeCloseTo(108)
     expect(t.semaforo.potencia).toBe('ROJO')
   })
 

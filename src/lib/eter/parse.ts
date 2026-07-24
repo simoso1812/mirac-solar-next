@@ -40,6 +40,12 @@ export function parseTrafo(feature: ArcgisFeature): TrafoCapacidad {
       ? Math.max(0, 0.5 * capacidadNominalKva - (comprometidoPotencia ?? 0))
       : null
 
+  // % del cupo CREG 030 ya comprometido (>100% en trafos rojos).
+  const ocupacionCupoPct =
+    capacidadNominalKva !== null && capacidadNominalKva > 0
+      ? Math.round(((comprometidoPotencia ?? 0) / (0.5 * capacidadNominalKva)) * 1000) / 10
+      : null
+
   // CARGABILIDAD llega a veces como fracción (0.18 = 18%) y a veces como
   // porcentaje; normalizar a porcentaje (valores ≤ 1.5 se asumen fracción).
   const cargabilidadRaw = num(a, `${F_TRAFO}.CARGABILIDAD`)
@@ -62,6 +68,7 @@ export function parseTrafo(feature: ArcgisFeature): TrafoCapacidad {
       energia: num(a, `${F_SEMAFORO}.SUMATORIA_ENERGIA`),
     },
     cupoEstimadoKva,
+    ocupacionCupoPct,
     municipio: str(a, `${F_TRAFO}.MUNICIPIO`),
     subestacion: str(a, `${F_TRAFO}.SUBESTACION_CONN`),
     circuito: str(a, `${F_TRAFO}.CIRCUITO_CONN`),
