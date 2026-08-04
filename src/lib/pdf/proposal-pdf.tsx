@@ -180,7 +180,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
 
-  const { costoSinIVA, omAnual } = ivaBreakdown(r)
+  const { costoSinIVA, valorIVA, omAnual } = ivaBreakdown(r)
 
   // Financing figures come from the engine — never recompute them here
   // (the old inline PMT used a nominal /12 rate and disagreed with the web).
@@ -767,9 +767,14 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
       {/* 7. TÉRMINOS / COSTOS */}
       <Page size="A4" style={styles.page}>
         <Image src={`${BG}/9.jpg`} style={styles.bg} />
-        {/* Precio sin discriminar: solo el total con IVA incluido.
-            El desglose (FV sin IVA / IVA) se retiró a pedido de Simon —
-            las etiquetas siguen impresas en 9.jpg hasta que se actualice la imagen. */}
+        {/* Subtotal sin IVA (sin separar FV / almacenamiento) */}
+        <Pos x={110} y={70} fontSize={14} fontFamily="Roboto" align="right" width={80}>
+          {fmtCurrency(costoSinIVA)}
+        </Pos>
+        {/* IVA */}
+        <Pos x={110} y={96} fontSize={14} fontFamily="Roboto" fontWeight="bold" align="right" width={80}>
+          {fmtCurrency(valorIVA)}
+        </Pos>
         {/* Total con IVA */}
         <Pos x={110} y={106} fontSize={14} fontFamily="Roboto" fontWeight="bold" align="right" width={80}>
           {fmtCurrency(r.costo_total_cop)}

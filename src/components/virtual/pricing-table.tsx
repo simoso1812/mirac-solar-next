@@ -9,7 +9,7 @@ interface PricingTableProps {
 }
 
 export function PricingTable({ results: r }: PricingTableProps) {
-  const { omAnual } = ivaBreakdown(r)
+  const { costoSinIVA, valorIVA, omAnual } = ivaBreakdown(r)
 
   return (
     <section>
@@ -19,8 +19,16 @@ export function PricingTable({ results: r }: PricingTableProps) {
       </h2>
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         <div className="p-6 space-y-3">
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span className="text-[#F9FAFB]">Inversión Total (IVA incluido)</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[#9CA3AF]">Subtotal (sin IVA)</span>
+            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(costoSinIVA)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[#9CA3AF]">IVA</span>
+            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(valorIVA)}</span>
+          </div>
+          <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2 text-lg font-bold">
+            <span className="text-[#F9FAFB]">Inversión Total</span>
             <span className="tabular-nums text-[#BFFF00]">{formatCOPShort(r.costo_total_cop)}</span>
           </div>
           <div className="flex items-center justify-between border-t border-white/10 pt-3 text-sm">
