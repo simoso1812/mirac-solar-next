@@ -9,7 +9,7 @@ interface PricingTableProps {
 }
 
 export function PricingTable({ results: r }: PricingTableProps) {
-  const { valorIVA, omAnual, costoBateria, bateriaSinIVA, costoFvSinIVA } = ivaBreakdown(r)
+  const { omAnual } = ivaBreakdown(r)
 
   return (
     <section>
@@ -19,22 +19,8 @@ export function PricingTable({ results: r }: PricingTableProps) {
       </h2>
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         <div className="p-6 space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-[#9CA3AF]">Sistema Fotovoltaico (sin IVA)</span>
-            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(costoFvSinIVA)}</span>
-          </div>
-          {costoBateria > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[#9CA3AF]">Sistema de Almacenamiento (sin IVA)</span>
-              <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(bateriaSinIVA)}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-[#9CA3AF]">IVA</span>
-            <span className="tabular-nums font-medium text-[#F9FAFB]">{formatCOPShort(valorIVA)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2 text-lg font-bold">
-            <span className="text-[#F9FAFB]">Inversión Total</span>
+          <div className="flex items-center justify-between text-lg font-bold">
+            <span className="text-[#F9FAFB]">Inversión Total (IVA incluido)</span>
             <span className="tabular-nums text-[#BFFF00]">{formatCOPShort(r.costo_total_cop)}</span>
           </div>
           <div className="flex items-center justify-between border-t border-white/10 pt-3 text-sm">
