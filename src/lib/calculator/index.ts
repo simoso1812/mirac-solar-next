@@ -84,7 +84,7 @@ export function buildInputFromStore(
     plazoCreditoMeses: Math.round(advanced.financiamiento.plazo_meses),
     incluirBaterias: advanced.bateria.habilitada,
     costoKwhBateria: advanced.bateria.costo_kwh_bateria ?? 400000,
-    capacidadBateriaKwh: advanced.bateria.capacidad_kwh ?? 0,
+    capacidadBateriaKwh: Number.isFinite(advanced.bateria.capacidad_kwh) ? advanced.bateria.capacidad_kwh : 0,
     profundidadDescarga: advanced.bateria.profundidad_descarga,
     eficienciaBateria: advanced.bateria.eficiencia,
     horasAutonomia: advanced.bateria.horas_autonomia ?? 8,
