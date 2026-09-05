@@ -385,7 +385,7 @@ export function StepAdvanced() {
                     <Switch
                       checked={capacidadManual}
                       onCheckedChange={(checked) =>
-                        setValue('bateria.capacidad_kwh', checked ? initialAdvancedData.bateria.capacidad_kwh : 0)
+                        setValue('bateria.capacidad_kwh', checked ? 5 : 0)
                       }
                     />
                   </div>

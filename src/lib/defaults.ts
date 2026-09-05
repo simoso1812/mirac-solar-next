@@ -48,7 +48,8 @@ export const initialAdvancedData: AdvancedData = {
   },
   bateria: {
     habilitada: false,
-    capacidad_kwh: 5,
+    // 0 = dimensionar automaticamente desde horas_autonomia (ver step-advanced "Capacidad manual")
+    capacidad_kwh: 0,
     profundidad_descarga: 0.9,
     eficiencia: 0.95,
     horas_autonomia: 8,
