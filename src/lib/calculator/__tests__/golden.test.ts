@@ -487,6 +487,27 @@ describe('battery autonomy default (8 h, decision 2026-07-06)', () => {
     expect(r.bateria?.capacidad_nominal_kwh).toBeCloseTo(9.8765, 3)
     expect(r.bateria?.horas_autonomia).toBe(8)
   })
+
+  it('horas_autonomia = 0 deriva la autonomia de la capacidad ingresada', () => {
+    const r = cotizacion(baseInput({
+      incluirBaterias: true,
+      capacidadBateriaKwh: 10,
+      horasAutonomia: 0,
+    }))
+    // util = 10 * 0.9 = 9 kWh; consumoHorario = 800/30/24 = 1.1111 kWh/h
+    expect(r.bateria?.capacidad_nominal_kwh).toBe(10)
+    expect(r.bateria?.horas_autonomia).toBeCloseTo(8.1, 3)
+  })
+
+  it('horas_autonomia manual manda sobre la derivada, sin cambiar la capacidad', () => {
+    const r = cotizacion(baseInput({
+      incluirBaterias: true,
+      capacidadBateriaKwh: 10,
+      horasAutonomia: 12,
+    }))
+    expect(r.bateria?.capacidad_nominal_kwh).toBe(10)
+    expect(r.bateria?.horas_autonomia).toBe(12)
+  })
 })
 
 describe('dual ROI: proyecto (unlevered) vs inversionista (equity)', () => {

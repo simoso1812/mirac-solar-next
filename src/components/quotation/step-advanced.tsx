@@ -59,8 +59,8 @@ export function StepAdvanced() {
 
   const financiamientoHabilitado = watch('financiamiento.habilitado')
   const bateriaHabilitada = watch('bateria.habilitada')
-  const capacidadIngresada = watch('bateria.capacidad_kwh')
-  const capacidadManual = !Number.isFinite(capacidadIngresada) || capacidadIngresada > 0
+  const horasIngresadas = watch('bateria.horas_autonomia')
+  const autonomiaManual = Number.isFinite(horasIngresadas) && horasIngresadas > 0
   const ppaHabilitada = watch('ppa.habilitada')
   const ppaOpciones = watch('ppa.opciones')
   const modoConexion = watch('modo_conexion')
@@ -374,30 +374,10 @@ export function StepAdvanced() {
 
             {bateriaHabilitada && (
               <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
-                <div className="space-y-2 sm:col-span-3">
-                  <div className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <Label>Especificar los kWh de la batería</Label>
-                      <p className="text-xs text-muted-foreground">
-                        {capacidadManual
-                          ? 'Ingresas la capacidad en kWh y la autonomía se calcula a partir de ella.'
-                          : 'La capacidad en kWh se calcula a partir de las horas de autonomía que indiques.'}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={capacidadManual}
-                      onCheckedChange={(checked) =>
-                        setValue('bateria.capacidad_kwh', checked ? 5 : 0)
-                      }
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Capacidad nominal (kWh)</Label>
+                  <Input type="number" min={1} step={1} {...register('bateria.capacidad_kwh', { valueAsNumber: true })} />
                 </div>
-                {capacidadManual && (
-                  <div className="space-y-2">
-                    <Label>Capacidad nominal (kWh)</Label>
-                    <Input type="number" min={1} step={1} {...register('bateria.capacidad_kwh', { valueAsNumber: true })} />
-                  </div>
-                )}
                 <div className="space-y-2">
                   <Label>Prof. Descarga (%)</Label>
                   <Input
@@ -420,21 +400,34 @@ export function StepAdvanced() {
                     onChange={(e) => setValue('bateria.eficiencia', Number(e.target.value) / 100)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Horas de autonomía</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={168}
-                    step={1}
-                    {...register('bateria.horas_autonomia', { valueAsNumber: true })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {capacidadManual
-                      ? 'Informativa: se deriva de los kWh ingresados.'
-                      : 'Define el tamaño de la batería.'}
-                  </p>
+                <div className="space-y-2 sm:col-span-3">
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <Label>Calcular la autonomía automáticamente</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {autonomiaManual
+                          ? 'Autonomía manual: se muestra el valor que indiques abajo.'
+                          : 'Se calcula a partir de la capacidad de la batería y el consumo del cliente.'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={!autonomiaManual}
+                      onCheckedChange={(auto) => setValue('bateria.horas_autonomia', auto ? 0 : 8)}
+                    />
+                  </div>
                 </div>
+                {autonomiaManual && (
+                  <div className="space-y-2">
+                    <Label>Horas de autonomía</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={168}
+                      step={1}
+                      {...register('bateria.horas_autonomia', { valueAsNumber: true })}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Costo por kWh (COP)</Label>
                   <Input

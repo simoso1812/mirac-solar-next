@@ -185,7 +185,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
       capacidadUtilBateria = capacidadNominalBateria * dod
     } else {
       const consumoHorario = consumoMensualKwh / 30 / 24
-      capacidadUtilBateria = consumoHorario * horasAutonomia
+      capacidadUtilBateria = consumoHorario * (horasAutonomia > 0 ? horasAutonomia : 8)
       capacidadNominalBateria = capacidadUtilBateria / dod
     }
     costoBateria = capacidadNominalBateria * costoKwhBateria
@@ -371,11 +371,13 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
     bateria: incluirBaterias
       ? (() => {
           const consumoHorario = consumoMensualKwh / 30 / 24
-          // When capacity was user-entered, derive real autonomy from útil ÷ hourly consumption.
-          // Otherwise use the user-entered autonomy (which drove the auto-sizing).
-          const horasReales = capacidadBateriaKwh > 0 && consumoHorario > 0
-            ? capacidadUtilBateria / consumoHorario
-            : horasAutonomia
+          // horasAutonomia > 0 = valor manual ingresado, manda.
+          // 0 = automatica: se deriva de la capacidad util / consumo horario.
+          const horasReales = horasAutonomia > 0
+            ? horasAutonomia
+            : consumoHorario > 0
+              ? capacidadUtilBateria / consumoHorario
+              : 0
           return {
             habilitada: true,
             capacidad_nominal_kwh: capacidadNominalBateria,

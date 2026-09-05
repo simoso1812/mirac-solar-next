@@ -170,7 +170,9 @@ Always do this before passing results to `<ProposalPdf>`, the contract generator
 
 ## Battery sizing (recent area of change)
 
-User-entered `bateria.capacidad_kwh` is **authoritative** when > 0:
+**Modelo actual (2026-09-05)**: la capacidad la ponemos siempre nosotros (es lo que se consigue en el mercado). `bateria.horas_autonomia` es un **override de display**: `0` = automática (derivada de `capacidad_util / consumo_horario`), `> 0` = valor manual que se muestra tal cual. El switch en `step-advanced.tsx` es "Calcular la autonomía automáticamente" (encendido ⇒ 0). El schema pasó a `min(0)`, el default de `horas_autonomia` a `0` y el de `capacidad_kwh` volvió a `5`. La MCP `bateria_horas_autonomia` también default 0. Nota: propuestas viejas con `horas_autonomia: 8`/`48` ahora muestran ese número como manual en vez del derivado (solo display; no cambia CAPEX/TIR).
+
+Legacy (sigue vigente cuando `capacidad_kwh` es 0, p.ej. MCP): 
 - Nominal = entered value, útil = nominal × DoD, autonomy derived from útil ÷ consumo_horario.
 - When 0, falls back to auto-sizing from `consumo_mensual_kwh × horas_autonomia ÷ DoD`.
 

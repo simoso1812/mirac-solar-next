@@ -93,10 +93,10 @@ export const quoteInputShape = {
     .describe('Capacidad nominal de bateria en kWh. Si > 0 es autoritativo; si 0 se auto-dimensiona.'),
   bateria_horas_autonomia: z
     .coerce.number()
-    .positive()
+    .nonnegative()
     .max(168)
-    .default(8)
-    .describe('Horas de autonomia deseadas cuando se auto-dimensiona la bateria (cubre la noche, no dias completos). Default 8.'),
+    .default(0)
+    .describe('Horas de autonomia. 0 (default) = automatica: se deriva de la capacidad de bateria. > 0 = valor manual que manda sobre el calculo; si la capacidad es 0 tambien dimensiona la bateria.'),
   financiamiento_porcentaje: z
     .coerce.number()
     .min(0)
