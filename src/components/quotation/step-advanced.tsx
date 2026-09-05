@@ -377,9 +377,11 @@ export function StepAdvanced() {
                 <div className="space-y-2 sm:col-span-3">
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div>
-                      <Label>Capacidad manual</Label>
+                      <Label>Especificar los kWh de la batería</Label>
                       <p className="text-xs text-muted-foreground">
-                        Apagado: la capacidad se dimensiona automaticamente a partir de las horas de autonomia.
+                        {capacidadManual
+                          ? 'Ingresas la capacidad en kWh y la autonomía se calcula a partir de ella.'
+                          : 'La capacidad en kWh se calcula a partir de las horas de autonomía que indiques.'}
                       </p>
                     </div>
                     <Switch
@@ -429,8 +431,8 @@ export function StepAdvanced() {
                   />
                   <p className="text-xs text-muted-foreground">
                     {capacidadManual
-                      ? 'Informativo: con capacidad manual la autonomía se deriva de la capacidad ingresada.'
-                      : 'Dimensiona la capacidad de la batería.'}
+                      ? 'Informativa: se deriva de los kWh ingresados.'
+                      : 'Define el tamaño de la batería.'}
                   </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
