@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Mirac Solar — Agent Context
 
-Next.js 16 / React 19 rewrite of the original Streamlit Python calculator (Mirac Energy, Colombia). Used to quote residential and commercial solar PV systems and generate client-facing proposals (virtual web view + PDF + Google Drive sync + contract .docx).
+Next.js 16 / React 19 rewrite of the original Streamlit Python calculator (Mirac Energy, Colombia). Used to quote residential and commercial solar PV systems. Clients receive the digital proposal (virtual web view + shared link) and sign via DocuSeal. Proposal PDFs remain an internal Google Drive sync artifact; contracts are generated as .docx for DocuSeal.
 
 Solo dev: Simon (simon@mirac.energy). Market: Colombia. Currency: COP.
 
@@ -67,7 +67,7 @@ src/
 │   │   ├── ppa-section.tsx            # PPA "Opción Cero Inversión" — bar chart + per-option cards
 │   │   ├── image-gallery-section.tsx  # attached project images grid
 │   │   ├── project-details-section.tsx
-│   │   ├── call-to-action.tsx         # sign/share/PDF buttons (legacy proposal.signature display kept for old data)
+│   │   ├── call-to-action.tsx         # sign/share buttons (legacy proposal.signature display kept for old data)
 │   │   ├── docuseal-sign-dialog.tsx
 │   │   ├── share-dialog.tsx
 │   │   └── version-selector.tsx
@@ -76,8 +76,7 @@ src/
 │   ├── ui/                            # shadcn primitives
 │   ├── interactive-map.tsx
 │   ├── price-estimator.tsx
-│   ├── pdf-download-button.tsx        # generates client-side PDF via @react-pdf
-│   └── drive-sync-button.tsx          # PDF + contract → Drive folder structure
+│   └── drive-sync-button.tsx          # internal proposal PDF + signed contract → Drive folder structure
 ├── lib/
 │   ├── mcp/
 │   │   ├── quote.ts                   # MCP quoting schemas + buildStores/summarize/runQuote/runEstimatePrice (wrap cotizacion + estimatePrice)
@@ -158,7 +157,7 @@ src/
 
 The Python calculator was ported to `src/lib/calculator/`. Single entrypoint: `cotizacion(input: CotizacionInput): CalculationResults`. Build inputs from store with `buildInputFromStore(technical, project, advanced)`.
 
-**Key idiom — live recomputation**: do NOT trust `proposal.results` blindly. The virtual quotation, PDF download, and Drive sync all re-run `cotizacion(buildInputFromStore(...))` against the current `advanced/technical/project` data. This is how we handle schema migrations without re-saving stored proposals.
+**Key idiom — live recomputation**: do NOT trust `proposal.results` blindly. The virtual quotation and Drive sync (including its internal proposal PDF) re-run `cotizacion(buildInputFromStore(...))` against the current `advanced/technical/project` data. This is how we handle schema migrations without re-saving stored proposals.
 
 ```ts
 const liveResults = cotizacion(
@@ -263,7 +262,13 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 7. Display in `src/components/virtual/*` and `src/lib/pdf/proposal-pdf.tsx`
 8. **Verify deep-merge handles old persisted and shared state** (refresh page; submit "Revisar y Generar"; load `/s/[id]` shares)
 
-### Modifying the PDF
+### Client proposal delivery (digital only)
+- **Simon, 2026-09-17:** the digital proposal is the only client proposal format. Use `/propuestas/[id]/virtual` for the local view and `/s/[id]` for shared client links.
+- No proposal PDF download buttons on the detail page or virtual/shared views. `src/components/pdf-download-button.tsx` was deleted; do not reintroduce it unless Simon requests it.
+- CTA and MCP link text must describe viewing/sharing the digital proposal and signing, without offering a PDF download.
+- Internal Drive sync still generates the proposal PDF. Keep its renderer and live recomputation path; signed-contract PDFs via DocuSeal and the separate EV charger PDF export are unaffected.
+
+### Modifying the internal proposal PDF
 - Single source: `src/lib/pdf/proposal-pdf.tsx`
 - Uses `mm()` helper to keep coordinates matching the original FPDF Python layout
 - BRAND_RED + brand styles defined inline
@@ -308,7 +313,7 @@ When you add new fields to `AdvancedData` (or other persisted shapes):
 ### Static signatures in the contract template
 - `public/assets/contrato_plantilla.docx` carries Samuel's representante legal signature as an embedded PNG (added directly in Word, no code path).
 - Only the client signs via DocuSeal — Samuel's signature is pre-filled on every contract.
-- If you re-version the template, keep the client `{{signature}}` placeholder intact for DocuSeal.
+- The source template must contain `{{DOCUSEAL_SIGNATURE}}` in the client signature cell. `renderContratoDocx()` replaces it with DocuSeal's literal `{{signature}}` field. Keep both stages intact when re-versioning the template.
 
 ### MCP quoting server (remote, for AI agents)
 
@@ -476,3 +481,4 @@ CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on ever
 51. **Drive: carpeta raíz de proyectos equivocada — RESUELTO (2026-08-24)** — síntoma: se hacía una cotización, se sincronizaba a Drive sin error, y la carpeta del proyecto no aparecía. Causa: `PARENT_FOLDER_ID` apuntaba a `1lsky0585MIO6iuZGv1jYU0ccHpArNVR8` = `Mirac/Proyectos_FV`, una carpeta vieja que **sigue existiendo** (por eso no había error) pero que ya no es donde vive la operación: solo tenía FV26001-FV26008. Los proyectos reales están en **`05_Proyectos_FV`** = `1egY0farrALY_APD7kNjGcKWwLfdpfkjD` (misma unidad compartida `Mirac`), serie hasta FV26187. Efecto secundario del ID viejo: `obtenerSiguienteConsecutivo()` contaba sobre esas 8 carpetas y reasignaba números ya usados. Arreglo: **solo el env var**, sin cambios de código — actualizado en `.env.local` y en Vercel (Simon), redeploy hecho y verificado por Simon. El siguiente proyecto sale FV26188.
     - **Gotcha de diagnóstico**: el conector de Google Drive de Claude (MCP) **no ve** carpetas de la unidad compartida `Mirac` que sí ve el `GOOGLE_REFRESH_TOKEN` de la app — un `files.get` por MCP devolvió "Requested entity was not found" para una carpeta que existía. Para verificar cualquier cosa de Drive, usar las credenciales de la app (script Node con `googleapis` + `supportsAllDrives: true`), no el conector.
     - **Si vuelve a pasar**: el ID vive solo en env (`.env.local` + Vercel, las 3 scopes); un cambio de env no aplica hasta redeploy en Vercel / reiniciar `npm run dev` en local.
+52. **Contrato V2 + propuestas digitales (2026-09-17)** — la propuesta digital es el único formato entregado al cliente; se eliminaron los botones de descarga del PDF de las vistas local y compartida, pero Drive sync conserva su PDF interno. `public/assets/contrato_plantilla.docx` se actualizó desde `Plantilla Contrato Sistema FV V2.docx`: se conservaron las cláusulas V2 y la firma PNG de Samuel, se retiraron los datos fijos del cliente de ejemplo, se generalizó la parte contratante para persona natural o jurídica y el proyecto para uso residencial o comercial, y se restauraron los placeholders de cliente/dirección/valor/fecha/contacto más `{{DOCUSEAL_SIGNATURE}}`. Validado mediante una generación completa con `renderContratoDocx()`: el DOCX resultante abre como ZIP válido, sustituye todos los campos y conserva el tag literal `{{signature}}` para DocuSeal.
