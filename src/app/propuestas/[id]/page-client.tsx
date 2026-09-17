@@ -13,7 +13,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { DriveSyncButton } from '@/components/drive-sync-button'
 import Link from 'next/link'
 import {
@@ -143,7 +142,6 @@ export default function PropuestaDetailPage({
               <ExternalLink className="mr-1 size-3" /> Cotización Virtual
             </Button>
           </Link>
-          <PdfDownloadButton proposal={proposal} />
           <DriveSyncButton proposal={proposal} />
           <Button variant="outline" size="sm" onClick={() => router.push(`/cotizacion?edit=${id}`)}>
             <Pencil className="mr-1 size-3" /> Editar

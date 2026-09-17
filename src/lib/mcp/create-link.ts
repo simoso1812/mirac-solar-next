@@ -106,7 +106,7 @@ export async function runCreateQuotationLink(args: LinkArgs) {
     `## Propuesta para ${args.cliente_nombre}`,
     '',
     `**Link de la cotizacion virtual:** ${url}`,
-    `(valido 90 dias · el cliente puede ver, descargar PDF y firmar)`,
+    `(valido 90 dias · el cliente puede ver la propuesta digital y firmar)`,
     '',
     summary,
   ].join('\n')

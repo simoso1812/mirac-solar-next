@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { PdfDownloadButton } from '@/components/pdf-download-button'
 import { ShareDialog } from './share-dialog'
 import { DocusealSignDialog } from './docuseal-sign-dialog'
 import { formatFechaLarga } from '@/lib/formatting'
@@ -29,7 +28,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
         <p className="mb-6 text-sm text-[#9CA3AF]">
           {isSigned
             ? 'Esta propuesta ha sido firmada y aceptada. Nuestro equipo se pondrá en contacto contigo.'
-            : 'Descarga el PDF, comparte con tu equipo o firma el contrato para confirmar.'}
+            : 'Comparte esta propuesta digital con tu equipo o firma el contrato para confirmar.'}
         </p>
         {!isSigned && validezHasta && (
           <p className={`mb-4 text-xs ${ofertaVencida ? 'text-amber-300' : 'text-[#9CA3AF]'}`}>
@@ -39,10 +38,6 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
           </p>
         )}
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <PdfDownloadButton
-            proposal={proposal}
-            className="border-white/20 bg-white/5 text-[#F9FAFB] hover:bg-white/10"
-          />
           {!isShared && <ShareDialog proposal={proposal} />}
           {!isSigned && onDocusealUpdate && (
             <DocusealSignDialog
