@@ -129,7 +129,10 @@ export function renderContratoDocx(templateBuffer: ArrayBuffer | Uint8Array, dat
   })
 
   // 3. Value in Spanish words
-  const valorLetras = numberToSpanishWords(Math.round(data.valorTotalCOP)).toUpperCase() + ' PESOS M/CTE'
+  // Round millions take "de": "treinta millones de pesos", "un millón de pesos"
+  const palabras = numberToSpanishWords(Math.round(data.valorTotalCOP))
+  const conDe = /(millones|millón)$/.test(palabras.trim()) ? ' DE' : ''
+  const valorLetras = palabras.toUpperCase() + conDe + ' PESOS M/CTE'
 
   // 4. Render with context
   doc.render({
