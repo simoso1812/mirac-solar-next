@@ -59,9 +59,6 @@ export function PriceEstimator() {
               <Badge variant="outline" className={SEGMENT_COLORS[estimate.segment]}>
                 {estimate.segmentLabel}
               </Badge>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                R² = {estimate.r2.toFixed(2)}
-              </span>
             </div>
 
             {/* Price */}

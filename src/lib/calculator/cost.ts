@@ -1,11 +1,7 @@
 /**
- * Project cost estimation — 3-segment model calibrated to 2025–2026
- * Colombian solar market (Mirac Energy dataset, n=80 projects).
- *
- * Segments:
- *   Small  (<10 kWp): Power law on COP/kWp + offset
- *   Medium (10–50 kWp): Linear on Price
- *   Large  (>50 kWp): Linear on Price
+ * Project cost estimation — single linear correlation on price
+ * (Simon 2026-09-30): Precio ≈ 10.67M + 2.69M × kWp, and the quoted price
+ * is that correlation plus a 5% margin.
  */
 import { DEFAULT_PARAMS } from '@/lib/constants'
 
@@ -16,47 +12,18 @@ export interface PriceEstimate {
   pricePerKwp: number
   segment: PriceSegment
   segmentLabel: string
-  r2: number
 }
 
-// Raw per-segment predictions (uncapped domain) used for edge blending.
-function priceSmall(kwp: number): number {
-  // Segment 1 — Small: power law on COP/kWp
-  const copPerKwp = 15_021_515.41 * Math.pow(kwp, -0.9522841) + 1_852_798.36
-  return copPerKwp * kwp
-}
-function priceMedium(kwp: number): number {
-  // Segment 2 — Medium: linear on price
-  return 2_841_579.58 * kwp + 7_854_609.55
-}
-function priceLarge(kwp: number): number {
-  // Segment 3 — Large: linear on price
-  return 2_458_941.57 * kwp + 36_121_590.48
-}
-
-// Blend bands around the segment boundaries. The calibrated segments meet
-// with a jump (~9.2M COP at 50 kWp); inside each band the price is a linear
-// interpolation between the two adjacent segment predictions so a client
-// asking for 49 vs 51 kWp never sees a discontinuous quote.
-const BLEND_SMALL_MEDIUM: [number, number] = [9, 11]
-const BLEND_MEDIUM_LARGE: [number, number] = [45, 55]
-
-function blend(kwp: number, [lo, hi]: [number, number], fLo: (k: number) => number, fHi: (k: number) => number): number {
-  const w = (kwp - lo) / (hi - lo)
-  return (1 - w) * fLo(kwp) + w * fHi(kwp)
-}
+const PRICE_INTERCEPT = 10_670_000
+const PRICE_SLOPE_PER_KWP = 2_690_000
+const PRICE_MARKUP = 1.05
 
 /**
  * Estimate total project price in COP for a given system size.
  */
 export function estimatePrice(kwp: number): number {
   if (kwp <= 0) throw new Error('kWp debe ser mayor a 0')
-
-  if (kwp < BLEND_SMALL_MEDIUM[0]) return Math.ceil(priceSmall(kwp))
-  if (kwp <= BLEND_SMALL_MEDIUM[1]) return Math.ceil(blend(kwp, BLEND_SMALL_MEDIUM, priceSmall, priceMedium))
-  if (kwp < BLEND_MEDIUM_LARGE[0]) return Math.ceil(priceMedium(kwp))
-  if (kwp <= BLEND_MEDIUM_LARGE[1]) return Math.ceil(blend(kwp, BLEND_MEDIUM_LARGE, priceMedium, priceLarge))
-  return Math.ceil(priceLarge(kwp))
+  return Math.ceil((PRICE_INTERCEPT + PRICE_SLOPE_PER_KWP * kwp) * PRICE_MARKUP)
 }
 
 /**
@@ -67,7 +34,7 @@ export function estimatePricePerKwp(kwp: number): number {
 }
 
 /**
- * Full estimate with segment info and R² confidence.
+ * Full estimate with a size-segment label (display only).
  */
 export function getFullEstimate(kwp: number): PriceEstimate {
   const price = estimatePrice(kwp)
@@ -75,23 +42,19 @@ export function getFullEstimate(kwp: number): PriceEstimate {
 
   let segment: PriceSegment
   let segmentLabel: string
-  let r2: number
 
   if (kwp < 10) {
     segment = 'small'
     segmentLabel = 'Pequeño'
-    r2 = 0.74
   } else if (kwp <= 50) {
     segment = 'medium'
     segmentLabel = 'Mediano'
-    r2 = 0.71
   } else {
     segment = 'large'
     segmentLabel = 'Grande'
-    r2 = 0.87
   }
 
-  return { price, pricePerKwp, segment, segmentLabel, r2 }
+  return { price, pricePerKwp, segment, segmentLabel }
 }
 
 // ---------------------------------------------------------------------------

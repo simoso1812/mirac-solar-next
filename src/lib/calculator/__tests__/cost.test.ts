@@ -1,47 +1,22 @@
 /**
- * Boundary tests for the 3-segment cost model, inverter recommendation and
- * carbon metrics. The estimatePrice values are pinned deliberately: the raw
- * segments meet with a jump (~9.2M COP at 50 kWp), so estimatePrice blends
- * linearly between the adjacent segment predictions inside the 9-11 and
- * 45-55 kWp bands (decision: Simon, 2026-07-06). Any recalibration of the
- * coefficients or the bands must show up as an explicit diff in this file,
- * never as a silent change.
+ * Pins the linear cost model (Simon 2026-09-30):
+ * precio = (10.67M + 2.69M × kWp) × 1.05. Any recalibration must show up as
+ * an explicit diff in this file, never as a silent change. Also covers
+ * inverter recommendation and carbon metrics.
  */
 import { describe, it, expect } from 'vitest'
 import { estimatePrice } from '../cost'
 import { recomendarInversor } from '../inverter'
 import { calculateEmissionsAvoided } from '../carbon'
 
-describe('estimatePrice segments and blend bands', () => {
-  it('pins pure-segment values outside the blend bands (unchanged by blending)', () => {
-    expect(estimatePrice(5)).toBe(25_484_548) // small
-    expect(estimatePrice(20)).toBe(64_686_202) // medium
-    expect(estimatePrice(80)).toBe(232_836_917) // large
+describe('estimatePrice linear model + 5%', () => {
+  it('pins values', () => {
+    expect(estimatePrice(10)).toBe(39_448_500) // 37.57M × 1.05
+    expect(estimatePrice(5)).toBe(25_326_000)
+    expect(estimatePrice(50)).toBe(152_428_500)
   })
 
-  it('pins blended values inside the 9-11 kWp band', () => {
-    expect(estimatePrice(9)).toBe(33_357_115) // band start = pure small
-    expect(estimatePrice(10)).toBe(35_782_199) // 50/50 small-medium mix
-    expect(estimatePrice(11)).toBe(39_111_985) // band end = pure medium
-  })
-
-  it('pins blended values inside the 45-55 kWp band', () => {
-    expect(estimatePrice(45)).toBe(135_725_691) // band start = pure medium
-    expect(estimatePrice(50)).toBe(154_501_129) // 50/50 medium-large mix
-    expect(estimatePrice(55)).toBe(171_363_377) // band end = pure large
-  })
-
-  it('is continuous: no COP jump for a marginal kWp change near the boundaries', () => {
-    // The pre-blend model jumped ~9.2M COP between 50 and 50.01 kWp. Assert
-    // small steps everywhere around both former discontinuities.
-    for (const [lo, hi] of [[8.5, 11.5], [44.5, 55.5]]) {
-      for (let k = lo; k < hi; k += 0.01) {
-        expect(Math.abs(estimatePrice(k + 0.01) - estimatePrice(k))).toBeLessThan(100_000)
-      }
-    }
-  })
-
-  it('is monotonically increasing across the blend bands', () => {
+  it('is monotonically increasing', () => {
     let prev = estimatePrice(1)
     for (let k = 1.5; k <= 100; k += 0.5) {
       const p = estimatePrice(k)
