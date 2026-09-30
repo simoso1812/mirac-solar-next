@@ -1,19 +1,30 @@
 /**
- * Pins the linear cost model (Simon 2026-09-30):
- * precio = (10.67M + 2.69M × kWp) × 1.05. Any recalibration must show up as
- * an explicit diff in this file, never as a silent change. Also covers
- * inverter recommendation and carbon metrics.
+ * Pins the cost model (Simon 2026-09-30): <= 20 kWp linear + 5%, > 20 kWp the
+ * previous calibrated segments, with blend bands 18-22 and 45-55 kWp. Any
+ * recalibration must show up as an explicit diff here.
  */
 import { describe, it, expect } from 'vitest'
 import { estimatePrice } from '../cost'
 import { recomendarInversor } from '../inverter'
 import { calculateEmissionsAvoided } from '../carbon'
 
-describe('estimatePrice linear model + 5%', () => {
-  it('pins values', () => {
-    expect(estimatePrice(10)).toBe(39_448_500) // 37.57M × 1.05
+describe('estimatePrice', () => {
+  it('pins the linear + 5% segment below 18 kWp', () => {
     expect(estimatePrice(5)).toBe(25_326_000)
-    expect(estimatePrice(50)).toBe(152_428_500)
+    expect(estimatePrice(10)).toBe(39_448_500) // 37.57M x 1.05
+  })
+
+  it('pins the previous model above 22 kWp', () => {
+    expect(estimatePrice(30)).toBe(93_101_997)
+    expect(estimatePrice(80)).toBe(232_836_917)
+  })
+
+  it('is continuous around both blend bands', () => {
+    for (const [lo, hi] of [[17.5, 22.5], [44.5, 55.5]]) {
+      for (let k = lo; k < hi; k += 0.01) {
+        expect(Math.abs(estimatePrice(k + 0.01) - estimatePrice(k))).toBeLessThan(100_000)
+      }
+    }
   })
 
   it('is monotonically increasing', () => {
