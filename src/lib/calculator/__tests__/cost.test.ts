@@ -1,17 +1,24 @@
 /**
- * Pins the cost model (Simon 2026-09-30): <= 20 kWp linear + 5%, > 20 kWp the
+ * Pins the cost model (Simon 2026-10-08): <= 20 kWp linear on-grid
+ * (11_407_797 + 2_827_267 × kWp), > 20 kWp the
  * previous calibrated segments, with blend bands 18-22 and 45-55 kWp. Any
  * recalibration must show up as an explicit diff here.
  */
 import { describe, it, expect } from 'vitest'
-import { estimatePrice } from '../cost'
+import { estimatePrice, estimateBatteryCost } from '../cost'
 import { recomendarInversor } from '../inverter'
 import { calculateEmissionsAvoided } from '../carbon'
 
 describe('estimatePrice', () => {
-  it('pins the linear + 5% segment below 18 kWp', () => {
-    expect(estimatePrice(5)).toBe(25_326_000)
-    expect(estimatePrice(10)).toBe(39_448_500) // 37.57M x 1.05
+  it('pins the linear on-grid segment below 18 kWp', () => {
+    expect(estimatePrice(5)).toBe(25_544_132)
+    expect(estimatePrice(10)).toBe(39_680_467)
+  })
+
+  it('battery adds 3M fixed + kWh x costo', () => {
+    expect(estimateBatteryCost(0)).toBe(0)
+    expect(estimateBatteryCost(10)).toBe(11_000_000)
+    expect(estimateBatteryCost(10, 500_000)).toBe(8_000_000)
   })
 
   it('pins the previous model above 22 kWp', () => {

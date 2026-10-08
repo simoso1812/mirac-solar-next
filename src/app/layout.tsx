@@ -7,7 +7,6 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Mirac Solar | Calculadora de Energía Solar',
   description: 'Cotizador de sistemas de energía solar fotovoltaica para Colombia — Mirac Energy',
-  icons: { icon: '/favicon.ico' },
 }
 
 export default function RootLayout({
