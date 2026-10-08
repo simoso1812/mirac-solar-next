@@ -437,6 +437,7 @@ export function StepAdvanced() {
                     step={10000}
                     {...register('bateria.costo_kwh_bateria', { valueAsNumber: true })}
                   />
+                  <p className="text-xs text-muted-foreground">Se suma un costo fijo de $3.000.000 por instalación de baterías.</p>
                 </div>
               </div>
             )}

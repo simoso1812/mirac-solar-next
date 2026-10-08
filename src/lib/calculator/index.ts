@@ -2,7 +2,7 @@
  * Main calculation orchestrator — ported from cotizacion()
  */
 import { HSP_MENSUAL_POR_CIUDAD, DEFAULT_PARAMS, PROMEDIOS_COSTO, DIAS_POR_MES, INVERTER_DATABASE } from '@/lib/constants'
-import { estimatePrice } from './cost'
+import { estimatePrice, estimateBatteryCost, BATERIA_COSTO_KWH_DEFAULT } from './cost'
 import { recomendarInversor, redondearAPar } from './inverter'
 import { calcularPerformanceRatio, calcularFactorClipping } from './performance'
 import { pmt, npv, irr } from './financial'
@@ -83,7 +83,7 @@ export function buildInputFromStore(
     tasaInteresCredito: advanced.financiamiento.tasa_interes,
     plazoCreditoMeses: Math.round(advanced.financiamiento.plazo_meses),
     incluirBaterias: advanced.bateria.habilitada,
-    costoKwhBateria: advanced.bateria.costo_kwh_bateria ?? 400000,
+    costoKwhBateria: advanced.bateria.costo_kwh_bateria ?? BATERIA_COSTO_KWH_DEFAULT,
     capacidadBateriaKwh: Number.isFinite(advanced.bateria.capacidad_kwh) ? advanced.bateria.capacidad_kwh : 0,
     profundidadDescarga: advanced.bateria.profundidad_descarga,
     eficienciaBateria: advanced.bateria.eficiencia,
@@ -166,7 +166,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
   )
   const generacionAnualKwh = monthlyGenerationInit.reduce((a, b) => a + b, 0)
 
-  // Cost (3-segment model: small/medium/large)
+  // Cost (see cost.ts)
   let costoFV = estimatePrice(sizeKwp)
   if (cubierta.trim().toUpperCase() === 'TEJA') {
     costoFV = Math.ceil(costoFV * DEFAULT_PARAMS.ajuste_cubierta_teja)
@@ -188,7 +188,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
       capacidadUtilBateria = consumoHorario * (horasAutonomia > 0 ? horasAutonomia : 8)
       capacidadNominalBateria = capacidadUtilBateria / dod
     }
-    costoBateria = capacidadNominalBateria * costoKwhBateria
+    costoBateria = estimateBatteryCost(capacidadNominalBateria, costoKwhBateria)
   }
 
   let valorProyectoTotal = Math.ceil(costoFV + costoBateria)

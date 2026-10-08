@@ -7,7 +7,7 @@
 import { z } from 'zod'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator'
 import { ppaMetrics } from '@/lib/calculator/derived'
-import { estimatePrice, estimatePricePerKwp } from '@/lib/calculator/cost'
+import { estimatePrice, estimatePricePerKwp, estimateBatteryCost } from '@/lib/calculator/cost'
 import { fetchPVGIS, getHSPEstimado } from '@/lib/pvgis'
 import { formatCOP } from '@/lib/formatting'
 import { DEFAULT_PARAMS, HSP_MENSUAL_POR_CIUDAD, INVERTER_DATABASE } from '@/lib/constants'
@@ -184,8 +184,8 @@ export const quoteInputShape = {
     .coerce.number()
     .positive()
     .max(10_000_000)
-    .default(400_000)
-    .describe('Costo de la bateria en COP por kWh nominal. Default 400000.'),
+    .default(800_000)
+    .describe('Costo de la bateria en COP por kWh nominal (se suma un fijo de 3.000.000). Default 800000.'),
   precio_manual_cop: z
     .coerce.number()
     .positive()
@@ -599,10 +599,7 @@ export function runEstimatePrice(args: PriceArgs) {
   if (args.cubierta === 'teja') {
     costoFV = Math.ceil(costoFV * DEFAULT_PARAMS.ajuste_cubierta_teja)
   }
-  // Same default battery cost as initialAdvancedData.bateria.costo_kwh_bateria.
-  const costoBateria = args.bateria_capacidad_kwh > 0
-    ? args.bateria_capacidad_kwh * 400_000
-    : 0
+  const costoBateria = estimateBatteryCost(args.bateria_capacidad_kwh)
   const total = costoFV + costoBateria
   const perKwp = args.cubierta === 'teja'
     ? costoFV / args.kwp

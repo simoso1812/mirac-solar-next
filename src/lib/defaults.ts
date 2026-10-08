@@ -53,7 +53,7 @@ export const initialAdvancedData: AdvancedData = {
     eficiencia: 0.95,
     // 0 = autonomia automatica (derivada de la capacidad); > 0 = autonomia manual
     horas_autonomia: 0,
-    costo_kwh_bateria: 400000,
+    costo_kwh_bateria: 800000,
   },
   ppa: {
     habilitada: false,

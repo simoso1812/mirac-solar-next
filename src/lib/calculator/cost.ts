@@ -1,6 +1,7 @@
 /**
- * Project cost estimation (Simon 2026-09-30):
- *   <= 20 kWp: linear correlation + 5% margin — (10.67M + 2.69M × kWp) × 1.05
+ * Project cost estimation (Simon 2026-10-08):
+ *   <= 20 kWp: linear correlation, on-grid — 11_407_797 + 2_827_267 × kWp
+ *              (with battery the project adds BATERIA_COSTO_FIJO + kWh × costo/kWh)
  *   > 20 kWp:  previous calibrated model — linear 2.84M × kWp + 7.85M up to
  *              50 kWp, linear 2.46M × kWp + 36.12M above.
  * Blend bands (18-22 and 45-55 kWp) interpolate linearly between adjacent
@@ -18,13 +19,21 @@ export interface PriceEstimate {
 }
 
 function priceSmall(kwp: number): number {
-  return (10_670_000 + 2_690_000 * kwp) * 1.05
+  return 11_407_797 + 2_827_267 * kwp
 }
 function priceMedium(kwp: number): number {
   return 2_841_579.58 * kwp + 7_854_609.55
 }
 function priceLarge(kwp: number): number {
   return 2_458_941.57 * kwp + 36_121_590.48
+}
+
+// Battery adders: con batería = on-grid + 3M + 800k × kWh (Simon 2026-10-08).
+export const BATERIA_COSTO_FIJO = 3_000_000
+export const BATERIA_COSTO_KWH_DEFAULT = 800_000
+
+export function estimateBatteryCost(kwh: number, costoKwh: number = BATERIA_COSTO_KWH_DEFAULT): number {
+  return kwh > 0 ? BATERIA_COSTO_FIJO + kwh * costoKwh : 0
 }
 
 const BLEND_SMALL_MEDIUM: [number, number] = [18, 22]
