@@ -696,7 +696,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
             inversión inicial del cliente. El cliente paga únicamente por la energía generada a una tarifa fija
             durante la vigencia del contrato, garantizando ahorros desde el primer mes. El ahorro total se
             proyecta con la tarifa de energía indexada al Índice Mirac (4.25% anual); el precio del PPA
-            permanece fijo durante todo el contrato.
+            permanece fijo durante todo el contrato. Esta proyección no es el modelo ACP: no incluye ICA, Ley 1715 ni deuda.
           </Pos>
         </Page>
         )

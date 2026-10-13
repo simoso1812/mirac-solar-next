@@ -1,6 +1,7 @@
 'use client'
 
 import { formatCOP } from '@/lib/formatting'
+import { paybackSimpleAnios, textoBeneficios } from '@/lib/proposal-disclosure'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip,
@@ -116,10 +117,19 @@ export function FinancialSection({
       : []
   )
 
+  const notaBeneficios = textoBeneficios(overrides.incluirDeduccionRenta, overrides.incluirDepreciacionAcelerada)
+
   const financialMetrics = [
     { label: 'Inversión Total', value: formatCOP(r.costo_total_cop) },
     { label: 'Ahorro Anual', value: formatCOP(r.ahorro_anual_cop) },
     { label: 'Payback', value: `${r.payback_anios.toFixed(1)} años` },
+    {
+      label: 'Payback simple',
+      value: (() => {
+        const simple = paybackSimpleAnios(r.costo_total_cop, r.ahorro_anual_cop)
+        return simple === null ? 'n/d' : `${simple.toFixed(1)} años`
+      })(),
+    },
     { label: 'TIR', value: `${r.tir.toFixed(1)}%`, highlight: true },
     { label: 'VPN', value: formatCOP(r.vpn, false) },
     // With credit, roi_porcentaje is levered (equity) — label both ROIs so the
@@ -248,6 +258,9 @@ export function FinancialSection({
               </div>
             ))}
           </div>
+          {notaBeneficios && (
+            <p className="mt-3 text-xs text-[#9CA3AF]">{notaBeneficios}</p>
+          )}
         </div>
 
         {/* Cash flow chart */}

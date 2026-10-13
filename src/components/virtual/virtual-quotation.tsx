@@ -116,7 +116,14 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
       <VirtualHeader proposal={proposal} />
       <main className="mx-auto max-w-6xl space-y-12 px-6 py-8">
         <ValidityNotice validezHasta={validezHasta} />
-        <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
+        <ExecutiveSummary
+          results={whatIfResults}
+          technical={proposal.technical}
+          modoConexion={proposal.advanced.modo_conexion}
+          precioExcedentes={proposal.advanced.precio_excedentes}
+          incluirDeduccionRenta={overrides.incluirDeduccionRenta}
+          incluirDepreciacionAcelerada={overrides.incluirDepreciacionAcelerada}
+        />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
         <RoofDesignSection
           diseno={proposal.technical.diseno_techo}

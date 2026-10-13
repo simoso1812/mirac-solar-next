@@ -3,13 +3,27 @@
 import { Zap, Sun, DollarSign, Clock, TreePine } from 'lucide-react'
 import { formatCOP, formatNumber } from '@/lib/formatting'
 import type { CalculationResults, TechnicalData } from '@/lib/types'
+import { paybackSimpleAnios, textoBeneficios, textoModoConexion, type ModoConexion } from '@/lib/proposal-disclosure'
 
 interface ExecutiveSummaryProps {
   results: CalculationResults
   technical?: TechnicalData
+  modoConexion: ModoConexion
+  precioExcedentes: number
+  incluirDeduccionRenta: boolean
+  incluirDepreciacionAcelerada: boolean
 }
 
-export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProps) {
+export function ExecutiveSummary({
+  results: r,
+  technical,
+  modoConexion,
+  precioExcedentes,
+  incluirDeduccionRenta,
+  incluirDepreciacionAcelerada,
+}: ExecutiveSummaryProps) {
+  const simple = paybackSimpleAnios(r.costo_total_cop, r.ahorro_anual_cop)
+  const nota = textoBeneficios(incluirDeduccionRenta, incluirDepreciacionAcelerada)
   const generacionMensual = Math.round(r.generacion_anual_kwh / 12)
   const consumo = technical?.consumo_mensual_kwh ?? 0
   const cobertura = consumo > 0 ? Math.round((generacionMensual / consumo) * 100) : 0
@@ -94,6 +108,12 @@ export function ExecutiveSummary({ results: r, technical }: ExecutiveSummaryProp
           </p>
         </div>
       </div>
+      <p className="mt-4 text-xs text-[#9CA3AF]">
+        {textoModoConexion(modoConexion, precioExcedentes)}
+        {' '}
+        Payback simple: {simple === null ? 'n/d' : `${simple.toFixed(1)} años`}.
+      </p>
+      {nota && <p className="mt-1 text-xs text-[#9CA3AF]">{nota}</p>}
     </section>
   )
 }

@@ -78,6 +78,9 @@ export function PpaSection({ results, costoKwh, opciones }: PpaSectionProps) {
         generada a una tarifa fija menor a la de la red (${costoKwh.toLocaleString('es-CO')}/kWh), con O&amp;M
         incluido. Elige el plazo que mejor se ajuste a tu negocio.
       </p>
+      <p className="mb-8 max-w-3xl text-xs leading-relaxed text-[#9CA3AF]">
+        Ilustración comercial. La tarifa evitada de esta tarjeta crece al 4,25% anual (Índice Mirac) y el precio del PPA queda fijo. No incluye ICA, beneficios de la Ley 1715 ni servicio de deuda, y no es el modelo de evaluación de ACP.
+      </p>
 
       {/* Bar chart — utility vs each PPA option */}
       <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6">
