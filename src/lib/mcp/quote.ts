@@ -10,6 +10,7 @@ import { ppaMetrics } from '@/lib/calculator/derived'
 import { estimatePrice, estimatePricePerKwp, estimateBatteryCost } from '@/lib/calculator/cost'
 import { fetchPVGIS, getHSPEstimado } from '@/lib/pvgis'
 import { formatCOP } from '@/lib/formatting'
+import { paybackSimpleAnios, textoBeneficios, textoModoConexion } from '@/lib/proposal-disclosure'
 import { DEFAULT_PARAMS, HSP_MENSUAL_POR_CIUDAD, INVERTER_DATABASE } from '@/lib/constants'
 import {
   deepMerge,
@@ -457,6 +458,12 @@ export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
     ? ppaMetrics(stores.advanced.costo_kwh, r.generacion_anual_kwh, stores.advanced.ppa.opciones)
     : []
 
+  const simple = paybackSimpleAnios(r.costo_total_cop, r.ahorro_anual_cop)
+  const beneficio = textoBeneficios(
+    stores.advanced.incluir_deduccion_renta && stores.advanced.beneficios_tributarios,
+    stores.advanced.incluir_depreciacion_acelerada && stores.advanced.beneficios_tributarios,
+  )
+
   const summary = [
     stores.advanced.precio_manual !== null && stores.advanced.precio_manual > 0
       ? `**Precio manual aplicado:** ${formatCOP(stores.advanced.precio_manual)} (reemplaza el precio de la curva de costos)`
@@ -474,6 +481,9 @@ export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
       (r.financiamiento
         ? `**ROI proyecto:** ${(r.roi_proyecto_porcentaje ?? r.roi_porcentaje).toFixed(1)}% · **ROI inversionista:** ${r.roi_porcentaje.toFixed(1)}%`
         : `**ROI:** ${r.roi_porcentaje.toFixed(1)}%`),
+    `**Payback simple:** ${simple === null ? 'n/d' : `${simple.toFixed(1)} años`} (inversión ÷ ahorro del año 1)`,
+    textoModoConexion(stores.advanced.modo_conexion, stores.advanced.precio_excedentes),
+    beneficio,
     r.financiamiento
       ? `**Financiamiento:** cuota ${formatCOP(r.financiamiento.cuota_mensual_cop)}/mes · ${r.financiamiento.num_pagos} meses · anticipo ${formatCOP(r.financiamiento.desembolso_inicial_cop)} · tasa ${(r.financiamiento.tasa_ea * 100).toFixed(1)}% EA`
       : null,
@@ -481,7 +491,7 @@ export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
     ...(ppa.length > 0
       ? [
           '',
-          '**PPA — Opcion Cero Inversion** (el cliente no invierte, paga la energia generada):',
+          '**PPA — Opcion Cero Inversion** (el cliente no invierte, paga la energia generada. Ilustración comercial: la tarifa evitada crece al 4,25% (Índice Mirac) y el precio PPA queda fijo. No incluye ICA, Ley 1715 ni deuda, y no es el modelo ACP.):',
           ...ppa.map(
             (o) =>
               `- ${formatCOP(o.precio_kwh, false)}/kWh x ${o.duracion_anios} anios: ahorro ${o.porcentajeAhorro}% vs tarifa · ` +

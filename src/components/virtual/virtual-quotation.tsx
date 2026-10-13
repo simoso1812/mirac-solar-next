@@ -19,6 +19,7 @@ import { ProjectDetailsSection } from './project-details-section'
 import { ImportantAspectsSection } from './important-aspects-section'
 import { FaqSection } from './faq-section'
 import { CallToAction } from './call-to-action'
+import { PhotoBand } from './mirac-lines'
 import { ofertaValidezHasta, formatFechaLarga, OFERTA_VALIDEZ_DIAS } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
@@ -33,7 +34,7 @@ function ValidityNotice({ validezHasta }: { validezHasta: Date | null }) {
   const [now] = useState(() => Date.now())
   if (!validezHasta) {
     return (
-      <p className="text-center text-xs text-[#9CA3AF]">
+      <p className="text-center text-xs text-[#9AA3A7]">
         Oferta válida por {OFERTA_VALIDEZ_DIAS} días a partir de la fecha de emisión.
       </p>
     )
@@ -41,13 +42,13 @@ function ValidityNotice({ validezHasta }: { validezHasta: Date | null }) {
   const vencida = validezHasta.getTime() < now
   if (vencida) {
     return (
-      <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-xs text-amber-200">
+      <div className="rounded-xl border border-[#FF9E1B]/30 bg-[#FF9E1B]/10 px-4 py-3 text-center text-xs text-[#FF9E1B]">
         Esta oferta venció el {formatFechaLarga(validezHasta)}. Contáctanos para actualizar tu cotización.
       </div>
     )
   }
   return (
-    <p className="text-center text-xs text-[#9CA3AF]">
+    <p className="text-center text-xs text-[#9AA3A7]">
       Oferta válida hasta el {formatFechaLarga(validezHasta)}.
     </p>
   )
@@ -61,11 +62,11 @@ function NotesSection({ notas }: { notas: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-left transition-colors hover:bg-white/[0.08]"
+        className="flex w-full items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#161616] px-6 py-4 text-left transition-colors hover:bg-[#1E1E1E]"
       >
-        <span className="text-sm font-medium text-[#9CA3AF]">Notas del Proyecto</span>
+        <span className="text-sm font-medium text-[#9AA3A7]">Notas del Proyecto</span>
         <svg
-          className={`h-4 w-4 text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-[#9AA3A7] transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -75,8 +76,8 @@ function NotesSection({ notas }: { notas: string }) {
         </svg>
       </button>
       {open && (
-        <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#D1D5DB]">{notas}</p>
+        <div className="mt-2 rounded-2xl border border-[#2A2A2A] bg-[#161616] px-6 py-5">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#C6CFD2]">{notas}</p>
         </div>
       )}
     </section>
@@ -113,10 +114,18 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
 
   return (
     <>
-      <VirtualHeader proposal={proposal} />
-      <main className="mx-auto max-w-6xl space-y-12 px-6 py-8">
+      <VirtualHeader proposal={proposal} results={whatIfResults} />
+      <main className="mirac-virtual mx-auto max-w-6xl space-y-16 px-4 py-8 sm:px-6 md:py-12">
         <ValidityNotice validezHasta={validezHasta} />
-        <ExecutiveSummary results={whatIfResults} technical={proposal.technical} />
+        <ExecutiveSummary
+          results={whatIfResults}
+          technical={proposal.technical}
+          modoConexion={proposal.advanced.modo_conexion}
+          precioExcedentes={proposal.advanced.precio_excedentes}
+          incluirDeduccionRenta={overrides.incluirDeduccionRenta}
+          incluirDepreciacionAcelerada={overrides.incluirDepreciacionAcelerada}
+        />
+        <PhotoBand src="/virtual/band-site.webp" eyebrow="El sistema" title="Ingeniería y equipos para generar tu propia energía" />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
         <RoofDesignSection
           diseno={proposal.technical.diseno_techo}

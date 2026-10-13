@@ -30,15 +30,15 @@ export function VersionSelector({ versions, activeIndex, onSelect }: VersionSele
               onClick={() => onSelect(i)}
               className={`shrink-0 rounded-xl border px-5 py-3 text-left transition-all ${
                 isActive
-                  ? 'border-[#BFFF00]/50 bg-[#BFFF00]/10'
-                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+                  ? 'border-[#C6F500]/40 bg-[#C6F500]/10'
+                  : 'border-[#2A2A2A] bg-[#161616] hover:bg-[#1E1E1E]'
               }`}
             >
-              <p className={`text-sm font-semibold ${isActive ? 'text-[#BFFF00]' : 'text-[#F9FAFB]'}`}>
+              <p className={`text-sm font-semibold ${isActive ? 'text-[#C6F500]' : 'text-white'}`}>
                 {v.label}
               </p>
               {r && (
-                <p className="mt-1 text-xs text-[#9CA3AF]">
+                <p className="mt-1 text-xs text-[#9AA3A7]">
                   {formatKWp(r.kwp)} · {formatCOPMillones(r.costo_total_cop)}
                 </p>
               )}

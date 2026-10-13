@@ -48,45 +48,45 @@ export function SystemDesignSection({ results, technical }: SystemDesignSectionP
 
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-[#F9FAFB]">Diseño del Sistema</h2>
+      <h2 className="mb-4 text-xl font-bold text-white">Diseño del Sistema</h2>
       <div className="grid gap-4 lg:grid-cols-5">
         {/* Chart */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-5 lg:col-span-3">
-          <h3 className="mb-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="rounded-xl border border-[#2A2A2A] bg-[#161616] p-5 lg:col-span-3">
+          <h3 className="mb-3 text-sm font-medium text-[#9AA3A7]">
             Generación Mensual vs Consumo
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
-                <XAxis dataKey="mes" fontSize={11} tick={{ fill: '#9CA3AF' }} axisLine={{ stroke: '#374151' }} />
-                <YAxis fontSize={11} tick={{ fill: '#9CA3AF' }} axisLine={{ stroke: '#374151' }} />
+                <CartesianGrid stroke="#2A2A2A" strokeDasharray="3 3" />
+                <XAxis dataKey="mes" fontSize={11} tick={{ fill: '#9AA3A7' }} axisLine={{ stroke: '#2A2A2A' }} />
+                <YAxis fontSize={11} tick={{ fill: '#9AA3A7' }} axisLine={{ stroke: '#2A2A2A' }} />
                 <RechartsTooltip
                   contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    backgroundColor: '#161616',
+                    border: "1px solid #E2E2E2",
                     borderRadius: '0.5rem',
-                    color: '#F9FAFB',
+                    color: '#FFFFFF',
                   }}
                 />
-                <Legend wrapperStyle={{ color: '#9CA3AF', fontSize: 12 }} />
-                <Bar dataKey="generacion" fill="#BFFF00" name="Generación (kWh)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="consumo" fill="#FA323F" name="Consumo (kWh)" radius={[4, 4, 0, 0]} opacity={0.5} />
+                <Legend wrapperStyle={{ color: '#9AA3A7', fontSize: 12 }} />
+                <Bar dataKey="generacion" fill="#C6F500" name="Generación (kWh)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="consumo" fill="#7E878B" name="Consumo (kWh)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Tech specs */}
-        <div className="rounded-xl border border-white/10 bg-white/5 p-5 lg:col-span-2">
-          <h3 className="mb-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="rounded-xl border border-[#2A2A2A] bg-[#161616] p-5 lg:col-span-2">
+          <h3 className="mb-3 text-sm font-medium text-[#9AA3A7]">
             Especificaciones Técnicas
           </h3>
           <div className="space-y-3">
             {specs.map((s) => (
-              <div key={s.label} className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0">
-                <span className="text-sm text-[#9CA3AF]">{s.label}</span>
-                <span className="text-sm font-medium text-[#F9FAFB]">{s.value}</span>
+              <div key={s.label} className="flex items-center justify-between border-b border-[#2A2A2A] pb-2 last:border-0">
+                <span className="text-sm text-[#9AA3A7]">{s.label}</span>
+                <span className="text-sm font-medium text-white">{s.value}</span>
               </div>
             ))}
           </div>

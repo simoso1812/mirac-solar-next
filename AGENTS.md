@@ -144,13 +144,7 @@ src/
   - `net_metering` — 1:1 valuation of surplus energy
   - `net_billing` — surplus at reduced `precio_excedentes` (default 300 COP/kWh)
   - `autoconsumo` — no surplus credit
-- **Cost model** (empirical, per-kWp gets cheaper with size) — 3-segment model calibrated to the 2025-2026 Mirac dataset (n=80), implemented in `src/lib/calculator/cost.ts` `estimatePrice()`:
-  - <10 kWp: power law on COP/kWp: `copPerKwp = 15_021_515.41 × kWp^(-0.9522841) + 1_852_798.36`
-  - 10-50 kWp: linear on price: `2_841_579.58 × kWp + 7_854_609.55`
-  - >50 kWp: linear on price: `2_458_941.57 × kWp + 36_121_590.48`
-  - NOTE: the legacy 2-segment coefficients in `DEFAULT_PARAMS` (`costo_pequeno_coef_*`, `costo_grande_coef_*`) are dead config — nothing reads them. An earlier version of this doc described that old model; `cost.ts` is the source of truth.
-  - **Edge blending (Simon 2026-07-06)**: inside the 9-11 and 45-55 kWp bands the price is a linear interpolation between the two adjacent segment predictions, so quotes are continuous across the boundaries (the raw segments jump ~9.2M COP at 50 kWp). Outside the bands the pure segments apply unchanged. Pinned + continuity/monotonicity-tested in `cost.test.ts`.
-- **Cost model (Simon 2026-10-08, see Recent context #55 — supersedes the 1.05 formula on this line)**: <= 20 kWp on-grid `11_407_797 + 2_827_267 × kWp`; battery adds 3M fixed + kWh × costo/kWh (default 800k). Previous (2026-09-30): <= 20 kWp linear correlation plus a 5% margin (> 20 kWp keeps the previous 10-50 / >50 segments, blend bands 18-22 and 45-55): `precio = (10_670_000 + 2_690_000 × kWp) × 1.05` (10 kWp → 37.57M × 1.05 = 39.45M COP). `getFullEstimate()` keeps the size-segment label for display but no longer reports R². Golden snapshots were regenerated deliberately.
+- **Cost model** — `estimatePrice()` in `src/lib/calculator/cost.ts` is the only curve. As of 2026-10-08: `<= 20 kWp` on-grid is `11_407_797 + 2_827_267 × kWp`; above that, the previous 10–50 and `> 50` linear segments remain, with blend bands 18–22 and 45–55. A battery adds `3_000_000 + kWh × costo/kWh` (default 800_000). Do not quote the retired power-law or the `× 1.05` formula. A teja roof still multiplies by `ajuste_cubierta_teja` inside `cotizacion`, not inside `estimatePrice`.
 - **Índice Mirac** (`INDICE_MIRAC = 0.0425` in `constants.ts`): annual tariff escalator used ONLY for PPA total projections (`ppaMetrics`) — the tariff indexes 4.25%/yr, the PPA price stays fixed. Not the same as `indexacion_energia` (user-configurable, drives the cash-flow engine).
 - **Inverter selection**: auto-pick from `INVERTER_DATABASE` unless `override_inversores` is set; sizing uses `factor_seguridad`.
 

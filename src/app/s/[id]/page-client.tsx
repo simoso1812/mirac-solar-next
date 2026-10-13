@@ -107,10 +107,10 @@ export default function SharedShortPage({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#111827]">
+      <div className="mirac-share flex min-h-screen items-center justify-center bg-[#0D0D0D]">
         <div className="text-center">
-          <div className="mx-auto size-8 animate-spin rounded-full border-2 border-[#BFFF00] border-t-transparent" />
-          <p className="mt-4 text-sm text-[#9CA3AF]">Cargando propuesta…</p>
+          <div className="mx-auto size-8 animate-spin rounded-full border-2 border-[#C6F500] border-t-transparent" />
+          <p className="mt-4 text-sm text-[#9AA3A7]">Cargando propuesta…</p>
         </div>
       </div>
     )
@@ -118,10 +118,10 @@ export default function SharedShortPage({
 
   if (error || !activeProposal || !activeProposal.results) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#111827]">
+      <div className="mirac-share flex min-h-screen items-center justify-center bg-[#0D0D0D]">
         <div className="text-center">
-          <h1 className="text-xl font-bold text-[#F9FAFB]">Propuesta no encontrada</h1>
-          <p className="mt-2 text-sm text-[#9CA3AF]">
+          <h1 className="text-xl font-bold text-white">Propuesta no encontrada</h1>
+          <p className="mt-2 text-sm text-[#9AA3A7]">
             {error ?? 'El enlace puede estar expirado o ser inválido.'}
           </p>
         </div>
@@ -130,7 +130,7 @@ export default function SharedShortPage({
   }
 
   return (
-    <div className="min-h-screen bg-[#111827] text-[#F9FAFB]">
+    <div className="mirac-share min-h-screen overflow-x-hidden bg-[#0D0D0D] font-[Roboto,Arial,sans-serif] text-white">
       {versions && versions.length > 1 && (
         <div className="pt-6">
           <VersionSelector

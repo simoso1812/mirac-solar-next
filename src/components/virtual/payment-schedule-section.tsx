@@ -15,7 +15,7 @@ const HITOS = [
 function Arrow() {
   return (
     <svg
-      className="h-4 w-4 shrink-0 -rotate-90 text-[#9CA3AF] sm:rotate-0"
+      className="h-4 w-4 shrink-0 -rotate-90 text-[#9AA3A7] sm:rotate-0"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -29,7 +29,7 @@ function Arrow() {
 export function PaymentScheduleSection({ total }: PaymentScheduleSectionProps) {
   return (
     <section>
-      <h2 className="mb-6 flex items-center gap-3 border-b border-white/10 pb-4 text-xl font-medium tracking-tight text-[#F9FAFB]">
+      <h2 className="mb-6 flex items-center gap-3 border-b border-[#2A2A2A] pb-4 text-xl font-medium tracking-tight text-white">
         <span className="h-5 w-1 rounded-full bg-[#9CA3AF]" />
         Esquema de Pagos
       </h2>
@@ -37,10 +37,10 @@ export function PaymentScheduleSection({ total }: PaymentScheduleSectionProps) {
         {HITOS.map((hito, i) => (
           <div key={hito.label} className="contents">
             {i > 0 && <Arrow />}
-            <div className="w-full flex-1 rounded-xl border border-white/10 bg-white/5 p-4 text-center">
-              <p className="text-2xl font-bold text-[#BFFF00]">{Math.round(hito.pct * 100)}%</p>
-              <p className="mt-1 text-sm font-medium text-[#F9FAFB]">{hito.label}</p>
-              <p className="mt-1 text-xs tabular-nums text-[#9CA3AF]">
+            <div className="w-full flex-1 rounded-xl border border-[#2A2A2A] bg-[#161616] p-4 text-center">
+              <p className="text-2xl font-bold text-[#C6F500]">{Math.round(hito.pct * 100)}%</p>
+              <p className="mt-1 text-sm font-medium text-white">{hito.label}</p>
+              <p className="mt-1 text-xs tabular-nums text-[#9AA3A7]">
                 {formatCOPShort(total * hito.pct)}
               </p>
             </div>

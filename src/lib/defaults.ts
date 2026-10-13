@@ -39,7 +39,7 @@ export const initialAdvancedData: AdvancedData = {
   modelo_inversor: '',
   override_inversores: null,
   medidor_bidireccional: false,
-  modo_conexion: 'net_metering',
+  modo_conexion: 'net_billing',
   financiamiento: {
     habilitado: false,
     tasa_interes: 0.12,

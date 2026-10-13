@@ -448,7 +448,7 @@ describe('buildInputFromStore', () => {
     expect(input.consumoMensualKwh).toBe(500)
     expect(input.ciudad).toBe('MEDELLIN')
     expect(input.clima).toBe('TEMPLADO')
-    expect(input.modoConexion).toBe('net_metering')
+    expect(input.modoConexion).toBe('net_billing')
     expect(input.percFinanciamiento).toBe(0) // financiamiento disabled
     // master on + both children on by default
     expect(input.incluirBeneficiosTributarios).toBe(true)

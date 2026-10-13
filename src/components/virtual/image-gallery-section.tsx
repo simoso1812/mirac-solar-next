@@ -12,8 +12,8 @@ export function ImageGallerySection({ imagenes }: ImageGallerySectionProps) {
 
   return (
     <section>
-      <h2 className="mb-6 flex items-center gap-3 border-b border-white/10 pb-4 text-xl font-medium tracking-tight text-[#F9FAFB]">
-        <span className="h-5 w-1 rounded-full bg-[#BFFF00]" />
+      <h2 className="mb-6 flex items-center gap-3 border-b border-[#2A2A2A] pb-4 text-xl font-medium tracking-tight text-white">
+        <span className="h-5 w-1 rounded-full bg-[#C6F500]" />
         Imágenes del Proyecto
       </h2>
 
@@ -21,7 +21,7 @@ export function ImageGallerySection({ imagenes }: ImageGallerySectionProps) {
         {imagenes.map((img) => (
           <figure
             key={img.id}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+            className="overflow-hidden rounded-2xl border border-[#2A2A2A] bg-[#161616]"
           >
             <div className="relative h-56 w-full">
               <Image
@@ -34,7 +34,7 @@ export function ImageGallerySection({ imagenes }: ImageGallerySectionProps) {
               />
             </div>
             {img.caption.trim() && (
-              <figcaption className="px-4 py-3 text-sm text-[#D1D5DB]">
+              <figcaption className="px-4 py-3 text-sm text-[#C6CFD2]">
                 {img.caption}
               </figcaption>
             )}
