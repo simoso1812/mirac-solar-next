@@ -9,7 +9,7 @@
  * connector UI, which only accepts a URL) OR as an `Authorization: Bearer
  * <MCP_AUTH_TOKEN>` header (Claude Code / Codex can send headers). Otherwise
  * the request gets a 404 so the secret URL stays unguessable. When the env
- * var is unset (e.g. local dev), the server is open.
+ * var is unset the server is closed, except under `next dev`.
  */
 import { createHash, timingSafeEqual } from 'crypto'
 import { createMcpHandler } from 'mcp-handler'
@@ -23,12 +23,19 @@ import {
   listInvertersInputShape,
   runListInverters,
 } from '@/lib/mcp/quote'
-import { linkInputShape, runCreateQuotationLink } from '@/lib/mcp/create-link'
+import {
+  linkInputShape,
+  runCreateQuotationLink,
+  multiLinkInputShape,
+  runCreateMultiQuotationLink,
+} from '@/lib/mcp/create-link'
 import {
   getQuotationInputShape,
   runGetQuotation,
   updateQuotationInputShape,
   runUpdateQuotation,
+  addOptionInputShape,
+  runAddOptionToQuotation,
 } from '@/lib/mcp/manage-link'
 import {
   capacidadTrafoInputShape,
@@ -151,12 +158,52 @@ const handler = createMcpHandler(
     )
 
     server.registerTool(
+      'create_quotation_link_multi',
+      {
+        title: 'Crear link con varias opciones (pestanas)',
+        description:
+          'Genera UNA propuesta con VARIAS opciones de sistema FV (2 a 20) que el cliente ve como pestanas arriba de la cotizacion virtual (/s/<id>), ' +
+          'p.ej. "10 kWp" vs "15 kWp" vs "15 kWp + bateria", o compra vs PPA. Los datos del cliente se envian una vez; cada opcion lleva un label unico ' +
+          'y los mismos parametros que quote_solar_system (repite en cada opcion consumo, ubicacion y tarifa). El cliente firma la opcion que elija. ' +
+          'Usala en vez de crear un link por opcion. Para agregar una pestana a un link existente usa add_option_to_quotation.',
+        inputSchema: multiLinkInputShape,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      tool(runCreateMultiQuotationLink),
+    )
+
+    server.registerTool(
+      'add_option_to_quotation',
+      {
+        title: 'Agregar opcion (pestana) a un link',
+        description:
+          'Agrega una opcion de sistema FV como nueva pestana a una propuesta compartida existente SIN cambiar el link. ' +
+          'Si el link tenia una sola propuesta, esta pasa a ser "Opcion 1". Recibe share_id, un label unico y los parametros de quote_solar_system; ' +
+          'el cliente se toma del link. No funciona si la propuesta ya fue firmada.',
+        inputSchema: addOptionInputShape,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      tool(runAddOptionToQuotation),
+    )
+
+    server.registerTool(
       'get_quotation',
       {
         title: 'Leer cotizacion compartida',
         description:
           'Lee una propuesta compartida existente por su share_id (el segmento final de la URL /s/<id>) y devuelve sus numeros actuales, ' +
-          'incluyendo el estado de firma. Usa esta herramienta antes de update_quotation para ver que contiene el link.',
+          'incluyendo el estado de firma. En links con varias opciones devuelve cada pestana con su opcion_index. ' +
+          'Usa esta herramienta antes de update_quotation para ver que contiene el link.',
         inputSchema: getQuotationInputShape,
         annotations: {
           readOnlyHint: true,
@@ -175,7 +222,8 @@ const handler = createMcpHandler(
         description:
           'Regenera una propuesta compartida existente SIN cambiar el link /s/<id> ya enviado al cliente. ' +
           'IMPORTANTE: los parametros no enviados vuelven a sus valores por defecto — envia el conjunto completo de parametros que quieres que tenga la propuesta ' +
-          '(usa get_quotation primero para conocer el estado actual). El nombre y datos del cliente se conservan salvo que se envie cliente_nombre. ' +
+          '(usa get_quotation primero para conocer el estado actual). Los datos del cliente (cliente_nombre, cliente_direccion, cliente_email, ' +
+          'cliente_telefono, cliente_cedula) se conservan salvo los que se envien. En links con varias opciones envia opcion_index para elegir la pestana. ' +
           'Propuestas ya firmadas no se pueden modificar.',
         inputSchema: updateQuotationInputShape,
         annotations: {
@@ -244,7 +292,9 @@ function safeEqual(a: string, b: string): boolean {
 // Optional shared-secret auth in front of the MCP handler.
 function authorized(req: Request): boolean {
   const secret = process.env.MCP_AUTH_TOKEN
-  if (!secret) return true // open when no secret configured (local dev)
+  // Fail closed: only local `next dev` may run without a secret. A missing
+  // env var on a Vercel preview/production deploy must not open the server.
+  if (!secret) return process.env.NODE_ENV === 'development'
   // Accept the secret as ?key= (for the Cowork connector, URL-only) or as a
   // Bearer header (for Claude Code / Codex, which can send headers).
   // Note: the ?key= form ends up in proxy/server logs; documented tradeoff

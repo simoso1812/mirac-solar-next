@@ -42,7 +42,10 @@ function VirtualPageContent({ id }: { id: string }) {
     fetchSharedData(shareId, { track: false })
       .then((versions) => {
         if (cancelled) return
-        const remote = versions[0]?.proposal.docuseal
+        // Multi-option links stamp only the signed tab: prefer a completed
+        // signature, then any in-progress one.
+        const signed = versions.map((v) => v.proposal.docuseal).filter((d) => d !== undefined)
+        const remote = signed.find((d) => d.status === 'completed') ?? signed[0]
         if (!remote) return
         if (remote.updated_at === localDocusealUpdatedAt && remote.status === localDocusealStatus) return
         updateProposal(id, {

@@ -54,6 +54,7 @@ export default function SharedShortPage({
       updateSharedDocuseal(id, {
         submission_id: docuseal.submission_id,
         submitter_slug: docuseal.submitter_slug,
+        ...(versions && versions.length > 1 ? { version_index: activeIndex } : {}),
       }).catch((err) => console.warn('No se pudo persistir el estado de la firma:', err))
     }
     setState((current) => {
