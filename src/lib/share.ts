@@ -196,7 +196,7 @@ export async function updateSharedClient(
  */
 export async function updateSharedDocuseal(
   id: string,
-  docusealPatch: { submission_id: number; submitter_slug: string },
+  docusealPatch: { submission_id: number; submitter_slug: string; version_index?: number },
 ): Promise<void> {
   const res = await fetch('/api/share', {
     method: 'PATCH',
