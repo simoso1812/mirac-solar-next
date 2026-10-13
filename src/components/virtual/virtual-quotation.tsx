@@ -19,6 +19,7 @@ import { ProjectDetailsSection } from './project-details-section'
 import { ImportantAspectsSection } from './important-aspects-section'
 import { FaqSection } from './faq-section'
 import { CallToAction } from './call-to-action'
+import { PhotoBand } from './mirac-lines'
 import { ofertaValidezHasta, formatFechaLarga, OFERTA_VALIDEZ_DIAS } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
@@ -124,6 +125,7 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           incluirDeduccionRenta={overrides.incluirDeduccionRenta}
           incluirDepreciacionAcelerada={overrides.incluirDepreciacionAcelerada}
         />
+        <PhotoBand src="/virtual/band-site.webp" eyebrow="El sistema" title="Ingeniería y equipos para generar tu propia energía" />
         <SystemDesignSection results={whatIfResults} technical={proposal.technical} />
         <RoofDesignSection
           diseno={proposal.technical.diseno_techo}

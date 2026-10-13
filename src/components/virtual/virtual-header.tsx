@@ -6,6 +6,8 @@ import { CIUDADES } from '@/lib/constants'
 import { formatCOPShort } from '@/lib/formatting'
 import { MiracBar } from './mirac-lines'
 
+const DEFAULT_HERO = '/virtual/hero-default.webp'
+
 interface VirtualHeaderProps {
   proposal: QuotationData
   results?: CalculationResults
@@ -44,26 +46,16 @@ export function VirtualHeader({ proposal, results: r }: VirtualHeaderProps) {
 
   return (
     <header className="relative overflow-hidden bg-[#0D0D0D] text-white">
-      {foto ? (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center grayscale"
-          style={{ backgroundImage: `url(${foto})` }}
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 70% 60% at 85% 20%, rgba(198,245,0,.10), transparent 60%), radial-gradient(ellipse 60% 50% at 100% 100%, rgba(251,33,80,.10), transparent 60%), linear-gradient(160deg,#1c1c1c,#0D0D0D 60%)',
-          }}
-        />
-      )}
+      {/* Deck cover (El Zulia slide 1): grayscale photo, always present. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center grayscale"
+        style={{ backgroundImage: `url(${foto ?? DEFAULT_HERO})` }}
+      />
       <div
         aria-hidden="true"
         className="absolute inset-0"
-        style={{ background: 'linear-gradient(180deg,rgba(13,13,13,.55),rgba(13,13,13,.93))' }}
+        style={{ background: 'linear-gradient(90deg,rgba(13,13,13,.93),rgba(13,13,13,.6) 60%,rgba(13,13,13,.3)), linear-gradient(180deg,transparent 55%,rgba(13,13,13,.9))' }}
       />
       <div className="relative mx-auto flex min-h-[560px] max-w-6xl flex-col px-4 pt-6 pb-10 sm:px-6 md:min-h-[640px] md:pb-14">
         <div className="flex items-start justify-between gap-4">

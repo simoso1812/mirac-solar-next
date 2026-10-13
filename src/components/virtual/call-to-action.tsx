@@ -20,8 +20,18 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
   const ofertaVencida = !!validezHasta && validezHasta.getTime() < now
 
   return (
-    <section>
-      <div className="rounded-xl border border-[#C6F500]/40 bg-[#C6F500]/5 p-6 text-center">
+    <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#0D0D0D]">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center grayscale"
+        style={{ backgroundImage: 'url(/virtual/band-contact.webp)' }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{ background: 'linear-gradient(90deg,rgba(13,13,13,.93),rgba(13,13,13,.6) 60%,rgba(13,13,13,.3))' }}
+      />
+      <div className="relative mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 md:py-24">
         <h2 className="mb-2 text-xl font-bold text-white">
           {isSigned ? 'Propuesta Aceptada' : '¿Listo para avanzar?'}
         </h2>

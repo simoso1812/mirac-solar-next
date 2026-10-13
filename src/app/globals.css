@@ -202,3 +202,24 @@
 .mirac-ey { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #9AA3A7; }
 .mirac-acc { background: linear-gradient(120deg,#C6F500,#FF9E1B,#FB2150); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .mirac-virtual table th { color: #9AA3A7; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
+
+/* Share page forces the deck palette regardless of OS / browser light-dark mode
+   (prevents auto-dark and theme tokens from tinting the near-black to navy). */
+html:has(.mirac-share),
+html:has(.mirac-share) body {
+  background: #0D0D0D;
+  color-scheme: dark only;
+}
+.mirac-share {
+  color-scheme: dark only;
+  --background: #0D0D0D;
+  --foreground: #ffffff;
+  --card: #161616;
+  --card-foreground: #ffffff;
+  --muted: #161616;
+  --muted-foreground: #9AA3A7;
+  --border: #2A2A2A;
+  --input: #2A2A2A;
+  background-color: #0D0D0D;
+  color: #fff;
+}
