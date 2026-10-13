@@ -23,15 +23,15 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
     <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#0D0D0D]">
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center grayscale"
+        className="absolute inset-0 bg-cover bg-[position:38%_60%] md:bg-[position:center_75%]"
         style={{ backgroundImage: 'url(/virtual/band-contact.webp)' }}
       />
       <div
         aria-hidden="true"
         className="absolute inset-0"
-        style={{ background: 'linear-gradient(90deg,rgba(13,13,13,.93),rgba(13,13,13,.6) 60%,rgba(13,13,13,.3))' }}
+        style={{ background: 'radial-gradient(ellipse at center,rgba(13,13,13,.78),rgba(13,13,13,.5) 70%,rgba(13,13,13,.4))' }}
       />
-      <div className="relative mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 md:py-24">
+      <div className="relative mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 md:py-32">
         <h2 className="mb-2 text-xl font-bold text-white">
           {isSigned ? 'Propuesta Aceptada' : '¿Listo para avanzar?'}
         </h2>
