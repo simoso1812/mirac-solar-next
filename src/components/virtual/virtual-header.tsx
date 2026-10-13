@@ -49,7 +49,7 @@ export function VirtualHeader({ proposal, results: r }: VirtualHeaderProps) {
       {/* Deck cover (El Zulia slide 1): grayscale photo, always present. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center grayscale"
+        className="absolute inset-0 bg-cover bg-[position:36%_45%] md:bg-[position:center_40%] grayscale"
         style={{ backgroundImage: `url(${foto ?? DEFAULT_HERO})` }}
       />
       <div

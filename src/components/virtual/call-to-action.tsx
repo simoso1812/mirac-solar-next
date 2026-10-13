@@ -23,7 +23,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
     <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#0D0D0D]">
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-[position:38%_60%] md:bg-[position:center_75%]"
+        className="absolute inset-0 bg-cover bg-[position:46%_62%] md:bg-[position:center_65%]"
         style={{ backgroundImage: 'url(/virtual/band-contact.webp)' }}
       />
       <div

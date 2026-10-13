@@ -15,7 +15,7 @@ export function PhotoBand({ src, eyebrow, title }: { src: string; eyebrow: strin
     <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#0D0D0D]">
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center grayscale"
+        className="absolute inset-0 bg-cover bg-[position:55%_55%] md:bg-[position:center_58%] grayscale"
         style={{ backgroundImage: `url(${src})` }}
       />
       <div
