@@ -43,11 +43,11 @@ export function FaqSection() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-left transition-colors hover:bg-white/[0.08]"
+        className="flex w-full items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#161616] px-6 py-4 text-left transition-colors hover:bg-[#1E1E1E]"
       >
-        <span className="text-sm font-medium text-[#9CA3AF]">Preguntas frecuentes</span>
+        <span className="text-sm font-medium text-[#9AA3A7]">Preguntas frecuentes</span>
         <svg
-          className={`h-4 w-4 text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-[#9AA3A7] transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -57,17 +57,17 @@ export function FaqSection() {
         </svg>
       </button>
       {open && (
-        <div className="mt-2 space-y-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
+        <div className="mt-2 space-y-2 rounded-2xl border border-[#2A2A2A] bg-[#161616] px-6 py-4">
           {PREGUNTAS.map((item, i) => (
-            <div key={item.pregunta} className="border-b border-white/10 last:border-b-0">
+            <div key={item.pregunta} className="border-b border-[#2A2A2A] last:border-b-0">
               <button
                 type="button"
                 onClick={() => setOpenIndex((prev) => (prev === i ? null : i))}
                 className="flex w-full items-center justify-between gap-4 py-3 text-left"
               >
-                <span className="text-sm font-medium text-[#F9FAFB]">{item.pregunta}</span>
+                <span className="text-sm font-medium text-white">{item.pregunta}</span>
                 <svg
-                  className={`h-3.5 w-3.5 shrink-0 text-[#9CA3AF] transition-transform ${openIndex === i ? 'rotate-180' : ''}`}
+                  className={`h-3.5 w-3.5 shrink-0 text-[#9AA3A7] transition-transform ${openIndex === i ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -77,7 +77,7 @@ export function FaqSection() {
                 </svg>
               </button>
               {openIndex === i && (
-                <p className="pb-4 text-sm leading-relaxed text-[#D1D5DB]">{item.respuesta}</p>
+                <p className="pb-4 text-sm leading-relaxed text-[#C6CFD2]">{item.respuesta}</p>
               )}
             </div>
           ))}

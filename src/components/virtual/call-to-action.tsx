@@ -21,17 +21,17 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
 
   return (
     <section>
-      <div className="rounded-xl border border-[#BFFF00]/30 bg-[#BFFF00]/5 p-6 text-center">
-        <h2 className="mb-2 text-xl font-bold text-[#F9FAFB]">
+      <div className="rounded-xl border border-[#C6F500]/40 bg-[#C6F500]/5 p-6 text-center">
+        <h2 className="mb-2 text-xl font-bold text-white">
           {isSigned ? 'Propuesta Aceptada' : '¿Listo para avanzar?'}
         </h2>
-        <p className="mb-6 text-sm text-[#9CA3AF]">
+        <p className="mb-6 text-sm text-[#9AA3A7]">
           {isSigned
             ? 'Esta propuesta ha sido firmada y aceptada. Nuestro equipo se pondrá en contacto contigo.'
             : 'Comparte esta propuesta digital con tu equipo o firma el contrato para confirmar.'}
         </p>
         {!isSigned && validezHasta && (
-          <p className={`mb-4 text-xs ${ofertaVencida ? 'text-amber-300' : 'text-[#9CA3AF]'}`}>
+          <p className={`mb-4 text-xs ${ofertaVencida ? 'text-[#FF9E1B]' : 'text-[#9AA3A7]'}`}>
             {ofertaVencida
               ? `Esta oferta venció el ${formatFechaLarga(validezHasta)}. Contáctanos para actualizar tu cotización.`
               : `Oferta válida hasta el ${formatFechaLarga(validezHasta)}.`}
@@ -48,7 +48,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
           )}
         </div>
         {isSigned && proposal.docuseal?.completed_at && (
-          <div className="mt-4 inline-block rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-[#9CA3AF]">
+          <div className="mt-4 inline-block rounded-lg border border-[#2A2A2A] bg-[#161616] px-4 py-2 text-xs text-[#9AA3A7]">
             Contrato firmado con DocuSeal el{' '}
             {new Date(proposal.docuseal.completed_at).toLocaleDateString('es-CO', {
               year: 'numeric',
@@ -60,7 +60,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
           </div>
         )}
         {isSigned && proposal.signature && (
-          <div className="mt-4 inline-block rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-[#9CA3AF]">
+          <div className="mt-4 inline-block rounded-lg border border-[#2A2A2A] bg-[#161616] px-4 py-2 text-xs text-[#9AA3A7]">
             Firmado por {proposal.signature.name} el{' '}
             {new Date(proposal.signature.timestamp).toLocaleDateString('es-CO', {
               year: 'numeric',

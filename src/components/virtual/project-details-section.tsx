@@ -16,20 +16,20 @@ export function ProjectDetailsSection({ proposal, results }: ProjectDetailsSecti
   const liveResults = results ?? proposal.results ?? null
   return (
     <section>
-      <h2 className="mb-4 text-xl font-bold text-[#F9FAFB]">Detalles del Proyecto</h2>
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+      <h2 className="mb-4 text-xl font-bold text-white">Detalles del Proyecto</h2>
+      <div className="rounded-xl border border-[#2A2A2A] bg-[#161616] p-5">
         <Tabs defaultValue="tech">
-          <TabsList className="bg-white/5 border border-white/10">
-            <TabsTrigger value="tech" className="text-[#9CA3AF] data-active:text-[#BFFF00] data-active:bg-white/10">
+          <TabsList className="bg-[#161616] border border-[#2A2A2A]">
+            <TabsTrigger value="tech" className="text-[#9AA3A7] data-active:text-[#C6F500] data-active:bg-[#C6F500]/10">
               Técnico
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="text-[#9CA3AF] data-active:text-[#BFFF00] data-active:bg-white/10">
+            <TabsTrigger value="timeline" className="text-[#9AA3A7] data-active:text-[#C6F500] data-active:bg-[#C6F500]/10">
               Cronograma
             </TabsTrigger>
-            <TabsTrigger value="legal" className="text-[#9CA3AF] data-active:text-[#BFFF00] data-active:bg-white/10">
+            <TabsTrigger value="legal" className="text-[#9AA3A7] data-active:text-[#C6F500] data-active:bg-[#C6F500]/10">
               Legal
             </TabsTrigger>
-            <TabsTrigger value="location" className="text-[#9CA3AF] data-active:text-[#BFFF00] data-active:bg-white/10">
+            <TabsTrigger value="location" className="text-[#9AA3A7] data-active:text-[#C6F500] data-active:bg-[#C6F500]/10">
               Ubicación
             </TabsTrigger>
           </TabsList>
@@ -87,9 +87,9 @@ function TechTab({ proposal, results }: { proposal: QuotationData; results: Calc
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {rows.map(([label, value]) => (
-        <div key={label} className="flex justify-between border-b border-white/5 pb-2">
-          <span className="text-sm text-[#9CA3AF]">{label}</span>
-          <span className="text-sm font-medium text-[#F9FAFB]">{value}</span>
+        <div key={label} className="flex justify-between border-b border-[#2A2A2A] pb-2">
+          <span className="text-sm text-[#9AA3A7]">{label}</span>
+          <span className="text-sm font-medium text-white">{value}</span>
         </div>
       ))}
     </div>
@@ -110,15 +110,15 @@ function TimelineTab() {
       {TIMELINE_STEPS.map((s, i) => (
         <div key={s.phase} className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="flex size-8 items-center justify-center rounded-full bg-[#BFFF00]/20 text-sm font-bold text-[#BFFF00]">
+            <div className="flex size-8 items-center justify-center rounded-full bg-[#C6F500]/20 text-sm font-bold text-[#C6F500]">
               {i + 1}
             </div>
-            {i < TIMELINE_STEPS.length - 1 && <div className="mt-1 h-full w-px bg-white/10" />}
+            {i < TIMELINE_STEPS.length - 1 && <div className="mt-1 h-full w-px bg-[#C6F500]/10" />}
           </div>
           <div className="pb-4">
-            <p className="text-sm font-medium text-[#F9FAFB]">{s.phase}</p>
-            <p className="text-xs text-[#BFFF00]">{s.duration}</p>
-            <p className="mt-1 text-xs text-[#9CA3AF]">{s.description}</p>
+            <p className="text-sm font-medium text-white">{s.phase}</p>
+            <p className="text-xs text-[#C6F500]">{s.duration}</p>
+            <p className="mt-1 text-xs text-[#9AA3A7]">{s.description}</p>
           </div>
         </div>
       ))}
@@ -128,9 +128,9 @@ function TimelineTab() {
 
 function LegalTab() {
   return (
-    <div className="space-y-4 text-sm text-[#9CA3AF]">
+    <div className="space-y-4 text-sm text-[#9AA3A7]">
       <div>
-        <h4 className="mb-1 font-medium text-[#F9FAFB]">Ley 1715 de 2014</h4>
+        <h4 className="mb-1 font-medium text-white">Ley 1715 de 2014</h4>
         <p>
           Regula la integración de energías renovables no convencionales al sistema energético
           nacional. Establece incentivos tributarios para proyectos de autogeneración solar:
@@ -143,7 +143,7 @@ function LegalTab() {
         <li>Exención de aranceles en importación de equipos (Art. 13)</li>
       </ul>
       <div>
-        <h4 className="mb-1 font-medium text-[#F9FAFB]">Resolución CREG 030 de 2018</h4>
+        <h4 className="mb-1 font-medium text-white">Resolución CREG 030 de 2018</h4>
         <p>
           Define las condiciones para la autogeneración a pequeña escala y la venta de
           excedentes de energía a la red. Los excedentes se remuneran al precio del mercado.
@@ -158,8 +158,8 @@ function LocationTab({ proposal }: { proposal: QuotationData }) {
 
   if (lat == null || lon == null) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg bg-white/5">
-        <p className="text-sm text-[#9CA3AF]">Ubicación no disponible</p>
+      <div className="flex h-48 items-center justify-center rounded-lg bg-[#161616]">
+        <p className="text-sm text-[#9AA3A7]">Ubicación no disponible</p>
       </div>
     )
   }
@@ -182,8 +182,8 @@ function LocationMap({ lat, lon }: { lat: number; lon: number }) {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg bg-white/5">
-        <p className="text-sm text-[#9CA3AF]">Cargando mapa…</p>
+      <div className="flex h-64 items-center justify-center rounded-lg bg-[#161616]">
+        <p className="text-sm text-[#9AA3A7]">Cargando mapa…</p>
       </div>
     )
   }

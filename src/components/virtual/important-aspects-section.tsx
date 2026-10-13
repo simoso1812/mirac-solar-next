@@ -44,7 +44,7 @@ const INCENTIVOS_PARRAFOS = [
 ]
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="mb-3 text-sm font-semibold text-[#F9FAFB]">{children}</h3>
+  return <h3 className="mb-3 text-sm font-semibold text-white">{children}</h3>
 }
 
 export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }: ImportantAspectsSectionProps) {
@@ -60,11 +60,11 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-left transition-colors hover:bg-white/[0.08]"
+        className="flex w-full items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#161616] px-6 py-4 text-left transition-colors hover:bg-[#1E1E1E]"
       >
-        <span className="text-sm font-medium text-[#9CA3AF]">Aspectos importantes</span>
+        <span className="text-sm font-medium text-[#9AA3A7]">Aspectos importantes</span>
         <svg
-          className={`h-4 w-4 text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-[#9AA3A7] transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -74,13 +74,13 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
         </svg>
       </button>
       {open && (
-        <div className="mt-2 space-y-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="mt-2 space-y-8 rounded-2xl border border-[#2A2A2A] bg-[#161616] p-6">
           <div>
             <GroupTitle>Condiciones del sistema</GroupTitle>
             <ul className="space-y-2">
               {aspectos.map((texto) => (
-                <li key={texto} className="flex gap-2 text-sm leading-relaxed text-[#D1D5DB]">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#BFFF00]" />
+                <li key={texto} className="flex gap-2 text-sm leading-relaxed text-[#C6CFD2]">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#C6F500]" />
                   {texto}
                 </li>
               ))}
@@ -93,10 +93,10 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
               {GARANTIAS.map((g) => (
                 <div
                   key={g.concepto}
-                  className="rounded-xl border border-white/10 bg-white/5 p-4 text-center"
+                  className="rounded-xl border border-[#2A2A2A] bg-[#161616] p-4 text-center"
                 >
-                  <p className="text-xl font-bold text-[#BFFF00]">{g.anios}</p>
-                  <p className="mt-1 text-xs text-[#9CA3AF]">{g.concepto}</p>
+                  <p className="text-xl font-bold text-[#C6F500]">{g.anios}</p>
+                  <p className="mt-1 text-xs text-[#9AA3A7]">{g.concepto}</p>
                 </div>
               ))}
             </div>
@@ -104,13 +104,13 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
 
           <div>
             <GroupTitle>Entregables</GroupTitle>
-            <p className="mb-2 text-sm text-[#9CA3AF]">
+            <p className="mb-2 text-sm text-[#9AA3A7]">
               Al finalizar la prestación del servicio se entregarán los siguientes documentos:
             </p>
             <ul className="space-y-2">
               {ENTREGABLES.map((texto) => (
-                <li key={texto} className="flex gap-2 text-sm leading-relaxed text-[#D1D5DB]">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#BFFF00]" />
+                <li key={texto} className="flex gap-2 text-sm leading-relaxed text-[#C6CFD2]">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#C6F500]" />
                   {texto}
                 </li>
               ))}
@@ -122,7 +122,7 @@ export function ImportantAspectsSection({ bateriaHabilitada, mostrarIncentivos }
               <GroupTitle>Incentivos tributarios</GroupTitle>
               <div className="space-y-3">
                 {INCENTIVOS_PARRAFOS.map((parrafo) => (
-                  <p key={parrafo.slice(0, 40)} className="text-sm leading-relaxed text-[#D1D5DB]">
+                  <p key={parrafo.slice(0, 40)} className="text-sm leading-relaxed text-[#C6CFD2]">
                     {parrafo}
                   </p>
                 ))}
