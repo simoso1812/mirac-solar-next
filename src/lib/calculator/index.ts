@@ -13,6 +13,8 @@ import type { CalculationResults, TechnicalData, AdvancedData, ProjectData } fro
 
 export type ConnectionMode = 'net_metering' | 'net_billing' | 'autoconsumo'
 
+export const MEDIDOR_BIDIRECCIONAL_COP = 1_300_000
+
 export interface CotizacionInput {
   consumoMensualKwh: number
   potenciaPanelW: number
@@ -193,7 +195,7 @@ export function cotizacion(input: CotizacionInput): CalculationResults {
 
   let valorProyectoTotal = Math.ceil(costoFV + costoBateria)
   if (input.medidorBidireccional) {
-    valorProyectoTotal += 1_300_000
+    valorProyectoTotal += MEDIDOR_BIDIRECCIONAL_COP
   }
   if (precioManual !== null && precioManual > 0) {
     valorProyectoTotal = precioManual

@@ -7,10 +7,10 @@ import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
 import { initialAdvancedData } from '@/lib/defaults'
 import { INVERTER_DATABASE, PROMEDIOS_COSTO } from '@/lib/constants'
-import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
+import { cotizacion, buildInputFromStore, MEDIDOR_BIDIRECCIONAL_COP } from '@/lib/calculator/index'
 import { cogsSugerido } from '@/lib/equipment-prices'
-import { margenBruto, MARGEN_MINIMO } from '@/lib/proposal-disclosure'
-import { formatCOP } from '@/lib/formatting'
+import { margenBruto, MARGEN_MINIMO, precioParaMargen } from '@/lib/proposal-disclosure'
+import { formatCOP, formatCOPShort } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +36,9 @@ const COGS_CAMPOS = [
   { name: 'cogs_bos_cop', label: 'BOS (COP)' },
   { name: 'cogs_instalacion_cop', label: 'Instalación (COP)' },
 ] as const
+
+const CAMPOS_SUGERIDOS = ['cogs_modulos_cop', 'cogs_inversor_cop'] as const
+type CampoSugerido = (typeof CAMPOS_SUGERIDOS)[number]
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
@@ -63,6 +66,7 @@ export function StepAdvanced() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = form
 
@@ -121,20 +125,54 @@ export function StepAdvanced() {
     [kwpCalculado, bateriaHabilitada],
   )
 
-  // Pre-fill once on mount; a stored number is never replaced by the suggestion.
-  const cogsPrellenado = useRef(false)
+  // Last value the pre-fill wrote per field. A field absent from the map holds a
+  // stored or user-typed number and is never replaced by the suggestion.
+  const ultimoPrellenado = useRef<Partial<Record<CampoSugerido, number | null>> | null>(null)
   useEffect(() => {
-    if (cogsPrellenado.current) return
-    cogsPrellenado.current = true
-    if (!sugerido) return
-    if (advancedData.cogs_modulos_cop == null) setValue('cogs_modulos_cop', sugerido.modulosCop)
-    if (advancedData.cogs_inversor_cop == null && sugerido.inversorCop !== null) {
-      setValue('cogs_inversor_cop', sugerido.inversorCop)
+    const nuevos: Record<CampoSugerido, number | null> = {
+      cogs_modulos_cop: sugerido?.modulosCop ?? null,
+      cogs_inversor_cop: sugerido?.inversorCop ?? null,
     }
-  }, [sugerido, advancedData.cogs_modulos_cop, advancedData.cogs_inversor_cop, setValue])
+    if (ultimoPrellenado.current === null) {
+      const stored: Record<CampoSugerido, number | null> = {
+        cogs_modulos_cop: advancedData.cogs_modulos_cop ?? null,
+        cogs_inversor_cop: advancedData.cogs_inversor_cop ?? null,
+      }
+      const inicial: Partial<Record<CampoSugerido, number | null>> = {}
+      for (const campo of CAMPOS_SUGERIDOS) {
+        if (stored[campo] !== null) continue
+        setValue(campo, nuevos[campo])
+        inicial[campo] = nuevos[campo]
+      }
+      ultimoPrellenado.current = inicial
+      return
+    }
+    const previo = ultimoPrellenado.current
+    for (const campo of CAMPOS_SUGERIDOS) {
+      if (!(campo in previo)) continue
+      if (getValues(campo) !== previo[campo]) {
+        delete previo[campo]
+        continue
+      }
+      setValue(campo, nuevos[campo])
+      previo[campo] = nuevos[campo]
+    }
+  }, [sugerido, advancedData.cogs_modulos_cop, advancedData.cogs_inversor_cop, getValues, setValue])
 
-  const margen = calcResults
-    ? margenBruto(calcResults.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate), [
+  const precioMargen = calcResults
+    ? precioParaMargen(
+        {
+          totalCurvaCop: calcResults.costo_total_cop,
+          precioManualCop: formValues.precio_manual,
+          costoBateriaCop: calcResults.bateria?.costo_cop ?? 0,
+          medidorCop: formValues.medidor_bidireccional ? MEDIDOR_BIDIRECCIONAL_COP : 0,
+        },
+        PROMEDIOS_COSTO.iva_rate,
+      )
+    : null
+  const hayPrecioMargen = precioMargen !== null && Number.isFinite(precioMargen) && precioMargen > 0
+  const margen = hayPrecioMargen
+    ? margenBruto(precioMargen, [
         formValues.cogs_modulos_cop,
         formValues.cogs_inversor_cop,
         formValues.cogs_bos_cop,
@@ -667,7 +705,7 @@ export function StepAdvanced() {
                     id={campo.name}
                     type="number"
                     min={0}
-                    step={1000}
+                    step={1}
                     value={watch(campo.name) ?? ''}
                     onChange={(e) => {
                       const n = Number(e.target.value)
@@ -680,12 +718,12 @@ export function StepAdvanced() {
             {sugerido && (
               <div className="space-y-1 text-xs text-muted-foreground">
                 <p>
-                  Sugerido: {sugerido.modulo.producto} {sugerido.modulo.wp} W, {sugerido.modulo.proveedor}, cotizado {sugerido.modulo.cotizado}.
+                  Sugerido: {formatCOPShort(sugerido.modulosCop, false)} — {sugerido.modulo.producto} {sugerido.modulo.wp} W, {sugerido.modulo.proveedor}, cotizado {sugerido.modulo.cotizado}.
                 </p>
                 <p>
-                  {sugerido.inversor
-                    ? `Sugerido: ${sugerido.inversor.producto} (${sugerido.inversor.kw} kW), ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
-                    : `Ningún inversor del sheet cubre ${kwpCalculado.toFixed(1)} kWp por sí solo; escribe el costo.`}
+                  {sugerido.inversor && sugerido.inversorCop !== null
+                    ? `Sugerido: ${formatCOPShort(sugerido.inversorCop, false)} — ${sugerido.inversor.producto} (${sugerido.inversor.kw} kW), ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
+                    : `Ningún inversor del sheet cubre ${kwpCalculado.toFixed(1).replace('.', ',')} kWp por sí solo; escribe el costo.`}
                 </p>
                 {sugerido.referenciaVieja && (
                   <p>Precio de referencia viejo: la cotización tiene más de 60 días.</p>
@@ -693,9 +731,11 @@ export function StepAdvanced() {
               </div>
             )}
             <p className={`text-sm ${margen && margen.margen < MARGEN_MINIMO ? 'font-medium text-destructive' : ''}`}>
-              {margen
-                ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
-                : 'Completa los cuatro costos para ver el margen.'}
+              {!hayPrecioMargen
+                ? 'Sin precio calculado todavía.'
+                : margen
+                  ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
+                  : 'Completa los cuatro costos para ver el margen.'}
             </p>
           </div>
 

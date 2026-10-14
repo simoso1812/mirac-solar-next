@@ -35,3 +35,12 @@ export function margenBruto(
   const costo = (partes as number[]).reduce((s, n) => s + n, 0)
   return { costo, margen: (precioCop - costo) / precioCop }
 }
+
+// The margin covers the solar part only: battery and meter are in the price but have no cost field.
+export function precioParaMargen(
+  p: { totalCurvaCop: number; precioManualCop: number | null; costoBateriaCop: number; medidorCop: number },
+  ivaRate: number,
+): number {
+  const total = p.precioManualCop && p.precioManualCop > 0 ? p.precioManualCop : p.totalCurvaCop
+  return (total - p.costoBateriaCop - p.medidorCop) / (1 + ivaRate)
+}
