@@ -175,7 +175,9 @@ export function StepProject() {
                 <span className="rounded bg-mirac-yellow/20 px-2 py-0.5 text-xs font-medium text-mirac-yellow">
                   {hspSource === 'pvgis_poa'
                     ? 'PVGIS, plano del arreglo, inclinación 10°.'
-                    : 'Estimación climática (PVGIS incompleto o no disponible).'}
+                    : hspSource === null && hspData.length === 12
+                      ? 'Radiación guardada en la propuesta.'
+                      : 'Estimación climática (PVGIS incompleto o no disponible).'}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12">
