@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  margenBruto,
+  MARGEN_MINIMO,
   paybackSimpleAnios,
   textoBeneficios,
   textoModoConexion,
@@ -45,5 +47,18 @@ describe('textoBeneficios', () => {
     const text = textoBeneficios(true, false)
     expect(text).toContain('Ley 1715')
     expect(text).toContain('payback simple')
+  })
+})
+
+describe('margenBruto', () => {
+  it('returns null until all four costs are filled', () => {
+    expect(margenBruto(40_000_000, [10_000_000, null, 3_000_000, 8_000_000])).toBeNull()
+  })
+
+  it('computes (price - cost) / price', () => {
+    const r = margenBruto(40_000_000, [8_000_000, 6_000_000, 3_000_000, 5_000_000])
+    expect(r?.costo).toBe(22_000_000)
+    expect(r?.margen).toBeCloseTo(0.45, 2)
+    expect(r!.margen < MARGEN_MINIMO).toBe(true)
   })
 })

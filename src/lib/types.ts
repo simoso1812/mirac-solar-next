@@ -117,6 +117,11 @@ export interface AdvancedData {
   porcentaje_mantenimiento: number // maintenance as % of savings (decimal, e.g. 0.05)
   performance_ratio_base: number // base PR (decimal, e.g. 0.75)
   demora_6_meses: boolean // 6-month connection delay
+  // Internal cost of goods (COP). Stripped from the public share payload.
+  cogs_modulos_cop: number | null
+  cogs_inversor_cop: number | null
+  cogs_bos_cop: number | null
+  cogs_instalacion_cop: number | null
 }
 
 export interface InverterRecommendation {

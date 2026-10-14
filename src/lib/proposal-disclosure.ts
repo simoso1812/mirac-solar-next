@@ -22,3 +22,16 @@ export function textoBeneficios(
   if (!incluirDeduccionRenta && !incluirDepreciacionAcelerada) return null
   return 'La TIR y el payback del motor incluyen deducción de renta y/o depreciación acelerada (Ley 1715). El payback simple es inversión ÷ ahorro del año 1, sin ese escudo.'
 }
+
+export const MARGEN_MINIMO = 0.5
+
+export function margenBruto(
+  precioCop: number,
+  partes: Array<number | null>,
+): { costo: number; margen: number } | null {
+  if (!Number.isFinite(precioCop) || precioCop <= 0) return null
+  if (partes.length !== 4) return null
+  if (partes.some((p) => p === null || !Number.isFinite(p) || p < 0)) return null
+  const costo = (partes as number[]).reduce((s, n) => s + n, 0)
+  return { costo, margen: (precioCop - costo) / precioCop }
+}

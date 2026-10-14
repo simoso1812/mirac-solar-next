@@ -71,6 +71,9 @@ function sanitizeRoofDesign(d: RoofDesign | null): RoofDesign | null {
   }
 }
 
+// Internal cost fields: never sent to the public link, never rehydrated from it.
+const COGS_KEYS = ['cogs_modulos_cop', 'cogs_inversor_cop', 'cogs_bos_cop', 'cogs_instalacion_cop'] as const
+
 export function toPayload(proposal: QuotationData): SharePayload {
   const { client: c, project: p, technical: t, advanced: a } = proposal
   // `h` must be 12 finite numbers or null — a NaN element serializes to null and
@@ -82,11 +85,13 @@ export function toPayload(proposal: QuotationData): SharePayload {
     p.hsp_mensual_pvgis.every((v) => Number.isFinite(v))
       ? p.hsp_mensual_pvgis
       : null
+  const aPublico: Record<string, unknown> = { ...a }
+  for (const key of COGS_KEYS) delete aPublico[key]
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
     p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: hsp },
     t: { co: finiteOr(t.consumo_mensual_kwh, 0), pw: finiteOr(t.potencia_panel_w, 615), fs: finiteOr(t.factor_seguridad, 1.1), tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel, an: finiteOr(t.ancho_m, 1.13), al: finiteOr(t.alto_m, 2.38), dt: sanitizeRoofDesign(t.diseno_techo) },
-    a: a as unknown as Record<string, unknown>,
+    a: aPublico,
     d: proposal.docuseal as unknown as Record<string, unknown> | undefined,
   }
 }
@@ -122,7 +127,13 @@ export function fromPayload(payload: SharePayload, shareId?: string): QuotationD
     alto_m: payload.t.al ?? 2.38,
     diseno_techo: (payload.t.dt as RoofDesign | null) ?? null,
   })
-  const advanced = deepMerge(initialAdvancedData, payload.a)
+  const advanced = {
+    ...deepMerge(initialAdvancedData, payload.a),
+    cogs_modulos_cop: null,
+    cogs_inversor_cop: null,
+    cogs_bos_cop: null,
+    cogs_instalacion_cop: null,
+  }
   const docuseal = payload.d as unknown as QuotationData['docuseal']
 
   return {

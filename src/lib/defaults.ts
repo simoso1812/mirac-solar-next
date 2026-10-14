@@ -77,6 +77,10 @@ export const initialAdvancedData: AdvancedData = {
   porcentaje_mantenimiento: 0.05,
   performance_ratio_base: 0.75,
   demora_6_meses: false,
+  cogs_modulos_cop: null,
+  cogs_inversor_cop: null,
+  cogs_bos_cop: null,
+  cogs_instalacion_cop: null,
 }
 
 export function deepMerge<T>(base: T, partial: unknown): T {

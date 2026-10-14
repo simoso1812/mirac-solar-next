@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
 import { initialAdvancedData } from '@/lib/defaults'
-import { INVERTER_DATABASE } from '@/lib/constants'
+import { INVERTER_DATABASE, PROMEDIOS_COSTO } from '@/lib/constants'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
+import { cogsSugerido } from '@/lib/equipment-prices'
+import { margenBruto, MARGEN_MINIMO } from '@/lib/proposal-disclosure'
 import { formatCOP } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +29,13 @@ import { ImagesSection } from '@/components/quotation/advanced/images-section'
 // This list is fully form-controlled and never reordered, so a position-based
 // key is correct here.
 const ROW_KEYS = Array.from({ length: 64 }, (_, i) => `row-${i}`)
+
+const COGS_CAMPOS = [
+  { name: 'cogs_modulos_cop', label: 'Módulos (COP)' },
+  { name: 'cogs_inversor_cop', label: 'Inversor (COP)' },
+  { name: 'cogs_bos_cop', label: 'BOS (COP)' },
+  { name: 'cogs_instalacion_cop', label: 'Instalación (COP)' },
+] as const
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
@@ -105,6 +114,33 @@ export function StepAdvanced() {
     input.precioManual = null
     return cotizacion(input)
   }, [technicalData, projectData, advancedData, formValues])
+
+  const kwpCalculado = calcResults?.kwp ?? 0
+  const sugerido = useMemo(
+    () => cogsSugerido(kwpCalculado, bateriaHabilitada, new Date()),
+    [kwpCalculado, bateriaHabilitada],
+  )
+
+  // Pre-fill once on mount; a stored number is never replaced by the suggestion.
+  const cogsPrellenado = useRef(false)
+  useEffect(() => {
+    if (cogsPrellenado.current) return
+    cogsPrellenado.current = true
+    if (!sugerido) return
+    if (advancedData.cogs_modulos_cop == null) setValue('cogs_modulos_cop', sugerido.modulosCop)
+    if (advancedData.cogs_inversor_cop == null && sugerido.inversorCop !== null) {
+      setValue('cogs_inversor_cop', sugerido.inversorCop)
+    }
+  }, [sugerido, advancedData.cogs_modulos_cop, advancedData.cogs_inversor_cop, setValue])
+
+  const margen = calcResults
+    ? margenBruto(calcResults.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate), [
+        formValues.cogs_modulos_cop,
+        formValues.cogs_inversor_cop,
+        formValues.cogs_bos_cop,
+        formValues.cogs_instalacion_cop,
+      ])
+    : null
 
   return (
     <Card>
@@ -613,6 +649,54 @@ export function StepAdvanced() {
                 </p>
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          {/* ─── Internal COGS (never shared) ─── */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-base font-semibold">Costo interno</Label>
+              <p className="text-sm text-muted-foreground">No sale en el link del cliente.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {COGS_CAMPOS.map((campo) => (
+                <div key={campo.name} className="space-y-2">
+                  <Label htmlFor={campo.name}>{campo.label}</Label>
+                  <Input
+                    id={campo.name}
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={watch(campo.name) ?? ''}
+                    onChange={(e) => {
+                      const n = Number(e.target.value)
+                      setValue(campo.name, e.target.value === '' || !Number.isFinite(n) ? null : n)
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            {sugerido && (
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>
+                  Sugerido: {sugerido.modulo.producto} {sugerido.modulo.wp} W, {sugerido.modulo.proveedor}, cotizado {sugerido.modulo.cotizado}.
+                </p>
+                <p>
+                  {sugerido.inversor
+                    ? `Sugerido: ${sugerido.inversor.producto} (${sugerido.inversor.kw} kW), ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
+                    : `Ningún inversor del sheet cubre ${kwpCalculado.toFixed(1)} kWp por sí solo; escribe el costo.`}
+                </p>
+                {sugerido.referenciaVieja && (
+                  <p>Precio de referencia viejo: la cotización tiene más de 60 días.</p>
+                )}
+              </div>
+            )}
+            <p className={`text-sm ${margen && margen.margen < MARGEN_MINIMO ? 'font-medium text-destructive' : ''}`}>
+              {margen
+                ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
+                : 'Completa los cuatro costos para ver el margen.'}
+            </p>
           </div>
 
           <Separator />
