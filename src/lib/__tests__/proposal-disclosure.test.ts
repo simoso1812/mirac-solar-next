@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  difiereDeSugerido,
   margenBruto,
   MARGEN_MINIMO,
   paybackSimpleAnios,
@@ -94,5 +95,32 @@ describe('precioParaMargen', () => {
   it('subtracts battery and meter from the manual price', () => {
     const p = precioParaMargen({ totalCurvaCop: 50_000_000, precioManualCop: 39_400_000, costoBateriaCop: 6_000_000, medidorCop: 1_300_000 }, IVA)
     expect(p).toBeCloseTo(30_000_000, 0)
+  })
+})
+
+describe('difiereDeSugerido', () => {
+  it('returns false when either value is missing', () => {
+    expect(difiereDeSugerido(null, 10_000_000)).toBe(false)
+    expect(difiereDeSugerido(10_000_000, null)).toBe(false)
+    expect(difiereDeSugerido(null, null)).toBe(false)
+  })
+
+  it('returns false within 10%', () => {
+    expect(difiereDeSugerido(10_000_000, 10_000_000)).toBe(false)
+    expect(difiereDeSugerido(11_000_000, 10_000_000)).toBe(false)
+    expect(difiereDeSugerido(9_000_000, 10_000_000)).toBe(false)
+  })
+
+  it('returns true beyond 10%', () => {
+    expect(difiereDeSugerido(11_100_000, 10_000_000)).toBe(true)
+    expect(difiereDeSugerido(6_000_000, 10_000_000)).toBe(true)
+  })
+
+  it('returns false when the suggestion is 0', () => {
+    expect(difiereDeSugerido(5_000_000, 0)).toBe(false)
+  })
+
+  it('honors a custom tolerance', () => {
+    expect(difiereDeSugerido(10_600_000, 10_000_000, 0.05)).toBe(true)
   })
 })

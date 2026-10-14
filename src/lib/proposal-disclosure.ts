@@ -36,6 +36,13 @@ export function margenBruto(
   return { costo, margen: (precioCop - costo) / precioCop }
 }
 
+// A stored COGS value is never re-suggested, so it goes stale when kWp changes.
+export function difiereDeSugerido(valor: number | null, sugerido: number | null, tolerancia = 0.1): boolean {
+  if (valor === null || sugerido === null) return false
+  if (!Number.isFinite(valor) || !Number.isFinite(sugerido) || sugerido <= 0) return false
+  return Math.abs(valor - sugerido) / sugerido > tolerancia
+}
+
 // The margin covers the solar part only: battery and meter are in the price but have no cost field.
 export function precioParaMargen(
   p: { totalCurvaCop: number; precioManualCop: number | null; costoBateriaCop: number; medidorCop: number },

@@ -9,7 +9,7 @@ import { initialAdvancedData } from '@/lib/defaults'
 import { INVERTER_DATABASE, PROMEDIOS_COSTO } from '@/lib/constants'
 import { cotizacion, buildInputFromStore, MEDIDOR_BIDIRECCIONAL_COP } from '@/lib/calculator/index'
 import { cogsSugerido } from '@/lib/equipment-prices'
-import { margenBruto, MARGEN_MINIMO, precioParaMargen } from '@/lib/proposal-disclosure'
+import { difiereDeSugerido, margenBruto, MARGEN_MINIMO, precioParaMargen } from '@/lib/proposal-disclosure'
 import { formatCOP, formatCOPShort } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -179,6 +179,14 @@ export function StepAdvanced() {
         formValues.cogs_instalacion_cop,
       ])
     : null
+
+  const avisosCogs: Partial<Record<(typeof COGS_CAMPOS)[number]['name'], string>> = {}
+  if (sugerido && difiereDeSugerido(formValues.cogs_modulos_cop ?? null, sugerido.modulosCop)) {
+    avisosCogs.cogs_modulos_cop = `El costo de módulos no coincide con el tamaño actual del sistema (sugerido ${formatCOPShort(sugerido.modulosCop, false)}).`
+  }
+  if (sugerido && sugerido.inversorCop !== null && difiereDeSugerido(formValues.cogs_inversor_cop ?? null, sugerido.inversorCop)) {
+    avisosCogs.cogs_inversor_cop = `El costo del inversor no coincide con el sugerido para este sistema (${formatCOPShort(sugerido.inversorCop, false)}).`
+  }
 
   return (
     <Card>
@@ -712,6 +720,9 @@ export function StepAdvanced() {
                       setValue(campo.name, e.target.value === '' || !Number.isFinite(n) ? null : n)
                     }}
                   />
+                  {avisosCogs[campo.name] && (
+                    <p className="text-xs font-medium text-destructive">{avisosCogs[campo.name]}</p>
+                  )}
                 </div>
               ))}
             </div>
