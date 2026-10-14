@@ -104,11 +104,9 @@ export function processPVGISData(
   let allPoa = true
   const hsp: number[] = []
   for (let i = 0; i < 12; i++) {
-    let daily: number
-    if (counts[i] > 0) {
-      daily = sums[i] / counts[i] / DIAS_POR_MES[i]
-      if (daily > 8) allPoa = false
-    } else {
+    let daily = counts[i] > 0 ? sums[i] / counts[i] / DIAS_POR_MES[i] : NaN
+    // An implausible month (<= 0 or > 8 HSP) is treated like a missing one.
+    if (!(daily > 0 && daily <= 8)) {
       allPoa = false
       const region = getClimateData(lat)
       const seasonal = getSeasonalFactor(lat, i)

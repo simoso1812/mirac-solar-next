@@ -51,6 +51,21 @@ describe('processPVGISData', () => {
     expect(parsed?.hsp).toHaveLength(12)
   })
 
+  it('backfills an implausible month (> 8 HSP) like a missing one', () => {
+    const daily = Array(12).fill(5.38)
+    daily[3] = 9.5
+    const parsed = processPVGISData(poaPayload(daily), 6.252, -75.014)
+
+    const sinAbril = poaPayload(Array(12).fill(5.38))
+    delete (sinAbril.outputs as { monthly: Record<string, unknown>[] }).monthly[3]['H(i)_m']
+    const backfill = processPVGISData(sinAbril, 6.252, -75.014)
+
+    expect(parsed?.source).toBe('estimada')
+    expect(parsed!.hsp[3]).not.toBe(9.5)
+    expect(parsed!.hsp[3]).toBe(backfill!.hsp[3])
+    expect(parsed!.hsp[0]).toBeCloseTo(5.38, 1)
+  })
+
   it('averages the per-year rows MRcalc returns into 12 monthly values', () => {
     const rows = [2005, 2006].flatMap((year, y) =>
       DIAS.map((d, i) => ({ year, month: i + 1, 'H(i)_m': (y === 0 ? 5 : 6) * d })),
