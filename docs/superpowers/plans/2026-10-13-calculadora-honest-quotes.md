@@ -10,6 +10,8 @@
 
 **Repo:** `/Users/simonosorio/Desktop/mirac-solar-next`. Work on a branch, not `main`, unless the human says otherwise.
 
+**Status (2026-10-14):** Tasks 1–4 are done and on `main` (commit `df6e95d`). Tasks 5–7 are authorized. Start at Task 5.
+
 ## Global Constraints
 
 - Spanish in every user-facing string. No emojis in source or commit messages.
@@ -21,14 +23,16 @@
 - Do not add absolute `Pos` coordinates on `info_financiera.jpg` in `src/lib/pdf/proposal-pdf.tsx`. That page is a designed background.
 - Tax toggles stay default-on (`beneficios_tributarios`, `incluir_deduccion_renta`, `incluir_depreciacion_acelerada` remain `true` in `initialAdvancedData`).
 - New radiation uses tilt `10` degrees and aspect `0` (south). Do not call the live PVGIS API from tests.
-- Do not hardcode module or inverter COP prices from memory. COGS fields start as `null` and the user types them.
+- Module and inverter COP prices come only from the live equipment sheet (Task 7 Step 1), never from memory, the Obsidian vault, or an old quote. Panels and inverters carry no IVA: the sheet price is final, never add 19%. BOS and installation COGS start as `null` and the user types them.
 - `npm test` snapshot updates are forbidden. Do not pass `-u` to Vitest.
 - Commit a task only when the human has asked for commits in that session. Never push.
-- **Execution scope:** Tasks 1–4 are the default job. Stop after Task 4 and ask before Task 5 (new coordinate quotes change kWh). Stop after Task 6 and ask before Task 7 (internal margin).
+- **Execution scope:** Tasks 1–4 are done. Tasks 5, 6, 7 are authorized (human, 2026-10-14), in that order. Task 5 changes kWh on new coordinate quotes; that is expected. Stop inside Task 7 only if the equipment sheet cannot be read (Task 7 Step 1).
 
 ---
 
 ### Task 1: Disclosure helpers
+
+**Status: done (`df6e95d`).**
 
 **Files:**
 - Create: `src/lib/proposal-disclosure.ts`
@@ -139,6 +143,8 @@ Expected: PASS.
 ---
 
 ### Task 2: Show the two paybacks and the connection mode
+
+**Status: done (`df6e95d`).**
 
 **Files:**
 - Modify: `src/components/virtual/executive-summary.tsx`
@@ -264,6 +270,8 @@ Expected: PASS and a clean typecheck.
 
 ### Task 3: Default new quotes to net billing
 
+**Status: done (`df6e95d`).**
+
 **Files:**
 - Modify: `src/lib/defaults.ts` (`modo_conexion`)
 - Modify: `src/lib/calculator/__tests__/golden.test.ts` (the assertion at the `maps defaults without surprises` test, currently `expect(input.modoConexion).toBe('net_metering')`)
@@ -301,6 +309,8 @@ If any other test fails only because `deepMerge(initialAdvancedData, ...)` now i
 ---
 
 ### Task 4: Docs and the PPA footnote
+
+**Status: done (`df6e95d`).**
 
 **Files:**
 - Modify: `AGENTS.md` (the Cost model bullets under Domain rules)
@@ -345,7 +355,7 @@ Run: `npm test && npx tsc --noEmit`
 
 Expected: PASS, clean typecheck.
 
-Stop here. Tell the human Tasks 1–4 are done and Tasks 5–6 change kWh on the next coordinate fetch. Do not start Task 5 unless they say to continue.
+Done in `df6e95d`. Continue with Task 5.
 
 ---
 
@@ -474,7 +484,7 @@ Run: `npx vitest run src/lib/__tests__/pvgis.test.ts && npm test && npx tsc --no
 
 Expected: PASS. No snapshot diffs.
 
-Stop. Ask before Task 7.
+Continue with Task 6, then Task 7.
 
 ---
 
@@ -504,17 +514,167 @@ Search `step-project.tsx` for `pvgis`. The only user-visible radiation strings a
 - Modify: `src/lib/share.ts` (`toPayload`, `fromPayload`)
 - Modify: `src/components/quotation/step-advanced.tsx`
 - Modify: `src/lib/proposal-disclosure.ts`
+- Create: `src/lib/equipment-prices.ts` (dated snapshot of the live equipment sheet + `cogsSugerido`)
+- Test: `src/lib/__tests__/equipment-prices.test.ts`
 - Test: `src/lib/__tests__/proposal-disclosure.test.ts`
 - Test: `src/lib/__tests__/share.test.ts` or `src/lib/__tests__/share-sanitize.test.ts` (whichever already imports `toPayload`)
 
 **Interfaces:**
-- Consumes: `AdvancedData`, `toPayload`
+- Consumes: `AdvancedData`, `toPayload`, `calcResults.kwp` and `calcResults.costo_total_cop` inside `step-advanced.tsx`, `advanced.bateria.habilitada`, `PROMEDIOS_COSTO.iva_rate`
 - Produces:
   - `AdvancedData` fields `cogs_modulos_cop`, `cogs_inversor_cop`, `cogs_bos_cop`, `cogs_instalacion_cop`, each `number | null`
   - `export const MARGEN_MINIMO = 0.5`
   - `export function margenBruto(precioCop: number, partes: Array<number | null>): { costo: number; margen: number } | null`
+  - In `src/lib/equipment-prices.ts`:
+    - `export interface PrecioModulo { producto: string; wp: number; proveedor: string; precioCop: number; cotizado: string }` (`cotizado` is `YYYY-MM-DD`)
+    - `export interface PrecioInversor { producto: string; kw: number; tipo: 'on_grid' | 'hibrido'; proveedor: string; precioCop: number; cotizado: string }`
+    - `export const PRECIOS_EQUIPOS_LEIDO: string` (date the sheet was read, `YYYY-MM-DD`)
+    - `export const MODULOS: PrecioModulo[]`, `export const INVERSORES: PrecioInversor[]`
+    - `export const DIAS_PRECIO_VIGENTE = 60`
+    - `export interface CogsSugerido { modulosCop: number; inversorCop: number; modulo: PrecioModulo; inversor: PrecioInversor; cantidadInversores: number; referenciaVieja: boolean }`
+    - `export function cogsSugerido(kwp: number, conBateria: boolean, hoy: Date, modulos?: PrecioModulo[], inversores?: PrecioInversor[]): CogsSugerido | null`
 
-- [ ] **Step 1: Write the failing margin tests**
+The selling price for margin is the price **before IVA**: `calcResults.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)`. `costo_total_cop` already includes the 7% IVA (`src/lib/calculator/index.ts`), so using it directly would overstate margin.
+
+- [ ] **Step 1: Build the snapshot from the live sheet**
+
+Read the Google Sheet `1f855ajzAGKBHHb_jGmyYN-8K1D2LeWuZGESOpiZyInU` with the Google Drive connector (`read_file_content` with that fileId). If the connector is not available or not signed in, ask the human for a CSV export of the sheet (File → Download → CSV). If neither is possible, stop and say so. Do not fill the snapshot from the Obsidian vault mirror, from an earlier quote, or from memory.
+
+The sheet has three blocks (hybrid/SPE inverters, Huawei, modules) with columns `Producto | Voltaje | Proveedor | Precio Unitario | Fecha de Cotización | Notas`. Build `src/lib/equipment-prices.ts`:
+
+- One entry per product + supplier, using the row with the most recent `Fecha de Cotización`. Skip rows with no price.
+- Modules: `wp` from the product name or notes. Inverters: `kw` from the product name or notes.
+- `tipo`: rows in the hybrid block are `'hibrido'`; Huawei string inverters are `'on_grid'`. If a row's type is not clear from its block and name, ask the human. Do not guess.
+- `precioCop` is the sheet number as is. No IVA is added.
+- `PRECIOS_EQUIPOS_LEIDO` is the date you read the sheet.
+- Put this comment above the arrays: `// Snapshot of the live equipment sheet. Refresh by re-reading the sheet; do not edit prices by hand.`
+
+Tell the human the read date in your final report, so the vault mirror note can be refreshed if the sheet changed.
+
+- [ ] **Step 2: Write the failing `cogsSugerido` tests**
+
+The fixture numbers are test data, not prices.
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { cogsSugerido, type PrecioInversor, type PrecioModulo } from '@/lib/equipment-prices'
+
+const modulos: PrecioModulo[] = [
+  { producto: 'Modulo A', wp: 720, proveedor: 'P1', precioCop: 388_800, cotizado: '2026-09-20' },
+  { producto: 'Modulo B', wp: 625, proveedor: 'P2', precioCop: 357_500, cotizado: '2026-09-20' },
+]
+const inversores: PrecioInversor[] = [
+  { producto: 'Red 10K', kw: 10, tipo: 'on_grid', proveedor: 'P1', precioCop: 4_000_000, cotizado: '2026-09-20' },
+  { producto: 'Red 12K', kw: 12, tipo: 'on_grid', proveedor: 'P2', precioCop: 3_800_000, cotizado: '2026-09-20' },
+  { producto: 'Red 5K', kw: 5, tipo: 'on_grid', proveedor: 'P1', precioCop: 1_500_000, cotizado: '2026-09-20' },
+  { producto: 'Hibrido 10K', kw: 10, tipo: 'hibrido', proveedor: 'P3', precioCop: 7_000_000, cotizado: '2026-08-01' },
+]
+const HOY = new Date('2026-10-14')
+
+describe('cogsSugerido', () => {
+  it('uses the cheapest COP/Wp module and a whole number of panels', () => {
+    const r = cogsSugerido(10, false, HOY, modulos, inversores)
+    expect(r?.modulo.producto).toBe('Modulo A')
+    expect(r?.modulosCop).toBe(14 * 388_800)
+  })
+
+  it('picks the cheapest single on-grid inverter at least as large as the array', () => {
+    const r = cogsSugerido(9.5, false, HOY, modulos, inversores)
+    expect(r?.inversor.producto).toBe('Red 12K')
+    expect(r?.cantidadInversores).toBe(1)
+    expect(r?.inversorCop).toBe(3_800_000)
+  })
+
+  it('uses a hybrid inverter when the quote has a battery', () => {
+    const r = cogsSugerido(9.5, true, HOY, modulos, inversores)
+    expect(r?.inversor.tipo).toBe('hibrido')
+    expect(r?.inversorCop).toBe(7_000_000)
+  })
+
+  it('combines several units of the cheapest COP/W inverter when no single one is large enough', () => {
+    const r = cogsSugerido(30, false, HOY, modulos, inversores)
+    expect(r?.inversor.producto).toBe('Red 5K')
+    expect(r?.cantidadInversores).toBe(6)
+    expect(r?.inversorCop).toBe(9_000_000)
+  })
+
+  it('flags a quote older than 60 days as an old reference', () => {
+    expect(cogsSugerido(9.5, true, HOY, modulos, inversores)?.referenciaVieja).toBe(true)
+    expect(cogsSugerido(9.5, false, HOY, modulos, inversores)?.referenciaVieja).toBe(false)
+  })
+
+  it('returns null without a positive size or without rows of the needed type', () => {
+    expect(cogsSugerido(0, false, HOY, modulos, inversores)).toBeNull()
+    expect(cogsSugerido(10, true, HOY, modulos, inversores.filter((i) => i.tipo === 'on_grid'))).toBeNull()
+  })
+})
+```
+
+- [ ] **Step 3: Run the test to verify it fails**
+
+Run: `npx vitest run src/lib/__tests__/equipment-prices.test.ts`
+
+Expected: FAIL, `cogsSugerido` is not exported.
+
+- [ ] **Step 4: Implement `cogsSugerido`**
+
+Append to `src/lib/equipment-prices.ts`, below the snapshot:
+
+```ts
+export const DIAS_PRECIO_VIGENTE = 60
+const MS_DIA = 86_400_000
+
+export interface CogsSugerido {
+  modulosCop: number
+  inversorCop: number
+  modulo: PrecioModulo
+  inversor: PrecioInversor
+  cantidadInversores: number
+  referenciaVieja: boolean
+}
+
+function masBarato<T>(xs: T[], costo: (x: T) => number): T | null {
+  return xs.reduce<T | null>((best, x) => (best === null || costo(x) < costo(best) ? x : best), null)
+}
+
+export function cogsSugerido(
+  kwp: number,
+  conBateria: boolean,
+  hoy: Date,
+  modulos: PrecioModulo[] = MODULOS,
+  inversores: PrecioInversor[] = INVERSORES,
+): CogsSugerido | null {
+  if (!Number.isFinite(kwp) || kwp <= 0) return null
+
+  const modulo = masBarato(modulos, (m) => m.precioCop / m.wp)
+  if (!modulo) return null
+  const paneles = Math.ceil((kwp * 1000) / modulo.wp)
+
+  const tipo = conBateria ? 'hibrido' : 'on_grid'
+  const delTipo = inversores.filter((i) => i.tipo === tipo)
+  const unico = masBarato(delTipo.filter((i) => i.kw >= kwp), (i) => i.precioCop)
+  const inversor = unico ?? masBarato(delTipo, (i) => i.precioCop / i.kw)
+  if (!inversor) return null
+  const cantidadInversores = unico ? 1 : Math.ceil(kwp / inversor.kw)
+
+  const viejo = (fecha: string) => hoy.getTime() - new Date(fecha).getTime() > DIAS_PRECIO_VIGENTE * MS_DIA
+
+  return {
+    modulosCop: paneles * modulo.precioCop,
+    inversorCop: cantidadInversores * inversor.precioCop,
+    modulo,
+    inversor,
+    cantidadInversores,
+    referenciaVieja: viejo(modulo.cotizado) || viejo(inversor.cotizado),
+  }
+}
+```
+
+Run: `npx vitest run src/lib/__tests__/equipment-prices.test.ts`
+
+Expected: PASS.
+
+- [ ] **Step 5: Write the failing margin tests**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -536,13 +696,13 @@ describe('margenBruto', () => {
 
 And a share test: build a `QuotationData` whose `advanced` includes the four COGS numbers, call `toPayload`, and expect `JSON.stringify(payload.a)` not to contain `cogs_modulos_cop`, `cogs_inversor_cop`, `cogs_bos_cop`, or `cogs_instalacion_cop`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **Step 6: Run the tests to verify they fail**
 
 Run: `npx vitest run src/lib/__tests__/proposal-disclosure.test.ts src/lib/__tests__/share.test.ts src/lib/__tests__/share-sanitize.test.ts`
 
 Expected: FAIL on `margenBruto` and on the COGS keys still present. If the share test file you picked does not exist, add the assertion to the file that already imports `toPayload`.
 
-- [ ] **Step 3: Implement margin and the strip**
+- [ ] **Step 7: Implement margin and the strip**
 
 ```ts
 export const MARGEN_MINIMO = 0.5
@@ -563,9 +723,20 @@ Add the four fields to `AdvancedData`, to `advancedSchema` as `z.number().min(0)
 
 In `toPayload`, omit the four keys from `a` before the return. In `fromPayload`, after `deepMerge`, set all four back to `null` so a payload that already contains them cannot rehydrate onto a public page.
 
-- [ ] **Step 4: Wizard UI**
+- [ ] **Step 8: Wizard UI**
 
-In `step-advanced.tsx`, add a section titled `Costo interno`. The description is `No sale en el link del cliente.` Four number inputs, empty when the value is `null`: módulos, inversor, BOS, instalación, in COP. On submit, store `null` for a blank input and the finite number otherwise.
+In `step-advanced.tsx`, add a section titled `Costo interno`. The description is `No sale en el link del cliente.` Four number inputs in COP: módulos, inversor, BOS, instalación. On submit, store `null` for a blank input and the finite number otherwise.
+
+Pre-fill from the snapshot: compute `const sugerido = cogsSugerido(calcResults.kwp, advanced.bateria.habilitada, new Date())` (use the same advanced values the form already reads). When the form initializes and a stored value is `null`:
+
+- `cogs_modulos_cop` starts at `sugerido.modulosCop`, with the caption `Sugerido: ${sugerido.modulo.producto} ${sugerido.modulo.wp} W, ${sugerido.modulo.proveedor}, cotizado ${sugerido.modulo.cotizado}.`
+- `cogs_inversor_cop` starts at `sugerido.inversorCop`, with the caption `Sugerido: ${sugerido.cantidadInversores} × ${sugerido.inversor.producto}, ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
+- If `sugerido.referenciaVieja`, add one line under both captions: `Precio de referencia viejo: la cotización tiene más de 60 días.`
+- BOS and instalación stay empty. They are not in the sheet.
+
+A stored number is never replaced by the suggestion. The user can edit or clear any pre-filled value. If `sugerido` is `null`, all four start empty and no caption shows.
+
+Compute margin with the pre-IVA price: `margenBruto(calcResults.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate), [modulos, inversor, bos, instalacion])` using the current input values.
 
 When `margenBruto` returns a value and `margen < MARGEN_MINIMO`, show:
 
@@ -575,11 +746,11 @@ When it returns a value at or above `0.5`, show the percentage with no warning. 
 
 Do not render these fields from `executive-summary.tsx`, `financial-section.tsx`, `ppa-section.tsx`, or `proposal-pdf.tsx`.
 
-- [ ] **Step 5: Verify**
+- [ ] **Step 9: Verify**
 
 Run: `npm test && npx tsc --noEmit`
 
-Expected: PASS, clean typecheck. Confirm with a search that `cogs_modulos_cop` does not appear under `src/components/virtual/` or `src/lib/pdf/`.
+Expected: PASS, clean typecheck. Confirm with a search that `cogs_modulos_cop` and `equipment-prices` do not appear under `src/components/virtual/`, `src/lib/pdf/` or `src/lib/mcp/`.
 
 ---
 
@@ -588,5 +759,5 @@ Expected: PASS, clean typecheck. Confirm with a search that `cogs_modulos_cop` d
 - A new quote defaults to net billing at 300 COP/kWh. An old quote with `modo_conexion: 'net_metering'` still says net metering.
 - The virtual proposal and the MCP summary show engine payback and simple payback, and a Ley 1715 sentence only when a tax toggle is on.
 - `estimatePrice`, the engine tax math, `INDICE_MIRAC`, and the IVA rate are unchanged. `npm test` has no snapshot diff.
-- If Tasks 5–6 were authorized: a complete `H(i)_m` year is `pvgis_poa`; horizontal or incomplete data is `estimada`; stored 12-vectors are untouched.
-- If Task 7 was authorized: margin is visible in the wizard and absent from `toPayload`.
+- A complete `H(i)_m` year is `pvgis_poa`; horizontal or incomplete data is `estimada`; stored 12-vectors are untouched.
+- The wizard pre-fills module and inverter cost from a dated snapshot of the live sheet, shows margin against the pre-IVA price, warns under 50%, and none of it reaches `toPayload`, the virtual proposal, the PDF, or the MCP.
