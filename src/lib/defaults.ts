@@ -83,6 +83,14 @@ export const initialAdvancedData: AdvancedData = {
   cogs_instalacion_cop: null,
 }
 
+// Internal cost fields: never sent to the public link, never rehydrated from it.
+export const COGS_KEYS = [
+  'cogs_modulos_cop',
+  'cogs_inversor_cop',
+  'cogs_bos_cop',
+  'cogs_instalacion_cop',
+] as const satisfies readonly (keyof AdvancedData)[]
+
 export function deepMerge<T>(base: T, partial: unknown): T {
   if (partial === null || partial === undefined) return base
   if (typeof base !== 'object' || base === null) return (partial as T) ?? base

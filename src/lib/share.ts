@@ -5,6 +5,7 @@
  */
 import type { QuotationData, RoofDesign } from '@/lib/types'
 import {
+  COGS_KEYS,
   deepMerge,
   initialAdvancedData,
   initialClientData,
@@ -71,9 +72,6 @@ function sanitizeRoofDesign(d: RoofDesign | null): RoofDesign | null {
   }
 }
 
-// Internal cost fields: never sent to the public link, never rehydrated from it.
-const COGS_KEYS = ['cogs_modulos_cop', 'cogs_inversor_cop', 'cogs_bos_cop', 'cogs_instalacion_cop'] as const
-
 export function toPayload(proposal: QuotationData): SharePayload {
   const { client: c, project: p, technical: t, advanced: a } = proposal
   // `h` must be 12 finite numbers or null — a NaN element serializes to null and
@@ -127,13 +125,8 @@ export function fromPayload(payload: SharePayload, shareId?: string): QuotationD
     alto_m: payload.t.al ?? 2.38,
     diseno_techo: (payload.t.dt as RoofDesign | null) ?? null,
   })
-  const advanced = {
-    ...deepMerge(initialAdvancedData, payload.a),
-    cogs_modulos_cop: null,
-    cogs_inversor_cop: null,
-    cogs_bos_cop: null,
-    cogs_instalacion_cop: null,
-  }
+  const advanced = { ...deepMerge(initialAdvancedData, payload.a) }
+  for (const key of COGS_KEYS) advanced[key] = null
   const docuseal = payload.d as unknown as QuotationData['docuseal']
 
   return {

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
-import { initialAdvancedData } from '@/lib/defaults'
+import { COGS_KEYS, initialAdvancedData } from '@/lib/defaults'
 import { INVERTER_DATABASE, PROMEDIOS_COSTO } from '@/lib/constants'
 import { cotizacion, buildInputFromStore, MEDIDOR_BIDIRECCIONAL_COP } from '@/lib/calculator/index'
 import { cogsSugerido } from '@/lib/equipment-prices'
@@ -30,12 +30,13 @@ import { ImagesSection } from '@/components/quotation/advanced/images-section'
 // key is correct here.
 const ROW_KEYS = Array.from({ length: 64 }, (_, i) => `row-${i}`)
 
-const COGS_CAMPOS = [
-  { name: 'cogs_modulos_cop', label: 'Módulos (COP)' },
-  { name: 'cogs_inversor_cop', label: 'Inversor (COP)' },
-  { name: 'cogs_bos_cop', label: 'BOS (COP)' },
-  { name: 'cogs_instalacion_cop', label: 'Instalación (COP)' },
-] as const
+const COGS_ETIQUETAS: Record<(typeof COGS_KEYS)[number], string> = {
+  cogs_modulos_cop: 'Módulos (COP)',
+  cogs_inversor_cop: 'Inversor (COP)',
+  cogs_bos_cop: 'BOS (COP)',
+  cogs_instalacion_cop: 'Instalación (COP)',
+}
+const COGS_CAMPOS = COGS_KEYS.map((name) => ({ name, label: COGS_ETIQUETAS[name] }))
 
 const CAMPOS_SUGERIDOS = ['cogs_modulos_cop', 'cogs_inversor_cop'] as const
 type CampoSugerido = (typeof CAMPOS_SUGERIDOS)[number]
@@ -172,15 +173,11 @@ export function StepAdvanced() {
     : null
   const hayPrecioMargen = precioMargen !== null && Number.isFinite(precioMargen) && precioMargen > 0
   const margen = hayPrecioMargen
-    ? margenBruto(precioMargen, [
-        formValues.cogs_modulos_cop,
-        formValues.cogs_inversor_cop,
-        formValues.cogs_bos_cop,
-        formValues.cogs_instalacion_cop,
-      ])
+    ? margenBruto(precioMargen, COGS_KEYS.map((key) => formValues[key] ?? null))
     : null
+  const precioManualSinCubrir = calcResults !== null && (formValues.precio_manual ?? 0) > 0 && !hayPrecioMargen
 
-  const avisosCogs: Partial<Record<(typeof COGS_CAMPOS)[number]['name'], string>> = {}
+  const avisosCogs: Partial<Record<(typeof COGS_KEYS)[number], string>> = {}
   if (sugerido && difiereDeSugerido(formValues.cogs_modulos_cop ?? null, sugerido.modulosCop)) {
     avisosCogs.cogs_modulos_cop = `El costo de módulos no coincide con el tamaño actual del sistema (sugerido ${formatCOPShort(sugerido.modulosCop, false)}).`
   }
@@ -741,12 +738,14 @@ export function StepAdvanced() {
                 )}
               </div>
             )}
-            <p className={`text-sm ${margen && margen.margen < MARGEN_MINIMO ? 'font-medium text-destructive' : ''}`}>
-              {!hayPrecioMargen
-                ? 'Sin precio calculado todavía.'
-                : margen
-                  ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
-                  : 'Completa los cuatro costos para ver el margen.'}
+            <p className={`text-sm ${precioManualSinCubrir || (margen && margen.margen < MARGEN_MINIMO) ? 'font-medium text-destructive' : ''}`}>
+              {precioManualSinCubrir
+                ? 'El precio manual no cubre batería y medidor.'
+                : !hayPrecioMargen
+                  ? 'Sin precio calculado todavía.'
+                  : margen
+                    ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
+                    : 'Completa los cuatro costos para ver el margen.'}
             </p>
           </div>
 

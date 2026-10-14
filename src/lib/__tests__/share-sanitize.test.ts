@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { toPayload, fromPayload } from '@/lib/share'
 import { roofDesignSchema } from '@/lib/schemas'
 import {
+  COGS_KEYS,
   initialAdvancedData,
   initialClientData,
   initialProjectData,
@@ -123,8 +124,6 @@ describe('fromPayload id + status derivation (signing loop, roadmap #10/#13)', (
 })
 
 describe('internal COGS never reaches the public share payload', () => {
-  const COGS_KEYS = ['cogs_modulos_cop', 'cogs_inversor_cop', 'cogs_bos_cop', 'cogs_instalacion_cop']
-
   it('toPayload omits the four COGS fields from the advanced block', () => {
     const proposal = proposalWith({})
     proposal.advanced = {
@@ -142,9 +141,6 @@ describe('internal COGS never reaches the public share payload', () => {
     const payload = toPayload(proposalWith({}))
     payload.a = { ...payload.a, cogs_modulos_cop: 1, cogs_inversor_cop: 2, cogs_bos_cop: 3, cogs_instalacion_cop: 4 }
     const restored = fromPayload(payload)
-    expect(restored.advanced.cogs_modulos_cop).toBeNull()
-    expect(restored.advanced.cogs_inversor_cop).toBeNull()
-    expect(restored.advanced.cogs_bos_cop).toBeNull()
-    expect(restored.advanced.cogs_instalacion_cop).toBeNull()
+    for (const key of COGS_KEYS) expect(restored.advanced[key]).toBeNull()
   })
 })
