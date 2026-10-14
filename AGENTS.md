@@ -46,7 +46,7 @@ src/
 │   └── api/
 │       ├── [transport]/route.ts       # remote MCP server (Streamable HTTP) — solar quoting tools, served at /api/mcp
 │       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash; zod-validated, size-capped, rate-limited)
-│       ├── pvgis/route.ts             # PVGIS HSP fetch; climate fallback labeled source: 'estimated'
+│       ├── pvgis/route.ts             # PVGIS HSP fetch (inclined plane); source: 'pvgis_poa' | 'estimada'
 │       └── docuseal/
 │           ├── submission/route.ts    # create / refresh DocuSeal submission (slug-gated refresh, rate-limited)
 │           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
@@ -161,6 +161,8 @@ const liveResults = cotizacion(
 ```
 
 Always do this before passing results to `<ProposalPdf>`, the contract generator, or sharing.
+
+- **Radiation:** a new lat/lon fetch uses PVGIS `MRcalc` v5_3 on the inclined plane (`angle=10`, `aspect=0`) and may be labeled `pvgis_poa` only when all 12 months came from `H(i)_m`. Horizontal `H(h)_m`, a missing month, or a failed request is `estimada`. A proposal that already has 12 stored HSP values keeps those values.
 
 ## Battery sizing (recent area of change)
 

@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { cotizacion, buildInputFromStore } from '@/lib/calculator'
 import { ppaMetrics } from '@/lib/calculator/derived'
 import { estimatePrice, estimatePricePerKwp, estimateBatteryCost } from '@/lib/calculator/cost'
-import { fetchPVGIS, getHSPEstimado } from '@/lib/pvgis'
+import { fetchPVGIS, getHSPEstimado, type RadiationFetch } from '@/lib/pvgis'
 import { formatCOP } from '@/lib/formatting'
 import { paybackSimpleAnios, textoBeneficios, textoModoConexion } from '@/lib/proposal-disclosure'
 import { DEFAULT_PARAMS, HSP_MENSUAL_POR_CIUDAD, INVERTER_DATABASE } from '@/lib/constants'
@@ -265,7 +265,7 @@ export interface QuotationStores {
   advanced: AdvancedData
 }
 
-export type HspFuente = 'ciudad' | 'pvgis' | 'estimada' | 'personalizada'
+export type HspFuente = 'ciudad' | 'pvgis_poa' | 'estimada' | 'personalizada'
 
 export interface HspResolution {
   lat: number | null
@@ -297,13 +297,21 @@ export async function resolveHsp(a: QuoteArgs): Promise<HspResolution> {
     // Same rounding as /api/pvgis so the fetch cache hits for nearby points.
     const lat = Math.round(a.lat * 1000) / 1000
     const lon = Math.round(a.lon * 1000) / 1000
-    let hsp: number[] | null = null
+    let result: RadiationFetch | null = null
     try {
-      hsp = await fetchPVGIS(lat, lon)
+      result = await fetchPVGIS(lat, lon)
     } catch {
-      hsp = null
+      result = null
     }
-    if (hsp) return { lat, lon, hsp, fuente: 'pvgis', fallbackRadiacion: false }
+    if (result) {
+      return {
+        lat,
+        lon,
+        hsp: result.hsp,
+        fuente: result.source,
+        fallbackRadiacion: result.source !== 'pvgis_poa',
+      }
+    }
     return { lat, lon, hsp: getHSPEstimado(lat, lon), fuente: 'estimada', fallbackRadiacion: true }
   }
   return { lat: null, lon: null, hsp: null, fuente: 'ciudad', fallbackRadiacion: false }
@@ -507,7 +515,7 @@ export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
     : (HSP_MENSUAL_POR_CIUDAD[stores.project.ciudad.toUpperCase()] ?? HSP_MENSUAL_POR_CIUDAD['MEDELLIN'])
   const hspPromedio = hspUsado.reduce((a, b) => a + b, 0) / 12
   const hspFuente: HspFuente =
-    meta.hsp?.fuente ?? (input.hspMensualPVGIS ? 'pvgis' : 'ciudad')
+    meta.hsp?.fuente ?? (input.hspMensualPVGIS ? 'estimada' : 'ciudad')
 
   const structured = {
     kwp: r.kwp,
@@ -568,10 +576,10 @@ export async function runQuote(args: QuoteArgs) {
   const { summary, structured } = summarize(stores, { hsp: loc })
   const lugar = loc.lat !== null && loc.lon !== null ? `${loc.lat}, ${loc.lon}` : args.ciudad
   const fuenteNota =
-    loc.fuente === 'pvgis'
-      ? 'Radiacion: PVGIS (datos satelitales para las coordenadas).'
+    loc.fuente === 'pvgis_poa'
+      ? 'Radiacion: PVGIS, plano del arreglo, inclinacion 10° (datos satelitales para las coordenadas).'
       : loc.fuente === 'estimada'
-        ? 'Radiacion: estimacion climatica (PVGIS no respondio para las coordenadas).'
+        ? 'Radiacion: estimacion climatica (PVGIS incompleto o no disponible para las coordenadas).'
         : loc.fuente === 'personalizada'
           ? 'Radiacion: HSP personalizado enviado en la solicitud.'
           : null
