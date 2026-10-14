@@ -531,7 +531,8 @@ Search `step-project.tsx` for `pvgis`. The only user-visible radiation strings a
     - `export const PRECIOS_EQUIPOS_LEIDO: string` (date the sheet was read, `YYYY-MM-DD`)
     - `export const MODULOS: PrecioModulo[]`, `export const INVERSORES: PrecioInversor[]`
     - `export const DIAS_PRECIO_VIGENTE = 60`
-    - `export interface CogsSugerido { modulosCop: number; inversorCop: number; modulo: PrecioModulo; inversor: PrecioInversor; cantidadInversores: number; referenciaVieja: boolean }`
+    - `export interface CogsSugerido { modulosCop: number; modulo: PrecioModulo; inversorCop: number | null; inversor: PrecioInversor | null; referenciaVieja: boolean }`
+    - Inverter rule (human, 2026-10-14): suggest an inverter only when a **single** unit of the needed type covers the array (`kw >= kwp`); otherwise `inversor` and `inversorCop` are `null` and the user types the cost. Never stack units.
     - `export function cogsSugerido(kwp: number, conBateria: boolean, hoy: Date, modulos?: PrecioModulo[], inversores?: PrecioInversor[]): CogsSugerido | null`
 
 The selling price for margin is the price **before IVA**: `calcResults.costo_total_cop / (1 + PROMEDIOS_COSTO.iva_rate)`. `costo_total_cop` already includes the 7% IVA (`src/lib/calculator/index.ts`), so using it directly would overstate margin.
@@ -542,7 +543,8 @@ Read the Google Sheet `1f855ajzAGKBHHb_jGmyYN-8K1D2LeWuZGESOpiZyInU` with the Go
 
 The sheet has three blocks (hybrid/SPE inverters, Huawei, modules) with columns `Producto | Voltaje | Proveedor | Precio Unitario | Fecha de Cotización | Notas`. Build `src/lib/equipment-prices.ts`:
 
-- One entry per product + supplier, using the row with the most recent `Fecha de Cotización`. Skip rows with no price.
+- One entry per product + power + supplier, using the row with the most recent `Fecha de Cotización`. Skip rows with no price. Dates in the sheet come in several formats (`30/7/26`, `25/08/26`, `07/09/2026`, `04.08.2026`); store them as `YYYY-MM-DD`. A date in the future is a typo: ask the human.
+- `precioCop` is rounded to whole pesos.
 - Modules: `wp` from the product name or notes. Inverters: `kw` from the product name or notes.
 - `tipo`: rows in the hybrid block are `'hibrido'`; Huawei string inverters are `'on_grid'`. If a row's type is not clear from its block and name, ask the human. Do not guess.
 - `precioCop` is the sheet number as is. No IVA is added.
@@ -580,22 +582,27 @@ describe('cogsSugerido', () => {
 
   it('picks the cheapest single on-grid inverter at least as large as the array', () => {
     const r = cogsSugerido(9.5, false, HOY, modulos, inversores)
-    expect(r?.inversor.producto).toBe('Red 12K')
-    expect(r?.cantidadInversores).toBe(1)
+    expect(r?.inversor?.producto).toBe('Red 12K')
     expect(r?.inversorCop).toBe(3_800_000)
   })
 
   it('uses a hybrid inverter when the quote has a battery', () => {
     const r = cogsSugerido(9.5, true, HOY, modulos, inversores)
-    expect(r?.inversor.tipo).toBe('hibrido')
+    expect(r?.inversor?.tipo).toBe('hibrido')
     expect(r?.inversorCop).toBe(7_000_000)
   })
 
-  it('combines several units of the cheapest COP/W inverter when no single one is large enough', () => {
+  it('leaves the inverter blank when no single unit covers the array, but still suggests modules', () => {
     const r = cogsSugerido(30, false, HOY, modulos, inversores)
-    expect(r?.inversor.producto).toBe('Red 5K')
-    expect(r?.cantidadInversores).toBe(6)
-    expect(r?.inversorCop).toBe(9_000_000)
+    expect(r?.inversor).toBeNull()
+    expect(r?.inversorCop).toBeNull()
+    expect(r?.modulosCop).toBe(Math.ceil(30_000 / 720) * 388_800)
+  })
+
+  it('leaves the inverter blank when there are no rows of the needed type', () => {
+    const r = cogsSugerido(10, true, HOY, modulos, inversores.filter((i) => i.tipo === 'on_grid'))
+    expect(r?.inversor).toBeNull()
+    expect(r?.modulosCop).toBe(14 * 388_800)
   })
 
   it('flags a quote older than 60 days as an old reference', () => {
@@ -603,9 +610,9 @@ describe('cogsSugerido', () => {
     expect(cogsSugerido(9.5, false, HOY, modulos, inversores)?.referenciaVieja).toBe(false)
   })
 
-  it('returns null without a positive size or without rows of the needed type', () => {
+  it('returns null without a positive size or without modules', () => {
     expect(cogsSugerido(0, false, HOY, modulos, inversores)).toBeNull()
-    expect(cogsSugerido(10, true, HOY, modulos, inversores.filter((i) => i.tipo === 'on_grid'))).toBeNull()
+    expect(cogsSugerido(10, false, HOY, [], inversores)).toBeNull()
   })
 })
 ```
@@ -626,10 +633,9 @@ const MS_DIA = 86_400_000
 
 export interface CogsSugerido {
   modulosCop: number
-  inversorCop: number
   modulo: PrecioModulo
-  inversor: PrecioInversor
-  cantidadInversores: number
+  inversorCop: number | null
+  inversor: PrecioInversor | null
   referenciaVieja: boolean
 }
 
@@ -651,21 +657,19 @@ export function cogsSugerido(
   const paneles = Math.ceil((kwp * 1000) / modulo.wp)
 
   const tipo = conBateria ? 'hibrido' : 'on_grid'
-  const delTipo = inversores.filter((i) => i.tipo === tipo)
-  const unico = masBarato(delTipo.filter((i) => i.kw >= kwp), (i) => i.precioCop)
-  const inversor = unico ?? masBarato(delTipo, (i) => i.precioCop / i.kw)
-  if (!inversor) return null
-  const cantidadInversores = unico ? 1 : Math.ceil(kwp / inversor.kw)
+  const inversor = masBarato(
+    inversores.filter((i) => i.tipo === tipo && i.kw >= kwp),
+    (i) => i.precioCop,
+  )
 
   const viejo = (fecha: string) => hoy.getTime() - new Date(fecha).getTime() > DIAS_PRECIO_VIGENTE * MS_DIA
 
   return {
     modulosCop: paneles * modulo.precioCop,
-    inversorCop: cantidadInversores * inversor.precioCop,
     modulo,
+    inversorCop: inversor ? inversor.precioCop : null,
     inversor,
-    cantidadInversores,
-    referenciaVieja: viejo(modulo.cotizado) || viejo(inversor.cotizado),
+    referenciaVieja: viejo(modulo.cotizado) || (inversor !== null && viejo(inversor.cotizado)),
   }
 }
 ```
@@ -730,8 +734,9 @@ In `step-advanced.tsx`, add a section titled `Costo interno`. The description is
 Pre-fill from the snapshot: compute `const sugerido = cogsSugerido(calcResults.kwp, advanced.bateria.habilitada, new Date())` (use the same advanced values the form already reads). When the form initializes and a stored value is `null`:
 
 - `cogs_modulos_cop` starts at `sugerido.modulosCop`, with the caption `Sugerido: ${sugerido.modulo.producto} ${sugerido.modulo.wp} W, ${sugerido.modulo.proveedor}, cotizado ${sugerido.modulo.cotizado}.`
-- `cogs_inversor_cop` starts at `sugerido.inversorCop`, with the caption `Sugerido: ${sugerido.cantidadInversores} × ${sugerido.inversor.producto}, ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
-- If `sugerido.referenciaVieja`, add one line under both captions: `Precio de referencia viejo: la cotización tiene más de 60 días.`
+- When `sugerido.inversor` is not null, `cogs_inversor_cop` starts at `sugerido.inversorCop`, with the caption `Sugerido: ${sugerido.inversor.producto} (${sugerido.inversor.kw} kW), ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
+- When `sugerido.inversor` is null, `cogs_inversor_cop` stays empty with the caption `Ningún inversor del sheet cubre ${kwp} kWp por sí solo; escribe el costo.` (`kwp` with one decimal).
+- If `sugerido.referenciaVieja`, add one line under the captions: `Precio de referencia viejo: la cotización tiene más de 60 días.`
 - BOS and instalación stay empty. They are not in the sheet.
 
 A stored number is never replaced by the suggestion. The user can edit or clear any pre-filled value. If `sugerido` is `null`, all four start empty and no caption shows.
