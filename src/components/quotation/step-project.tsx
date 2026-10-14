@@ -43,9 +43,11 @@ export function StepProject() {
         setHspData(data.hsp)
         setHspSource(data.source)
       } else {
+        setHspData(null)
         setHspSource('estimada')
       }
     } catch {
+      setHspData(null)
       setHspSource('estimada')
     } finally {
       setIsFetchingHSP(false)
@@ -154,6 +156,13 @@ export function StepProject() {
               <Loader2 className="size-4 animate-spin" />
               Obteniendo datos de irradiancia solar (PVGIS)...
             </div>
+          )}
+
+          {!hspData && !isFetchingHSP && hspSource === 'estimada' && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sun className="size-4 text-mirac-yellow" />
+              Estimación climática (PVGIS incompleto o no disponible).
+            </p>
           )}
 
           {hspData && !isFetchingHSP && (

@@ -515,7 +515,7 @@ export function summarize(stores: QuotationStores, meta: SummarizeMeta = {}) {
     : (HSP_MENSUAL_POR_CIUDAD[stores.project.ciudad.toUpperCase()] ?? HSP_MENSUAL_POR_CIUDAD['MEDELLIN'])
   const hspPromedio = hspUsado.reduce((a, b) => a + b, 0) / 12
   const hspFuente: HspFuente =
-    meta.hsp?.fuente ?? (input.hspMensualPVGIS ? 'estimada' : 'ciudad')
+    meta.hsp?.fuente ?? (input.hspMensualPVGIS?.length === 12 ? 'estimada' : 'ciudad')
 
   const structured = {
     kwp: r.kwp,
