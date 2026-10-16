@@ -39,7 +39,7 @@ export function VersionSelector({ versions, activeIndex, onSelect }: VersionSele
               </p>
               {r && (
                 <p className="mt-1 text-xs text-[#9AA3A7]">
-                  {formatKWp(r.kwp)} · {formatCOPMillones(r.costo_total_cop)}
+                  {formatKWp(r.kwp)} · ahorro {formatCOPMillones(r.ahorro_anual_cop)}/año
                 </p>
               )}
             </button>

@@ -8,6 +8,7 @@ import { Redis } from '@upstash/redis'
 import { quoteInputShape, buildStores, resolveHsp, summarize, type QuoteArgs } from './quote'
 import { assertStorable, assertUniqueLabels, buildSharedVersion, optionInputSchema } from './create-link'
 import { toPayload, fromPayload, type SharePayload } from '@/lib/share'
+import { ofertaValidezHasta } from '@/lib/formatting'
 
 const MAX_OPTIONS = 20
 
@@ -147,6 +148,13 @@ async function regenerate(current: ReturnType<typeof fromPayload>, args: UpdateQ
       lon: current.project.lon,
       hsp_mensual_pvgis: current.project.hsp_mensual_pvgis,
     }
+  }
+  // buildStores re-stamps fecha to today. Keep the original emission date when it
+  // expires later (a link sent with 30 days must not drop to 15 on an update).
+  const vencePrevio = ofertaValidezHasta(current.project.fecha)
+  const venceNuevo = ofertaValidezHasta(stores.project.fecha)
+  if (vencePrevio && venceNuevo && vencePrevio.getTime() > venceNuevo.getTime()) {
+    stores.project = { ...stores.project, fecha: current.project.fecha }
   }
   const { summary, structured } = summarize(stores, loc.fuente === 'ciudad' ? {} : { hsp: loc })
   const payload = toPayload({

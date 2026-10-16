@@ -12,6 +12,7 @@ import {
 } from '@react-pdf/renderer'
 import type { CalculationResults, ClientData, ProjectData, TechnicalData, AdvancedData, ProposalImage } from '@/lib/types'
 import { ivaBreakdown, ppaMetrics } from '@/lib/calculator/derived'
+import { ofertaValidezDias } from '@/lib/formatting'
 
 // Register fonts
 Font.register({
@@ -208,7 +209,7 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
           {fechaStr}
         </Pos>
         <Pos x={147} y={266} fontSize={8} color={BRAND_RED}>
-          Oferta válida por 30 días
+          Oferta válida por {ofertaValidezDias(project.fecha)} días
         </Pos>
       </Page>
 

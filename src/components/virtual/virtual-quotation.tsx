@@ -132,27 +132,27 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           potenciaPanelW={proposal.technical.potencia_panel_w}
         />
         <BatterySection results={whatIfResults} />
-        <PricingTable results={whatIfResults} />
-        {!proposal.advanced.financiamiento?.habilitado && (
-          <PaymentScheduleSection total={whatIfResults.costo_total_cop} />
-        )}
-        <BillSimulationSection
-          results={whatIfResults}
-          costoKwh={overrides.costoKwh}
-          consumoMensualKwh={baseInput.consumoMensualKwh}
-        />
-        <FinancialSection
-          whatIfResults={whatIfResults}
-          overrides={overrides}
-          onOverridesChange={setOverrides}
-          financiamiento={proposal.advanced.financiamiento}
-        />
         <CostComparisonSection
           results={whatIfResults}
           costoKwh={overrides.costoKwh}
           consumoMensualKwh={baseInput.consumoMensualKwh}
           indexRate={baseInput.indexRate}
           horizonteAnios={overrides.horizonteAnios}
+        />
+        <BillSimulationSection
+          results={whatIfResults}
+          costoKwh={overrides.costoKwh}
+          consumoMensualKwh={baseInput.consumoMensualKwh}
+        />
+        <PricingTable results={whatIfResults} />
+        {!proposal.advanced.financiamiento?.habilitado && (
+          <PaymentScheduleSection total={whatIfResults.costo_total_cop} />
+        )}
+        <FinancialSection
+          whatIfResults={whatIfResults}
+          overrides={overrides}
+          onOverridesChange={setOverrides}
+          financiamiento={proposal.advanced.financiamiento}
         />
         {proposal.advanced.ppa?.habilitada && proposal.advanced.ppa.opciones?.length > 0 && (
           <PpaSection
