@@ -146,6 +146,10 @@ export default function SharedShortPage({
         isShared
         onDocusealUpdate={handleDocusealUpdate}
         onClientUpdate={handleClientUpdate}
+        shareRef={{
+          shareId: id,
+          ...(versions && versions.length > 1 ? { optionIndex: activeIndex } : {}),
+        }}
       />
     </div>
   )

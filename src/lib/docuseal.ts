@@ -4,6 +4,7 @@ interface DocusealSubmitter {
   id: number
   slug: string
   embed_src?: string
+  external_id?: string | null
   status?: string
   completed_at?: string | null
   declined_at?: string | null

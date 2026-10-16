@@ -147,6 +147,11 @@ export async function PATCH(request: NextRequest) {
       if (!slug || slug !== docusealPatch.submitter_slug) {
         return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
       }
+      // The slug proves access to the submission, not that it belongs to this
+      // link: shared submissions are created with external_id `s:<id>`.
+      if (submission.submitters?.[0]?.external_id !== `s:${id}`) {
+        return NextResponse.json({ error: 'La firma no corresponde a esta propuesta' }, { status: 403 })
+      }
       verifiedDocuseal = toDocusealSignatureData(submission) as unknown as Record<string, unknown>
     }
 

@@ -19,6 +19,7 @@ import { ProjectDetailsSection } from './project-details-section'
 import { ImportantAspectsSection } from './important-aspects-section'
 import { FaqSection } from './faq-section'
 import { CallToAction } from './call-to-action'
+import type { ShareSignRef } from './docuseal-sign-dialog'
 import { PhotoBand } from './mirac-lines'
 import { ofertaValidezHasta, formatFechaLarga, OFERTA_VALIDEZ_DIAS } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
@@ -28,6 +29,7 @@ interface VirtualQuotationProps {
   isShared?: boolean
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
   onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
+  shareRef?: ShareSignRef
 }
 
 function ValidityNotice({ validezHasta }: { validezHasta: Date | null }) {
@@ -84,7 +86,7 @@ function NotesSection({ notas }: { notas: string }) {
   )
 }
 
-export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClientUpdate }: VirtualQuotationProps) {
+export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClientUpdate, shareRef }: VirtualQuotationProps) {
   const baseInput = useMemo(
     () => buildInputFromStore(proposal.technical, proposal.project, proposal.advanced),
     [proposal.technical, proposal.project, proposal.advanced]
@@ -179,6 +181,7 @@ export function VirtualQuotation({ proposal, isShared, onDocusealUpdate, onClien
           onDocusealUpdate={onDocusealUpdate}
           onClientUpdate={onClientUpdate}
           validezHasta={validezHasta}
+          shareRef={shareRef}
         />
       </main>
       <VirtualFooter />
