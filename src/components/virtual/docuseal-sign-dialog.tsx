@@ -15,6 +15,8 @@ interface DocusealSignDialogProps {
   proposal: QuotationData
   onUpdate: (docuseal: DocusealSignatureData, accepted?: boolean) => void
   onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
+  /** Set on /s/<id>; omitted on the internal local view. */
+  shareRef?: ShareSignRef
   disabled?: boolean
 }
 
@@ -43,24 +45,42 @@ function loadDocusealScript(): Promise<void> {
   })
 }
 
-async function requestDocusealSubmission(proposal: QuotationData): Promise<DocusealSignatureData> {
-  const submissionId = proposal.docuseal?.submission_id
-  const res = await fetch('/api/docuseal/submission', {
+/** Shared link being signed: the server builds the contract from its stored payload. */
+export interface ShareSignRef {
+  shareId: string
+  optionIndex?: number
+}
+
+async function postSubmission(url: string, body: unknown): Promise<DocusealSignatureData> {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      proposal,
-      // The API requires the submitter slug alongside the submission id as
-      // proof of access (DocuSeal ids are sequential and enumerable).
-      ...(submissionId
-        ? { submissionId, submitterSlug: proposal.docuseal?.submitter_slug }
-        : {}),
-    }),
+    body: JSON.stringify(body),
   })
 
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'No se pudo preparar el contrato')
   return data.docuseal as DocusealSignatureData
+}
+
+async function requestDocusealSubmission(
+  proposal: QuotationData,
+  shareRef: ShareSignRef | undefined,
+): Promise<DocusealSignatureData> {
+  const submissionId = proposal.docuseal?.submission_id
+  if (submissionId) {
+    // The API requires the submitter slug alongside the submission id as
+    // proof of access (DocuSeal ids are sequential and enumerable).
+    return postSubmission('/api/docuseal/submission', {
+      submissionId,
+      submitterSlug: proposal.docuseal?.submitter_slug,
+    })
+  }
+  // Public links send only the reference; the local (password-gated) view
+  // sends its proposal to the internal route.
+  return shareRef
+    ? postSubmission('/api/docuseal/submission', shareRef)
+    : postSubmission('/api/docuseal/submission/interna', { proposal })
 }
 
 function hasMissingClientData(client: ClientData): boolean {
@@ -85,7 +105,7 @@ function isTrustedDocusealSrc(src: string): boolean {
 
 type Stage = 'idle' | 'collect-data' | 'embed'
 
-export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disabled }: DocusealSignDialogProps) {
+export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, shareRef, disabled }: DocusealSignDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [docuseal, setDocuseal] = useState<DocusealSignatureData | null>(proposal.docuseal ?? null)
@@ -105,7 +125,7 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
   const createSubmission = async (effectiveProposal: QuotationData) => {
     setLoading(true)
     try {
-      const nextDocuseal = await requestDocusealSubmission(effectiveProposal)
+      const nextDocuseal = await requestDocusealSubmission(effectiveProposal, shareRef)
       setDocuseal(nextDocuseal)
       onUpdate(nextDocuseal, nextDocuseal.status === 'completed')
       setStage('embed')
@@ -182,7 +202,7 @@ export function DocusealSignDialog({ proposal, onUpdate, onClientUpdate, disable
       const nextDocuseal = await requestDocusealSubmission({
         ...proposal,
         docuseal,
-      })
+      }, shareRef)
       setDocuseal(nextDocuseal)
       onUpdate(nextDocuseal, accepted || nextDocuseal.status === 'completed')
     } catch {
