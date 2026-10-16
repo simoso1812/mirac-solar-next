@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { advancedSchema, type AdvancedFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
-import { initialAdvancedData } from '@/lib/defaults'
-import { INVERTER_DATABASE } from '@/lib/constants'
-import { cotizacion, buildInputFromStore } from '@/lib/calculator/index'
-import { formatCOP } from '@/lib/formatting'
+import { COGS_KEYS, initialAdvancedData } from '@/lib/defaults'
+import { INVERTER_DATABASE, PROMEDIOS_COSTO } from '@/lib/constants'
+import { cotizacion, buildInputFromStore, MEDIDOR_BIDIRECCIONAL_COP } from '@/lib/calculator/index'
+import { cogsSugerido } from '@/lib/equipment-prices'
+import { difiereDeSugerido, margenBruto, MARGEN_MINIMO, precioParaMargen } from '@/lib/proposal-disclosure'
+import { formatCOP, formatCOPShort } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,6 +29,17 @@ import { ImagesSection } from '@/components/quotation/advanced/images-section'
 // This list is fully form-controlled and never reordered, so a position-based
 // key is correct here.
 const ROW_KEYS = Array.from({ length: 64 }, (_, i) => `row-${i}`)
+
+const COGS_ETIQUETAS: Record<(typeof COGS_KEYS)[number], string> = {
+  cogs_modulos_cop: 'Módulos (COP)',
+  cogs_inversor_cop: 'Inversor (COP)',
+  cogs_bos_cop: 'BOS (COP)',
+  cogs_instalacion_cop: 'Instalación (COP)',
+}
+const COGS_CAMPOS = COGS_KEYS.map((name) => ({ name, label: COGS_ETIQUETAS[name] }))
+
+const CAMPOS_SUGERIDOS = ['cogs_modulos_cop', 'cogs_inversor_cop'] as const
+type CampoSugerido = (typeof CAMPOS_SUGERIDOS)[number]
 
 export function StepAdvanced() {
   const { advancedData, technicalData, projectData, setAdvancedData, setStep } = useQuotationStore()
@@ -54,6 +67,7 @@ export function StepAdvanced() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = form
 
@@ -105,6 +119,71 @@ export function StepAdvanced() {
     input.precioManual = null
     return cotizacion(input)
   }, [technicalData, projectData, advancedData, formValues])
+
+  const kwpCalculado = calcResults?.kwp ?? 0
+  const sugerido = useMemo(
+    () => cogsSugerido(kwpCalculado, bateriaHabilitada, new Date()),
+    [kwpCalculado, bateriaHabilitada],
+  )
+
+  // Last value the pre-fill wrote per field. A field absent from the map holds a
+  // stored or user-typed number and is never replaced by the suggestion.
+  const ultimoPrellenado = useRef<Partial<Record<CampoSugerido, number | null>> | null>(null)
+  useEffect(() => {
+    const nuevos: Record<CampoSugerido, number | null> = {
+      cogs_modulos_cop: sugerido?.modulosCop ?? null,
+      cogs_inversor_cop: sugerido?.inversorCop ?? null,
+    }
+    if (ultimoPrellenado.current === null) {
+      const stored: Record<CampoSugerido, number | null> = {
+        cogs_modulos_cop: advancedData.cogs_modulos_cop ?? null,
+        cogs_inversor_cop: advancedData.cogs_inversor_cop ?? null,
+      }
+      const inicial: Partial<Record<CampoSugerido, number | null>> = {}
+      for (const campo of CAMPOS_SUGERIDOS) {
+        if (stored[campo] !== null) continue
+        setValue(campo, nuevos[campo])
+        inicial[campo] = nuevos[campo]
+      }
+      ultimoPrellenado.current = inicial
+      return
+    }
+    const previo = ultimoPrellenado.current
+    for (const campo of CAMPOS_SUGERIDOS) {
+      if (!(campo in previo)) continue
+      if (getValues(campo) !== previo[campo]) {
+        delete previo[campo]
+        continue
+      }
+      setValue(campo, nuevos[campo])
+      previo[campo] = nuevos[campo]
+    }
+  }, [sugerido, advancedData.cogs_modulos_cop, advancedData.cogs_inversor_cop, getValues, setValue])
+
+  const precioMargen = calcResults
+    ? precioParaMargen(
+        {
+          totalCurvaCop: calcResults.costo_total_cop,
+          precioManualCop: formValues.precio_manual,
+          costoBateriaCop: calcResults.bateria?.costo_cop ?? 0,
+          medidorCop: formValues.medidor_bidireccional ? MEDIDOR_BIDIRECCIONAL_COP : 0,
+        },
+        PROMEDIOS_COSTO.iva_rate,
+      )
+    : null
+  const hayPrecioMargen = precioMargen !== null && Number.isFinite(precioMargen) && precioMargen > 0
+  const margen = hayPrecioMargen
+    ? margenBruto(precioMargen, COGS_KEYS.map((key) => formValues[key] ?? null))
+    : null
+  const precioManualSinCubrir = calcResults !== null && (formValues.precio_manual ?? 0) > 0 && !hayPrecioMargen
+
+  const avisosCogs: Partial<Record<(typeof COGS_KEYS)[number], string>> = {}
+  if (sugerido && difiereDeSugerido(formValues.cogs_modulos_cop ?? null, sugerido.modulosCop)) {
+    avisosCogs.cogs_modulos_cop = `El costo de módulos no coincide con el tamaño actual del sistema (sugerido ${formatCOPShort(sugerido.modulosCop, false)}).`
+  }
+  if (sugerido && sugerido.inversorCop !== null && difiereDeSugerido(formValues.cogs_inversor_cop ?? null, sugerido.inversorCop)) {
+    avisosCogs.cogs_inversor_cop = `El costo del inversor no coincide con el sugerido para este sistema (${formatCOPShort(sugerido.inversorCop, false)}).`
+  }
 
   return (
     <Card>
@@ -613,6 +692,61 @@ export function StepAdvanced() {
                 </p>
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          {/* ─── Internal COGS (never shared) ─── */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-base font-semibold">Costo interno</Label>
+              <p className="text-sm text-muted-foreground">No sale en el link del cliente.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {COGS_CAMPOS.map((campo) => (
+                <div key={campo.name} className="space-y-2">
+                  <Label htmlFor={campo.name}>{campo.label}</Label>
+                  <Input
+                    id={campo.name}
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={watch(campo.name) ?? ''}
+                    onChange={(e) => {
+                      const n = Number(e.target.value)
+                      setValue(campo.name, e.target.value === '' || !Number.isFinite(n) ? null : n)
+                    }}
+                  />
+                  {avisosCogs[campo.name] && (
+                    <p className="text-xs font-medium text-destructive">{avisosCogs[campo.name]}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            {sugerido && (
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>
+                  Sugerido: {formatCOPShort(sugerido.modulosCop, false)} — {sugerido.modulo.producto} {sugerido.modulo.wp} W, {sugerido.modulo.proveedor}, cotizado {sugerido.modulo.cotizado}.
+                </p>
+                <p>
+                  {sugerido.inversor && sugerido.inversorCop !== null
+                    ? `Sugerido: ${formatCOPShort(sugerido.inversorCop, false)} — ${sugerido.inversor.producto} (${sugerido.inversor.kw} kW), ${sugerido.inversor.proveedor}, cotizado ${sugerido.inversor.cotizado}.`
+                    : `Ningún inversor del sheet cubre ${kwpCalculado.toFixed(1).replace('.', ',')} kWp por sí solo; escribe el costo.`}
+                </p>
+                {sugerido.referenciaVieja && (
+                  <p>Precio de referencia viejo: la cotización tiene más de 60 días.</p>
+                )}
+              </div>
+            )}
+            <p className={`text-sm ${precioManualSinCubrir || (margen && margen.margen < MARGEN_MINIMO) ? 'font-medium text-destructive' : ''}`}>
+              {precioManualSinCubrir
+                ? 'El precio manual no cubre batería y medidor.'
+                : !hayPrecioMargen
+                  ? 'Sin precio calculado todavía.'
+                  : margen
+                    ? `Margen bruto ${(margen.margen * 100).toFixed(1).replace('.', ',')}%.${margen.margen < MARGEN_MINIMO ? ' Está por debajo del 50%.' : ''}`
+                    : 'Completa los cuatro costos para ver el margen.'}
+            </p>
           </div>
 
           <Separator />

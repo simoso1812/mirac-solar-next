@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { toPayload, fromPayload } from '@/lib/share'
 import { roofDesignSchema } from '@/lib/schemas'
 import {
+  COGS_KEYS,
   initialAdvancedData,
   initialClientData,
   initialProjectData,
@@ -119,5 +120,27 @@ describe('fromPayload id + status derivation (signing loop, roadmap #10/#13)', (
     const restored = fromPayload(toPayload(proposal), 'zz11ZZ22')
     expect(restored.status).toBe('accepted')
     expect(restored.docuseal?.status).toBe('completed')
+  })
+})
+
+describe('internal COGS never reaches the public share payload', () => {
+  it('toPayload omits the four COGS fields from the advanced block', () => {
+    const proposal = proposalWith({})
+    proposal.advanced = {
+      ...proposal.advanced,
+      cogs_modulos_cop: 8_000_000,
+      cogs_inversor_cop: 6_000_000,
+      cogs_bos_cop: 3_000_000,
+      cogs_instalacion_cop: 5_000_000,
+    }
+    const json = JSON.stringify(toPayload(proposal).a)
+    for (const key of COGS_KEYS) expect(json).not.toContain(key)
+  })
+
+  it('fromPayload resets COGS to null even if a stored payload carries them', () => {
+    const payload = toPayload(proposalWith({}))
+    payload.a = { ...payload.a, cogs_modulos_cop: 1, cogs_inversor_cop: 2, cogs_bos_cop: 3, cogs_instalacion_cop: 4 }
+    const restored = fromPayload(payload)
+    for (const key of COGS_KEYS) expect(restored.advanced[key]).toBeNull()
   })
 })

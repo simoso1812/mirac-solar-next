@@ -3,7 +3,7 @@ import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { getClientIp, rateLimit } from '@/lib/rate-limit'
-import { shareDataSchema } from '@/lib/share-schema'
+import { quitarCostosInternos, shareDataSchema } from '@/lib/share-schema'
 import { getDocusealSubmission, toDocusealSignatureData } from '@/lib/docuseal'
 
 const EXPIRY_SECONDS = 60 * 60 * 24 * 90 // 90 days
@@ -56,8 +56,9 @@ export async function POST(request: NextRequest) {
     }
 
     const id = nanoid(8)
-    // Store the original parsed JSON (not zod output) so future keys survive.
-    await redis.set(`share:${id}`, data, { ex: EXPIRY_SECONDS })
+    // Store the original parsed JSON (not zod output) so future keys survive,
+    // minus internal COGS.
+    await redis.set(`share:${id}`, quitarCostosInternos(data), { ex: EXPIRY_SECONDS })
 
     return NextResponse.json({ id })
   } catch (error) {
@@ -248,10 +249,11 @@ export async function GET(request: NextRequest) {
       return rateLimited()
     }
 
-    const data = await redis.get(`share:${id}`)
-    if (!data) {
+    const stored = await redis.get(`share:${id}`)
+    if (!stored) {
       return NextResponse.json({ error: 'Propuesta no encontrada o expirada' }, { status: 404 })
     }
+    const data = quitarCostosInternos(stored)
 
     // View tracking — best effort, never blocks the response. Owner-side
     // fetches (status sync from /propuestas) pass no_track=1 so Simon's own

@@ -5,6 +5,7 @@
  */
 import type { QuotationData, RoofDesign } from '@/lib/types'
 import {
+  COGS_KEYS,
   deepMerge,
   initialAdvancedData,
   initialClientData,
@@ -82,11 +83,13 @@ export function toPayload(proposal: QuotationData): SharePayload {
     p.hsp_mensual_pvgis.every((v) => Number.isFinite(v))
       ? p.hsp_mensual_pvgis
       : null
+  const aPublico: Record<string, unknown> = { ...a }
+  for (const key of COGS_KEYS) delete aPublico[key]
   return {
     c: { n: c.nombre, d: c.direccion, e: c.email, t: c.telefono, a: c.nit_cc },
     p: { ci: p.ciudad, f: p.fecha, la: p.lat, lo: p.lon, h: hsp },
     t: { co: finiteOr(t.consumo_mensual_kwh, 0), pw: finiteOr(t.potencia_panel_w, 615), fs: finiteOr(t.factor_seguridad, 1.1), tc: t.tipo_cubierta, cl: t.clima, op: t.override_paneles, mp: t.marca_panel, mo: t.modelo_panel, an: finiteOr(t.ancho_m, 1.13), al: finiteOr(t.alto_m, 2.38), dt: sanitizeRoofDesign(t.diseno_techo) },
-    a: a as unknown as Record<string, unknown>,
+    a: aPublico,
     d: proposal.docuseal as unknown as Record<string, unknown> | undefined,
   }
 }
@@ -122,7 +125,8 @@ export function fromPayload(payload: SharePayload, shareId?: string): QuotationD
     alto_m: payload.t.al ?? 2.38,
     diseno_techo: (payload.t.dt as RoofDesign | null) ?? null,
   })
-  const advanced = deepMerge(initialAdvancedData, payload.a)
+  const advanced = { ...deepMerge(initialAdvancedData, payload.a) }
+  for (const key of COGS_KEYS) advanced[key] = null
   const docuseal = payload.d as unknown as QuotationData['docuseal']
 
   return {

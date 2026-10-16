@@ -34,15 +34,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const hsp = await fetchPVGIS(latNum, lonNum)
-    if (hsp) {
-      return NextResponse.json({ hsp, source: 'pvgis' })
+    const result = await fetchPVGIS(latNum, lonNum)
+    if (result) {
+      return NextResponse.json({ hsp: result.hsp, source: result.source })
     }
     // PVGIS unavailable: fall back to climate-based estimation
-    return NextResponse.json({ hsp: getHSPEstimado(latNum, lonNum), source: 'estimated' })
+    return NextResponse.json({ hsp: getHSPEstimado(latNum, lonNum), source: 'estimada' })
   } catch {
     // Fallback to climate-based estimation
     const hsp = getHSPEstimado(latNum, lonNum)
-    return NextResponse.json({ hsp, source: 'estimated' })
+    return NextResponse.json({ hsp, source: 'estimada' })
   }
 }

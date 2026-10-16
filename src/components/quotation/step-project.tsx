@@ -42,9 +42,13 @@ export function StepProject() {
         const data = await res.json()
         setHspData(data.hsp)
         setHspSource(data.source)
+      } else {
+        setHspData(null)
+        setHspSource('estimada')
       }
     } catch {
-      // silent — will use city-based HSP
+      setHspData(null)
+      setHspSource('estimada')
     } finally {
       setIsFetchingHSP(false)
     }
@@ -154,6 +158,13 @@ export function StepProject() {
             </div>
           )}
 
+          {!hspData && !isFetchingHSP && hspSource === 'estimada' && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sun className="size-4 text-mirac-yellow" />
+              Estimación climática (PVGIS incompleto o no disponible).
+            </p>
+          )}
+
           {hspData && !isFetchingHSP && (
             <div className="space-y-2 rounded-lg border p-4">
               <div className="flex items-center gap-2">
@@ -162,7 +173,11 @@ export function StepProject() {
                   Irradiancia Solar (HSP)
                 </Label>
                 <span className="rounded bg-mirac-yellow/20 px-2 py-0.5 text-xs font-medium text-mirac-yellow">
-                  {hspSource === 'pvgis' ? 'PVGIS' : 'Estimado'}
+                  {hspSource === 'pvgis_poa'
+                    ? 'PVGIS, plano del arreglo, inclinación 10°.'
+                    : hspSource === null && hspData.length === 12
+                      ? 'Radiación guardada en la propuesta.'
+                      : 'Estimación climática (PVGIS incompleto o no disponible).'}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12">

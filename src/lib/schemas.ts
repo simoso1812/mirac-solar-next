@@ -104,6 +104,10 @@ export const advancedSchema = z.object({
   porcentaje_mantenimiento: z.number().min(0).max(0.15),
   performance_ratio_base: z.number().min(0.5).max(0.95),
   demora_6_meses: z.boolean(),
+  cogs_modulos_cop: z.number().min(0).nullable(),
+  cogs_inversor_cop: z.number().min(0).nullable(),
+  cogs_bos_cop: z.number().min(0).nullable(),
+  cogs_instalacion_cop: z.number().min(0).nullable(),
 })
 
 export type ClientFormValues = z.infer<typeof clientSchema>

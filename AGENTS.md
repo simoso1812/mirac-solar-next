@@ -46,7 +46,7 @@ src/
 │   └── api/
 │       ├── [transport]/route.ts       # remote MCP server (Streamable HTTP) — solar quoting tools, served at /api/mcp
 │       ├── share/route.ts             # GET/POST/PATCH share payload (Upstash; zod-validated, size-capped, rate-limited)
-│       ├── pvgis/route.ts             # PVGIS HSP fetch; climate fallback labeled source: 'estimated'
+│       ├── pvgis/route.ts             # PVGIS HSP fetch (inclined plane); source: 'pvgis_poa' | 'estimada'
 │       └── docuseal/
 │           ├── submission/route.ts    # create / refresh DocuSeal submission (slug-gated refresh, rate-limited)
 │           └── webhook/route.ts       # form.completed → fetch signed PDF + upload to Drive
@@ -161,6 +161,8 @@ const liveResults = cotizacion(
 ```
 
 Always do this before passing results to `<ProposalPdf>`, the contract generator, or sharing.
+
+- **Radiation:** a new lat/lon fetch uses PVGIS `MRcalc` v5_3 on the inclined plane (`angle=10`, `aspect=0`) and may be labeled `pvgis_poa` only when all 12 months came from `H(i)_m`. Horizontal `H(h)_m`, a missing month, or a failed request is `estimada`. A proposal that already has 12 stored HSP values keeps those values.
 
 ## Battery sizing (recent area of change)
 
@@ -372,6 +374,7 @@ CI (`.github/workflows/ci.yml`) enforces typecheck + lint + test + build on ever
 - `DOCUSEAL_WEBHOOK_SECRET` — **required in production** (since 2026-07-06 the webhook fails closed when `NODE_ENV === 'production'` and the var is unset; local dev stays open). When set, `/api/docuseal/webhook` validates the `X-Docuseal-Signature` header.
 - `MCP_AUTH_TOKEN` — optional. When set, the remote MCP server (`/api/mcp`) requires the secret as `?key=<token>` or `Authorization: Bearer <token>` (else 404). Leave unset for an open server (e.g. local dev).
 - `MCP_PUBLIC_BASE_URL` — optional. Public origin used by `create_quotation_link` to build `/s/<id>` links. Defaults to `https://$VERCEL_PROJECT_PRODUCTION_URL`, then `http://localhost:3000`.
+- `APP_PASSWORD` — **required in production.** `src/proxy.ts` (Next 16 Proxy, ex-middleware) puts HTTP Basic Auth (any username, this password, constant-time compare) in front of the whole internal app: wizard, `/propuestas`, `/clientes`, `/cargadores`, `/api/pvgis`, `/api/eter/*`, `POST`/`DELETE /api/share` and the server actions posting to those pages. Unset → `503 "Falta configurar APP_PASSWORD."` in production, open in `next dev`. The public allowlist lives only in `src/lib/auth-gate.ts` (`esRutaPublica`): `/s/*`, `/propuestas/shared`, `GET`/`HEAD`/`PATCH /api/share` (the `/s` page reads the payload and patches client data + DocuSeal state), `/api/docuseal/submission`, `/api/docuseal/webhook`, `/api/mcp` (+ `/api/sse`, `/api/message`; own `MCP_AUTH_TOKEN`), `/_next/*`, `/favicon.ico`, `/icon.png`, `/apple-icon.png`, `/assets/*`, `/virtual/*`. A new route the `/s` page calls must be added there.
 
 ## Open questions for Simon (from the 2026-06 repo audit — unresolved, need domain sign-off)
 
