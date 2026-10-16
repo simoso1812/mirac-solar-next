@@ -89,3 +89,38 @@ describe('update_quotation on multi links', () => {
     expect(after.versions.map((v) => v.payload.c.e)).toEqual(['a@b.co', 'a@b.co'])
   })
 })
+
+describe('update_quotation keeps the offer deadline', () => {
+  type Stored = { p: { f: string } }
+  async function linkEmitted(fecha: string) {
+    const created = await runCreateQuotationLink(linkInputSchema.parse({ cliente_nombre: 'Plazo', ...base }))
+    const id = created.structured.share_id as string
+    const stored = store.get(`share:${id}`) as Stored
+    stored.p.f = fecha
+    return id
+  }
+
+  it('a link sent with 30 days does not drop to 15 when updated', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 20, 10))
+    try {
+      const id = await linkEmitted('2026-10-10') // valid until 9-nov; today + 15 = 4-nov
+      await runUpdateQuotation(updateQuotationInputSchema.parse({ share_id: id, ...base, consumo_mensual_kwh: 900 }))
+      expect((store.get(`share:${id}`) as Stored).p.f).toBe('2026-10-10')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('an update re-issues an older offer from today', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 20, 10))
+    try {
+      const id = await linkEmitted('2026-09-01') // expired 1-oct
+      await runUpdateQuotation(updateQuotationInputSchema.parse({ share_id: id, ...base, consumo_mensual_kwh: 900 }))
+      expect((store.get(`share:${id}`) as Stored).p.f).toBe('2026-10-20')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
