@@ -17,10 +17,10 @@ function HeroKpi({ value, unit, label, accent }: { value: string; unit?: string;
   return (
     <div className="min-w-0">
       <p
-        className={`font-['DM_Sans',Arial,sans-serif] text-[2rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums sm:text-5xl ${accent ? 'text-[#C6F500]' : 'text-white'}`}
+        className={`flex flex-wrap items-baseline gap-x-1.5 font-['DM_Sans',Arial,sans-serif] text-[2rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums sm:text-5xl ${accent ? 'text-[#C6F500]' : 'text-white'}`}
       >
         {value}
-        {unit && <small className="ml-1.5 text-sm font-medium tracking-normal text-[#9AA3A7] sm:text-lg">{unit}</small>}
+        {unit && <small className="whitespace-nowrap text-sm font-medium tracking-normal text-[#9AA3A7] sm:text-lg">{unit}</small>}
       </p>
       <p className="mirac-ey mt-2 text-[10px] sm:text-[11px]">{label}</p>
     </div>
@@ -29,7 +29,8 @@ function HeroKpi({ value, unit, label, accent }: { value: string; unit?: string;
 
 function millones(v: number): { value: string; unit?: string } {
   if (Math.abs(v) < 1_000_000) return { value: formatCOPShort(v) }
-  return { value: `$${(v / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 1 })}`, unit: 'M COP' }
+  const m = v / 1_000_000
+  return { value: `$${m.toLocaleString('es-CO', { maximumFractionDigits: Math.abs(m) >= 100 ? 0 : 1 })}`, unit: 'M COP' }
 }
 
 export function VirtualHeader({ proposal, results: r }: VirtualHeaderProps) {
@@ -43,6 +44,13 @@ export function VirtualHeader({ proposal, results: r }: VirtualHeaderProps) {
   })
 
   const foto = proposal.advanced?.imagenes?.[0]?.data
+
+  // Same figure as "Con Solar" in Costo de No Hacer Nada: the engine's accumulated
+  // cash flow at the end of the horizon (row 0 is the year-0 investment).
+  const flujo = r?.flujo_caja ?? []
+  const horizonte = flujo.length - 1
+  const ganancia = horizonte > 0 ? flujo[horizonte].flujo_acumulado_cop : 0
+  const gananciaHorizonte = ganancia > 0 ? ganancia : null
 
   return (
     <header className="relative overflow-hidden bg-[#0D0D0D] text-white">
@@ -77,10 +85,13 @@ export function VirtualHeader({ proposal, results: r }: VirtualHeaderProps) {
           </p>
           {r && (
             <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 md:mt-10 md:grid-cols-4">
-              <HeroKpi {...millones(r.costo_total_cop)} label="Inversión" />
-              <HeroKpi {...millones(r.ahorro_anual_cop)} label="Ahorro anual" />
+              {/* Value first: the price is shown in Condiciones Comerciales, after the client has seen the savings. */}
+              <HeroKpi {...millones(r.ahorro_anual_cop)} label="Ahorro anual" accent />
+              {gananciaHorizonte !== null && (
+                <HeroKpi {...millones(gananciaHorizonte)} label={`Ganancia neta a ${horizonte} años`} />
+              )}
               <HeroKpi value={r.payback_anios.toFixed(1)} unit="años" label="Payback" />
-              <HeroKpi value={`${r.tir.toFixed(1)} %`} label="TIR" accent />
+              <HeroKpi value={`${r.tir.toFixed(1)} %`} label="TIR" />
             </div>
           )}
           <div className="mt-10 flex items-center gap-4">
