@@ -65,7 +65,7 @@ export const OFERTA_VALIDEZ_DIAS = 15
 /** Window promised before the cutover; links already sent keep it so they don't expire early.
  *  The cutover must not be earlier than the deploy of the 15-day rule. */
 const OFERTA_VALIDEZ_DIAS_ANTERIOR = 30
-const OFERTA_VALIDEZ_CORTE = new Date(2026, 9, 17)
+const OFERTA_VALIDEZ_CORTE = new Date(2026, 9, 20)
 
 // project.fecha is a date-only string (YYYY-MM-DD); parse it as a local
 // calendar date — new Date('YYYY-MM-DD') is UTC midnight and shifts a day
