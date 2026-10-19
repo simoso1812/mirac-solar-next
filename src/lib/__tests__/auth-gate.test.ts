@@ -46,6 +46,7 @@ describe('esRutaPublica', () => {
     '/api/eter/capacidad',
     '/api/eter/trafo/123',
     '/api/share/x',
+    '/api/docuseal/submission/interna',
     '/sx',
     '/assetsx/a.png',
   ])('%s requiere contraseña', (ruta) => {

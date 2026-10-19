@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ShareDialog } from './share-dialog'
-import { DocusealSignDialog } from './docuseal-sign-dialog'
+import { DocusealSignDialog, type ShareSignRef } from './docuseal-sign-dialog'
 import { formatFechaLarga } from '@/lib/formatting'
 import type { ClientData, DocusealSignatureData, QuotationData } from '@/lib/types'
 
@@ -12,9 +12,10 @@ interface CallToActionProps {
   onDocusealUpdate?: (docuseal: DocusealSignatureData, accepted?: boolean) => void
   onClientUpdate?: (clientPatch: Partial<ClientData>) => Promise<void> | void
   validezHasta?: Date | null
+  shareRef?: ShareSignRef
 }
 
-export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpdate, validezHasta }: CallToActionProps) {
+export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpdate, validezHasta, shareRef }: CallToActionProps) {
   const [now] = useState(() => Date.now())
   const isSigned = proposal.status === 'accepted' || proposal.docuseal?.status === 'completed' || !!proposal.signature
   const ofertaVencida = !!validezHasta && validezHasta.getTime() < now
@@ -54,6 +55,7 @@ export function CallToAction({ proposal, isShared, onDocusealUpdate, onClientUpd
               proposal={proposal}
               onUpdate={onDocusealUpdate}
               onClientUpdate={onClientUpdate}
+              shareRef={shareRef}
             />
           )}
         </div>
