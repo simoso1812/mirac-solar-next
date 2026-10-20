@@ -21,7 +21,7 @@
     "@upstash/redis": "^1.38.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "docxtemplater": "^3.68.3",
+    "docxtemplater": "^3.69.0",
     "googleapis": "^171.4.0",
     "lucide-react": "^0.577.0",
     "mcp-handler": "^1.1.0",
