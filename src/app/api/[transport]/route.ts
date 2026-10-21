@@ -37,6 +37,7 @@ import {
   addOptionInputShape,
   runAddOptionToQuotation,
 } from '@/lib/mcp/manage-link'
+import { saveDriveInputShape, runSaveToDrive } from '@/lib/mcp/save-drive'
 import {
   capacidadTrafoInputShape,
   runCapacidadTrafo,
@@ -234,6 +235,26 @@ const handler = createMcpHandler(
         },
       },
       tool(runUpdateQuotation),
+    )
+
+    server.registerTool(
+      'guardar_en_drive',
+      {
+        title: 'Guardar propuesta en Drive',
+        description:
+          'Guarda una propuesta compartida (/s/<id>) en Google Drive igual que el boton "Guardar en Drive" de la app: ' +
+          'crea la carpeta FVyyNNN - Cliente con su estructura (o reutiliza la de un guardado anterior), sube el PDF de la ' +
+          'propuesta (uno por opcion) a 01_Propuesta_y_Contratacion y deja enlazado el contrato firmado de DocuSeal. ' +
+          'Usala despues de create_quotation_link cuando el usuario pida guardar o crear la carpeta del proyecto.',
+        inputSchema: saveDriveInputShape,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      tool(runSaveToDrive),
     )
 
     server.registerTool(

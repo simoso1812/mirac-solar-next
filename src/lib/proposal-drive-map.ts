@@ -12,6 +12,9 @@ const TTL_SECONDS = 60 * 60 * 24 * 365 // 1 year — proposals can be signed lon
 export interface ProposalDriveMapping {
   uploadFolderId: string
   fileBaseName: string
+  /** Set by the MCP Drive save so a re-save reuses the same FV folder. */
+  folderLink?: string | null
+  projectName?: string
 }
 
 function getRedis(): Redis {
