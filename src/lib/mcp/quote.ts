@@ -51,13 +51,14 @@ export const quoteInputShape = {
     .min(-4.5)
     .max(13.5)
     .optional()
-    .describe('Latitud del proyecto (Colombia, aprox -4.5 a 13.5). Con lon, consulta la radiacion real en PVGIS para ese punto (municipios fuera de las 7 ciudades del enum). Omitir para usar la ciudad.'),
+    .describe('Latitud del proyecto (Colombia, aprox -4.5 a 13.5). Se guarda con la propuesta; la radiacion sigue saliendo de la ciudad salvo que usar_pvgis sea true.'),
   lon: z
     .coerce.number()
     .min(-82)
     .max(-66)
     .optional()
     .describe('Longitud del proyecto (Colombia, aprox -82 a -66). Requiere lat.'),
+  usar_pvgis: boolInput(false).describe('Opt-in: con lat/lon, usa la radiacion PVGIS en el plano del arreglo (10°) en vez de la tabla de ciudad. Default false: PVGIS POA sobrestima frente al PR 0,75 calibrado con la tabla.'),
   hsp_personalizado: z
     .array(z.coerce.number().positive().max(8))
     .length(12)
@@ -279,7 +280,8 @@ export interface HspResolution {
 
 /**
  * Resolve the radiation source for a quote. Precedence:
- * hsp_personalizado > lat/lon (PVGIS, climate-estimate fallback) > ciudad.
+ * hsp_personalizado > lat/lon with usar_pvgis (PVGIS, climate-estimate fallback) > ciudad.
+ * Without usar_pvgis, lat/lon are kept but the city table supplies the HSP.
  * The result is stored on project.hsp_mensual_pvgis so the shared /s/<id>
  * page recomputes with the exact same HSP the agent quoted.
  */
@@ -293,7 +295,7 @@ export async function resolveHsp(a: QuoteArgs): Promise<HspResolution> {
       fallbackRadiacion: false,
     }
   }
-  if (a.lat !== undefined && a.lon !== undefined) {
+  if (a.lat !== undefined && a.lon !== undefined && a.usar_pvgis) {
     // Same rounding as /api/pvgis so the fetch cache hits for nearby points.
     const lat = Math.round(a.lat * 1000) / 1000
     const lon = Math.round(a.lon * 1000) / 1000
@@ -314,7 +316,7 @@ export async function resolveHsp(a: QuoteArgs): Promise<HspResolution> {
     }
     return { lat, lon, hsp: getHSPEstimado(lat, lon), fuente: 'estimada', fallbackRadiacion: true }
   }
-  return { lat: null, lon: null, hsp: null, fuente: 'ciudad', fallbackRadiacion: false }
+  return { lat: a.lat ?? null, lon: a.lon ?? null, hsp: null, fuente: 'ciudad', fallbackRadiacion: false }
 }
 
 /**
