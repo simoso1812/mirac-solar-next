@@ -21,3 +21,13 @@ describe('summarize hsp_fuente without fetch metadata', () => {
     expect(fuenteFor(Array(228).fill(5))).toBe('ciudad')
   })
 })
+
+describe('resolveHsp default source', () => {
+  it('uses the city table for lat/lon unless usar_pvgis is set', async () => {
+    const { resolveHsp } = await import('@/lib/mcp/quote')
+    const loc = await resolveHsp({ lat: 6.25, lon: -75.56, usar_pvgis: false } as Parameters<typeof resolveHsp>[0])
+    expect(loc.fuente).toBe('ciudad')
+    expect(loc.hsp).toBeNull()
+    expect(loc.lat).toBe(6.25)
+  })
+})

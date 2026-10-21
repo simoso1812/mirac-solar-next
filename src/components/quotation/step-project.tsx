@@ -56,11 +56,21 @@ export function StepProject() {
 
   const handleLocationChange = useCallback(
     (lat: number, lng: number) => {
+      // Moving the pin no longer fetches PVGIS: the city table is the default
+      // radiation and PVGIS POA is an explicit opt-in below.
       setCoords({ lat, lon: lng })
-      fetchPVGIS(lat, lng)
+      if (hspSource === 'pvgis_poa' || hspSource === 'estimada') {
+        setHspData(null)
+        setHspSource(null)
+      }
     },
-    [fetchPVGIS]
+    [hspSource]
   )
+
+  const usarTablaCiudad = () => {
+    setHspData(null)
+    setHspSource(null)
+  }
 
   const onSubmit = (data: ProjectFormValues) => {
     setProjectData({
@@ -150,7 +160,18 @@ export function StepProject() {
             />
           </div>
 
-          {/* PVGIS HSP Data */}
+          {/* PVGIS HSP Data (opt-in) */}
+          {!hspData && !isFetchingHSP && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span>Radiación: tabla de la ciudad seleccionada.</span>
+              {coords && (
+                <Button type="button" variant="outline" size="sm" onClick={() => fetchPVGIS(coords.lat, coords.lon)}>
+                  Usar PVGIS (plano 10°)
+                </Button>
+              )}
+            </div>
+          )}
+
           {isFetchingHSP && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -194,6 +215,9 @@ export function StepProject() {
                 Promedio: {(hspData.reduce((a, b) => a + b, 0) / 12).toFixed(2)} kWh/m²/día.
                 Estos datos reemplazarán los valores por defecto de la ciudad en el cálculo.
               </p>
+              <Button type="button" variant="ghost" size="sm" onClick={usarTablaCiudad}>
+                Volver a la tabla de la ciudad
+              </Button>
             </div>
           )}
 
