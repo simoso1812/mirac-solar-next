@@ -6,7 +6,7 @@
  * Python FPDF uses mm. A4 = 210 × 297 mm
  * Conversion: 1mm = 2.8346pt
  */
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import {
   Document, Page, Text, View, Image, Font, StyleSheet,
 } from '@react-pdf/renderer'
@@ -15,19 +15,23 @@ import { ivaBreakdown, ppaMetrics } from '@/lib/calculator/derived'
 import { ofertaValidezDias } from '@/lib/formatting'
 
 // Register fonts
+// In the browser assets resolve against the site root; on the server (MCP
+// Drive save) they are read from public/ on disk.
+const ASSETS = typeof window === 'undefined' ? `${process.cwd()}/public/assets` : '/assets'
+
 Font.register({
   family: 'DMSans',
   fonts: [
-    { src: '/assets/fonts/DMSans-Regular.ttf', fontWeight: 'normal' },
-    { src: '/assets/fonts/DMSans-Bold.ttf', fontWeight: 'bold' },
+    { src: `${ASSETS}/fonts/DMSans-Regular.ttf`, fontWeight: 'normal' },
+    { src: `${ASSETS}/fonts/DMSans-Bold.ttf`, fontWeight: 'bold' },
   ],
 })
 
 Font.register({
   family: 'Roboto',
   fonts: [
-    { src: '/assets/fonts/Roboto-Regular.ttf', fontWeight: 'normal' },
-    { src: '/assets/fonts/Roboto-Bold.ttf', fontWeight: 'bold' },
+    { src: `${ASSETS}/fonts/Roboto-Regular.ttf`, fontWeight: 'normal' },
+    { src: `${ASSETS}/fonts/Roboto-Bold.ttf`, fontWeight: 'bold' },
   ],
 })
 
@@ -38,7 +42,7 @@ const BRAND_RED = '#FA323F'
 const BRAND_YELLOW = '#FAC107'
 const TEXT_BLACK = '#000000'
 
-const BG = '/assets/pdf-backgrounds'
+const BG = `${ASSETS}/pdf-backgrounds`
 
 const styles = StyleSheet.create({
   page: {
@@ -174,9 +178,11 @@ export interface ProposalPdfProps {
   results: CalculationResults
   mapImageUrl?: string | null
   chartImageUrl?: string | null
+  /** Vector chart for server rendering; used when chartImageUrl is absent. */
+  chartElement?: ReactNode
 }
 
-export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl }: ProposalPdfProps) {
+export function ProposalPdf({ client, project, technical, advanced, results, mapImageUrl, chartImageUrl, chartElement }: ProposalPdfProps) {
   const r = results
   const fecha = new Date(project.fecha)
   const fechaStr = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`
@@ -266,6 +272,11 @@ export function ProposalPdf({ client, project, technical, advanced, results, map
               height: mm(90),
             }}
           />
+        )}
+        {!chartImageUrl && chartElement && (
+          <View style={{ position: 'absolute', left: mm(15), top: mm(120) }}>
+            {chartElement}
+          </View>
         )}
       </Page>
 
