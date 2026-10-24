@@ -5,8 +5,9 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { technicalSchema, type TechnicalFormValues } from '@/lib/schemas'
 import { useQuotationStore } from '@/stores/quotation-store'
-import { HSP_POR_CIUDAD, DEFAULT_PARAMS } from '@/lib/constants'
-import { redondearAPar } from '@/lib/calculator/inverter'
+import { HSP_MENSUAL_POR_CIUDAD, DEFAULT_PARAMS, DIAS_POR_MES } from '@/lib/constants'
+import { redondearAPar, recomendarInversor } from '@/lib/calculator/inverter'
+import { calcularPerformanceRatio, calcularFactorClipping } from '@/lib/calculator/performance'
 import { formatKWp, formatKWh, formatNumber } from '@/lib/formatting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,7 +20,7 @@ import { RoofDesigner } from './roof-designer'
 import type { RoofDesign } from '@/lib/types'
 
 export function StepTechnical() {
-  const { technicalData, projectData, setTechnicalData, setStep } = useQuotationStore()
+  const { technicalData, projectData, advancedData, setTechnicalData, setStep } = useQuotationStore()
 
   const {
     register,
@@ -47,14 +48,29 @@ export function StepTechnical() {
   const disenoTecho = watched.diseno_techo as RoofDesign | null | undefined
   const cubierta = (watched.tipo_cubierta ?? 'metalica') as 'metalica' | 'teja' | 'losa'
 
-  // Live calculation preview
-  const hsp = HSP_POR_CIUDAD[projectData.ciudad] ?? 4.5
+  // Live calculation preview — mirrors cotizacion() in lib/calculator/index.ts
+  // (same HSP source, PR and clipping) so the preview matches the final quote.
+  const pvgis = projectData.hsp_mensual_pvgis
+  const hspMensual = (pvgis && pvgis.length === 12)
+    ? pvgis
+    : (HSP_MENSUAL_POR_CIUDAD[projectData.ciudad.toUpperCase()] ?? HSP_MENSUAL_POR_CIUDAD['MEDELLIN'])
+  const hspPromedio = hspMensual.reduce((a, b) => a + b, 0) / 12
   const eficiencia = DEFAULT_PARAMS.eficiencia_sistema_estimacion
-  const kwpRaw = consumo > 0 ? (consumo / (hsp * 30 * eficiencia)) * factorSeg : 0
+  const kwpRaw = consumo > 0 ? (consumo / (hspPromedio * 30 * eficiencia)) * factorSeg : 0
   const panelesCalc = kwpRaw > 0 ? redondearAPar(Math.ceil(kwpRaw / (potenciaPanel / 1000))) : 0
   const paneles = overridePaneles ?? panelesCalc
   const kwp = paneles * (potenciaPanel / 1000)
-  const generacionEstimada = kwp * hsp * 30 * eficiencia
+  const pr = calcularPerformanceRatio(watched.clima ?? 'templado', cubierta, advancedData.performance_ratio_base)
+  const overrideInv = advancedData.override_inversores
+  const potenciaAc = overrideInv && overrideInv.length > 0
+    ? overrideInv.reduce((s, i) => s + i.potencia_kw * i.cantidad, 0)
+    : (kwp > 0 ? recomendarInversor(kwp).totalPower : 0)
+  const factorClipping = calcularFactorClipping(potenciaAc > 0 ? kwp / potenciaAc : 1.0)
+  const generacionAnual = hspMensual.reduce(
+    (sum, hsp, i) => sum + kwp * hsp * DIAS_POR_MES[i] * pr * (1 - factorClipping),
+    0
+  )
+  const generacionEstimada = generacionAnual / 12
 
   // A saved roof design's panel centers were packed for a specific panel size.
   // If the user changes the panel dimensions, that geometry (centers + count)
