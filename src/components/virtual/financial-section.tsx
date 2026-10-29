@@ -132,14 +132,6 @@ export function FinancialSection({
     },
     { label: 'TIR', value: `${r.tir.toFixed(1)}%`, highlight: true },
     { label: 'VPN', value: formatCOP(r.vpn, false) },
-    // With credit, roi_porcentaje is levered (equity) — label both ROIs so the
-    // client sees the project return and the return on their down payment.
-    ...(r.financiamiento
-      ? [
-          { label: 'ROI Proyecto', value: `${(r.roi_proyecto_porcentaje ?? r.roi_porcentaje).toFixed(0)}%` },
-          { label: 'ROI Inversionista', value: `${r.roi_porcentaje.toFixed(0)}%` },
-        ]
-      : [{ label: 'ROI', value: `${r.roi_porcentaje.toFixed(0)}%` }]),
   ]
 
   return (

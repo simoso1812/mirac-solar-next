@@ -81,7 +81,6 @@ function TechTab({ proposal, results }: { proposal: QuotationData; results: Calc
     ['Tipo de Cubierta', proposal.technical.tipo_cubierta.charAt(0).toUpperCase() + proposal.technical.tipo_cubierta.slice(1)],
     ['Clima', proposal.technical.clima.charAt(0).toUpperCase() + proposal.technical.clima.slice(1)],
     ['Costo Total', formatCOP(r.costo_total_cop)],
-    ['Costo por kWp', formatCOP(r.costo_por_kwp_cop)],
   ]
 
   return (
